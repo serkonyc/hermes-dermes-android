@@ -21,7 +21,6 @@ import java.util.List;
 final class DashboardView extends View {
 
     private final DashRenderer r;
-    private final List<Double> samples = new ArrayList<>();
     private final List<Float> ripples = new ArrayList<>();
     private android.graphics.Bitmap starCache;
 
@@ -60,10 +59,6 @@ final class DashboardView extends View {
     void update(DashState s) {
         state = s;
         emitRate = s.requestDelta / 10.0;
-        if (s.tps > 0) {
-            samples.add(s.tps);
-            while (samples.size() > 60) samples.remove(0);
-        }
     }
 
     void resume() {
@@ -106,15 +101,13 @@ final class DashboardView extends View {
 
         float yPulseEnd = h * DashRenderer.F_PULSE_END;
         float yGalaxyEnd = h * DashRenderer.F_GALAXY_END;
-        float ySparkEnd = h * DashRenderer.F_SPARK_END;
         float yMeterEnd = h * DashRenderer.F_METER_END;
 
         float[] ages = new float[ripples.size()];
         for (int i = 0; i < ages.length; i++) ages[i] = ripples.get(i);
         r.pulse(canvas, 0, yPulseEnd, pulsePhase, ages, 1f);
         r.galaxy(canvas, yPulseEnd, yGalaxyEnd, rot, state.models);
-        r.spark(canvas, yGalaxyEnd, ySparkEnd, samples, state.tps);
-        r.meter(canvas, ySparkEnd, yMeterEnd, state.running, state.waiting);
+        r.meter(canvas, yGalaxyEnd, yMeterEnd, state.running, state.waiting);
         r.cards(canvas, yMeterEnd + r.d * 6, state.cards);
     }
 }

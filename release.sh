@@ -18,8 +18,8 @@ VN=$($BT/aapt2 dump xmltree --file AndroidManifest.xml <(echo dummy) 2>/dev/null
 rm -rf build && mkdir build
 $BT/aapt2 compile --dir res -o build/res.zip
 $BT/aapt2 link -o build/base.apk -I "$AJ" --manifest AndroidManifest.xml build/res.zip --auto-add-overlay --java build/gen
-javac -nowarn --release 8 -cp "$AJ:ext-src/core.jar" -d build/classes $(find build/gen -name '*.java') src/ai/serge/dermes/*.java
-$BT/d8 --release --lib "$AJ" --min-api 26 --output build/ $(find build/classes -name '*.class') ext-src/core.jar
+javac -nowarn --release 8 -cp "$AJ:ext-src/core.jar:ext-src/mpchart.jar" -d build/classes $(find build/gen -name '*.java') src/ai/serge/dermes/*.java
+$BT/d8 --release --lib "$AJ" --min-api 26 --output build/ $(find build/classes -name '*.class') ext-src/core.jar ext-src/mpchart.jar
 cd build && zip -q base.apk classes.dex && cd ..
 $BT/zipalign -f 4 build/base.apk build/aligned.apk
 $BT/apksigner sign --ks monitor.keystore --ks-pass pass:dermes --ks-key-alias dermes --v1-signing-enabled true --v2-signing-enabled true --out dermes.apk build/aligned.apk

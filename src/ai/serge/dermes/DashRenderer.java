@@ -37,8 +37,7 @@ final class DashRenderer {
     float w, h, d; // view size px, density (1 dp = d px)
 
     // Section boundaries (fractions of height)
-    static final float F_PULSE_END = 0.16f, F_GALAXY_END = 0.42f, F_SPARK_END = 0.58f,
-                       F_METER_END = 0.66f;
+    static final float F_PULSE_END = 0.22f, F_GALAXY_END = 0.62f, F_METER_END = 0.72f;
 
     DashRenderer(float density) { this.d = density; }
 
@@ -135,51 +134,6 @@ final class DashRenderer {
                     Math.min(sx + rad + sp(6), w - sp(140)), sy + sp(4), 11, 0xFFC9D4E4);
             i++;
         }
-    }
-
-    /** Sparkline: gradient area, glow line, last-point marker + big value. */
-    void spark(Canvas c, float y0, float y1, java.util.List<Double> samples, double tps) {
-        float padL = sp(20), padR = sp(20);
-        float top = y0 + sp(26), bot = y1 - sp(8);
-        txt(c, "TOKENS / SEC", padL, y0 + sp(16), 10, TEXT_DIM);
-        String big = String.format(java.util.Locale.US, "%.0f", tps);
-        text.setTextSize(sp(20)); text.setColor(TEXT_MAIN);
-        float tw = text.measureText(big);
-        txt(c, big, w - padR - tw, y0 + sp(20), 20, TEXT_MAIN);
-        txt(c, "tok/s", w - padR + sp(2) - tw - text.measureText("tok/s") - tw * 0f, y0 + sp(20), 10, TEXT_DIM);
-        if (samples.size() < 2) return;
-        double max = 1e-9; for (double s : samples) max = Math.max(max, s);
-        int n = samples.size();
-        path.reset();
-        float[] xs = new float[n], ys = new float[n];
-        for (int i = 0; i < n; i++) {
-            xs[i] = padL + (w - padL - padR) * i / (n - 1f);
-            ys[i] = bot - (bot - top) * (float) (samples.get(i) / max) * 0.92f;
-        }
-        // smooth curve (midpoint quadratics)
-        path.moveTo(xs[0], ys[0]);
-        for (int i = 1; i < n - 1; i++) {
-            float mx = (xs[i] + xs[i + 1]) / 2, my = (ys[i] + ys[i + 1]) / 2;
-            path.quadTo(xs[i], ys[i], mx, my);
-        }
-        path.lineTo(xs[n - 1], ys[n - 1]);
-        // area under curve (clip the stroke path down)
-        Path area = new Path(path);
-        area.lineTo(xs[n - 1], bot); area.lineTo(xs[0], bot); area.close();
-        p.setShader(new LinearGradient(0, top, 0, bot,
-                new int[]{0x5958A6FF, 0x0A58A6FF}, null, Shader.TileMode.CLAMP));
-        c.drawPath(area, p);
-        p.setShader(null);
-        // glow stroke, then crisp stroke
-        p.setStyle(Paint.Style.STROKE); p.setStrokeJoin(Paint.Join.ROUND);
-        p.setStrokeWidth(sp(6)); p.setColor(0x2E58A6FF); c.drawPath(path, p);
-        p.setStrokeWidth(sp(2)); p.setColor(ACCENT); c.drawPath(path, p);
-        p.setStyle(Paint.Style.FILL);
-        // last point
-        c.drawCircle(xs[n - 1], ys[n - 1], sp(4.2f), withA(0xFFFFFFFF, 240));
-        p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(sp(1.4f)); p.setColor(0x9989C1FF);
-        c.drawCircle(xs[n - 1], ys[n - 1], sp(7.5f), p);
-        p.setStyle(Paint.Style.FILL);
     }
 
     /** Load bar: slim rounded track with glow cap + label. */

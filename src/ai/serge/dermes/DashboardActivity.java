@@ -53,6 +53,7 @@ public class DashboardActivity extends Activity {
     private TextView titleView, statusView;
     private Button refreshButton;
     private DashboardView dash;
+    private TpsChartView tpsChart;
 
     private String lastLiveText = null;
     private String liveBase = null;
@@ -91,6 +92,7 @@ public class DashboardActivity extends Activity {
         refreshButton.setOnClickListener(v -> doRefresh());
 
         dash = new DashboardView(this);
+        tpsChart = new TpsChartView(this);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -99,6 +101,7 @@ public class DashboardActivity extends Activity {
         root.addView(titleView);
         root.addView(statusView);
         root.addView(refreshButton, new LinearLayout.LayoutParams(-2, -2, 0f));
+        root.addView(tpsChart, new LinearLayout.LayoutParams(-1, dp(130)));
         root.addView(dash, new LinearLayout.LayoutParams(-1, 0, 1f));
         setContentView(root);
     }
@@ -253,6 +256,7 @@ public class DashboardActivity extends Activity {
             st.running = s.running; st.waiting = s.waiting; }
         st.tps = Math.max(0, tps);
         st.requestDelta = reqDelta;
+        if (tps > 0) tpsChart.addSample(tps);
         dash.update(st);
     }
 
@@ -263,6 +267,7 @@ public class DashboardActivity extends Activity {
         st.online = false;
         st.running = Demo.RUNNING[idx]; st.waiting = Demo.WAITING[idx];
         st.tps = Demo.TPS[idx]; st.requestDelta = Demo.RIPPLES[idx];
+        tpsChart.addSample(Demo.TPS[idx]);
         st.models = DashState.modelsFrom(Demo.STARS);
         int acc = 0xFF58A6FF, green = 0xFF3FB950, amber = 0xFFD29922, purple = 0xFFBC8CFF;
         st.cards.add(new DashState.Card("requests", "499", acc));
