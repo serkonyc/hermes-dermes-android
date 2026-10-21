@@ -23,9 +23,9 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 /**
- * Dermes hub (v3.7.0) — pure Java. One screen, six tiles: Dashboard (live Mac monitor),
- * Digest (Hermes feed), History (local usage chart), Chat (async via GitHub issues),
- * Device intel (local LLM feasibility), Update (self-update). The update machinery is
+ * Dermes hub (v3.8.0) — pure Java. One screen, six tiles: Dashboard (live Mac monitor),
+ * Digest (Hermes feed), History (local usage chart), Device intel (local LLM
+ * feasibility), Update (self-update), About. The update machinery is
  * unchanged: GitHub Releases latest vs PackageInfo.versionName, DownloadManager (system
  * proxy survives MyCom TUN), FileProvider installer handoff.
  *
@@ -84,9 +84,9 @@ public class DermesActivity extends Activity {
         grid.addView(row(tile("Dashboard", "live Mac pulse", 0xFF1F6FEB, DashboardActivity.class),
                 tile("Digest", "Hermes feed", 0xFF238636, DigestActivity.class)));
         grid.addView(row(tile("History", "usage on this phone", 0xFF8957E5, HistoryActivity.class),
-                tile("Chat", "async w/ Hermes", 0xFFB6620A, ChatActivity.class)));
-        grid.addView(row(tile("Device", "local LLM intel", 0xFF1B7FA8, DeviceActivity.class),
-                tile("Update", "check & install", 0xFF6E40C9, null)));
+                tile("Device", "local LLM intel", 0xFF1B7FA8, DeviceActivity.class)));
+        grid.addView(row(tile("Update", "check & install", 0xFF6E40C9, null),
+                tile("About", "v" + installedVersion(), 0xFF30363D, null)));
 
         root.addView(title);
         root.addView(ver);
@@ -109,7 +109,7 @@ public class DermesActivity extends Activity {
         return r;
     }
 
-    private View tile(String label, String sub, int accent, final Class<?> target) {
+    private View tile(final String label, String sub, int accent, final Class<?> target) {
         LinearLayout t = new LinearLayout(this);
         t.setOrientation(LinearLayout.VERTICAL);
         t.setGravity(Gravity.CENTER);
@@ -134,7 +134,8 @@ public class DermesActivity extends Activity {
             v.setAlpha(0.55f);
             v.animate().alpha(1f).setDuration(140).start();
             if (target != null) startActivity(new Intent(this, target));
-            else onUpdateTile();
+            else if (label.equals("Update")) onUpdateTile();
+            else status.setText("Dermes · Mac LLM monitor · updates via GitHub Releases");
         });
         return t;
     }
@@ -292,27 +293,6 @@ public class DermesActivity extends Activity {
             while ((line = r.readLine()) != null) sb.append(line).append('\n');
             r.close();
             return sb.toString();
-        } finally { conn.disconnect(); }
-    }
-
-    public static String httpPost(String url, String token, String jsonBody) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-        conn.setConnectTimeout(5000); conn.setReadTimeout(6000);
-        conn.setRequestMethod("POST");
-        conn.setDoOutput(true);
-        conn.setRequestProperty("User-Agent", "dermes-chat");
-        conn.setRequestProperty("Authorization", "Bearer " + token);
-        conn.setRequestProperty("Accept", "application/vnd.github+json");
-        conn.setRequestProperty("Content-Type", "application/json");
-        byte[] out = jsonBody.getBytes("UTF-8");
-        conn.getOutputStream().write(out);
-        conn.getOutputStream().close();
-        try {
-            if (conn.getResponseCode() / 100 != 2) throw new Exception("http " + conn.getResponseCode());
-            BufferedReader r = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
-            StringBuilder sb = new StringBuilder(); String line;
-            while ((line = r.readLine()) != null) sb.append(line);
-            r.close(); return sb.toString();
         } finally { conn.disconnect(); }
     }
 }
