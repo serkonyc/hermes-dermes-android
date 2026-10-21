@@ -29,7 +29,7 @@ public class RunnerActivity extends Activity {
 
     private static class RunnerView extends View implements Choreographer.FrameCallback {
         // ---- camera / projection (pure software 3D) ----
-        float camH = 2.3f, camBack = 6.5f, pitch = 0.10f, focal = 0.95f;
+        float camH = 3.2f, camBack = 7.0f, pitch = 0.06f, focal = 0.95f;
         float camShakeX, camShakeY;                 // decaying trauma
 
         // ---- world ----
@@ -171,8 +171,8 @@ public class RunnerActivity extends Activity {
                     long dt = e.getEventTime() - downT;
                     if (Math.abs(dx) > dp(40) && Math.abs(dx) > Math.abs(dy))
                         lane = Math.max(0, Math.min(2, lane + (dx > 0 ? 1 : -1)));
-                    else if (dy < -dp(40)) { if (y <= 0.01f) { vy = 8f; y = 0.01f; } }      // swipe up = jump
-                    else if (dy > dp(40)) { rolling = true; roll = 0.55f; if (y > 0) vy = -9f; } // swipe down = roll
+                    else if (dy > dp(36)) { rolling = true; roll = 0.6f; if (y > 0) vy = -10f; }   // DOWN = roll (check first: dy>0)
+                    else if (dy < -dp(36)) { if (y <= 0.01f) { vy = 8f; y = 0.01f; } }             // UP = jump
                     return true;
                 }
             }
@@ -327,7 +327,7 @@ public class RunnerActivity extends Activity {
 
         /** overhead bar: horizontal slab from 1.05 to 2.3 + posts; clear duck-under cue. */
         private void overheadBar(Canvas cv, float wx, float z) {
-            float z2 = z + 0.4f, yb = 1.05f, yt = 2.3f;
+            float z2 = z + 0.4f, yb = 1.15f, yt = 2.3f;
             box3d(cv, wx, yb, yt, z, 0.46f, 0xFF5B4680, 0xFFC3A9E6);
             // warning chevrons on the front face
             p.setStrokeWidth(dp(2.5f)); p.setColor(0xFFFFE9A8);
@@ -366,17 +366,18 @@ public class RunnerActivity extends Activity {
         private void sprite(Canvas cv) {
             int cell = atlas.getWidth() / 3;
             int frame;
-            if (airborne) frame = 6;
-            else if (rolling) frame = 7;
+            if (airborne) frame = 0;                       // upright stride while flying
+            else if (rolling) frame = 7;                   // horizontal dive
             else frame = ((int)(runT * 1.6f)) % 6;
             int fx = (frame % 3) * cell, fy = (frame / 3) * (atlas.getHeight() / 3);
             if (frame >= 6) { fx = (frame - 6) * cell; fy = 2 * (atlas.getHeight() / 3); }
             src.set(fx, fy, fx + cell, fy + atlas.getHeight() / 3);
-            float hpx = 1.55f * sscale(0) * (rolling ? 0.85f : 1f);
-            float cxp = sx(px, 0), baseY = sy(y, 0);
+            float hpx = 1.55f * sscale(0) * (rolling ? 0.8f : 1f);
+            float cxp = sx(px, 0), baseY = sy(y, 0) + (rolling ? dp(10) : 0);
             int dw = Math.round(hpx * cell / (atlas.getHeight() / 3f)), dh = Math.round(hpx);
             float lean = ((lane - 1) * LANE_W - px) * 18f;
             cv.save(); cv.translate(cxp, baseY - dh/2f); cv.rotate(lean);
+            if (rolling) cv.rotate(-52f);   // dive sprite drawn facing forward; tilt head-down toward track
             dst.set(-dw/2, -dh/2, dw/2, dh/2);
             p.setFilterBitmap(true);
             cv.drawBitmap(atlas, src, dst, p);
