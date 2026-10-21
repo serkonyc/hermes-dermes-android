@@ -72,6 +72,10 @@ public class DermesActivity extends Activity {
 
         updateBtn.setOnClickListener(v -> startDownload());
 
+        android.widget.Button chat = new android.widget.Button(this);
+        chat.setText("Chat with Hermes");
+        chat.setOnClickListener(v -> startActivity(new Intent(this, ChatActivity.class)));
+
         android.widget.Button hist = new android.widget.Button(this);
         hist.setText("Open history");
         hist.setOnClickListener(v -> startActivity(new Intent(this, HistoryActivity.class)));
@@ -87,6 +91,7 @@ public class DermesActivity extends Activity {
         root.addView(dash);
         root.addView(digest);
         root.addView(hist);
+        root.addView(chat);
         setContentView(root);
         checkForUpdate();
     }
@@ -230,6 +235,27 @@ public class DermesActivity extends Activity {
             while ((line = r.readLine()) != null) sb.append(line).append('\n');
             r.close();
             return sb.toString();
+        } finally { conn.disconnect(); }
+    }
+
+    public static String httpPost(String url, String token, String jsonBody) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+        conn.setConnectTimeout(5000); conn.setReadTimeout(6000);
+        conn.setRequestMethod("POST");
+        conn.setDoOutput(true);
+        conn.setRequestProperty("User-Agent", "dermes-chat");
+        conn.setRequestProperty("Authorization", "Bearer " + token);
+        conn.setRequestProperty("Accept", "application/vnd.github+json");
+        conn.setRequestProperty("Content-Type", "application/json");
+        byte[] out = jsonBody.getBytes("UTF-8");
+        conn.getOutputStream().write(out);
+        conn.getOutputStream().close();
+        try {
+            if (conn.getResponseCode() / 100 != 2) throw new Exception("http " + conn.getResponseCode());
+            BufferedReader r = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+            StringBuilder sb = new StringBuilder(); String line;
+            while ((line = r.readLine()) != null) sb.append(line);
+            r.close(); return sb.toString();
         } finally { conn.disconnect(); }
     }
 
