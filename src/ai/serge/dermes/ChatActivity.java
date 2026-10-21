@@ -129,6 +129,7 @@ public class ChatActivity extends Activity {
                             "https://api.github.com/repos/" + REPO + "/issues", tk, body.toString());
                     JSONObject iss = new JSONObject(resp);
                     openIssue = iss.getString("number");
+                    seenCommentId = 0;   // fresh thread: only future answers count
                 } else {
                     body.put("body", text);
                     DermesActivity.httpPost(
@@ -142,6 +143,12 @@ public class ChatActivity extends Activity {
         });
     }
 
+    /** A reply is from Hermes if the login is the bot itself or carries the marker.
+     *  (Watcher runs under the user's account, so login alone cannot identify it.) */
+    private static boolean isHermes(String login, String body) {
+        return "hermes-bot".equals(login) || body.contains("[hermes]");
+    }
+
     private void pollAnswer() {
         if (isDestroyed() || openIssue == null) return;
         pool.execute(() -> {
@@ -152,12 +159,14 @@ public class ChatActivity extends Activity {
                 for (int i = 0; i < cs.length(); i++) {
                     JSONObject c = cs.getJSONObject(i);
                     long id = c.getLong("id");
+                    if (id <= seenCommentId) continue;
+                    seenCommentId = id;
                     String login = c.optJSONObject("user").optString("login");
-                    if (id > seenCommentId && !login.equals("serkonyc")) {
-                        seenCommentId = id;
-                        final String body = c.optString("body");
-                        runOnUiThread(() -> addBubble("hermes", body));
-                    } else if (id > seenCommentId) seenCommentId = id;
+                    final String body = c.optString("body");
+                    if (isHermes(login, body)) {
+                        runOnUiThread(() -> addBubble("hermes",
+                                body.replace("[hermes]", "").trim()));
+                    }
                 }
             } catch (Exception ignored) {}
         });
