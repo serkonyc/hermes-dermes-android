@@ -5,7 +5,6 @@ import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
-import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -23,16 +22,11 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 /**
- * Dermes hub (v3.8.0) — pure Java. One screen, six tiles: Dashboard (live Mac monitor),
- * Digest (Hermes feed), History (local usage chart), Device intel (local LLM
- * feasibility), Update (self-update), About. The update machinery is
- * unchanged: GitHub Releases latest vs PackageInfo.versionName, DownloadManager (system
- * proxy survives MyCom TUN), FileProvider installer handoff.
- *
- * Device notes (Samsung Fold, no adb — the phone is the only test bench):
- * - Kotlin is out: this device kills Kotlin activities before onCreate (v1.2.x diagnostics).
- * - Raw sockets/LAN die under the always-on MyCom TUN; DownloadManager works because it goes
- *   through the system proxy, which is why the updater does not hand-roll HTTP.
+ * Dermes hub v4.1.0 — composed from the UI design system (token palette, 8dp grid,
+ * vector icon chips from res/drawable, staggered entrance, press-scale feedback).
+ * Hero = Pocket Brain, five feature tiles, live update line. Update machinery unchanged:
+ * GitHub Releases latest vs PackageInfo.versionName, DownloadManager (survives MyCom TUN),
+ * FileProvider installer handoff.
  */
 public class DermesActivity extends Activity {
 
@@ -40,10 +34,8 @@ public class DermesActivity extends Activity {
     private final java.util.concurrent.ExecutorService pool =
             java.util.concurrent.Executors.newSingleThreadExecutor();
     private TextView status;
-    private String latestTag;          // tag offered by the Update tile
-    private String downloadUrl;        // asset URL for latestTag
-    private long expectedSize;         // asset size from GitHub; download-complete check
-    private long pendingDownload;      // 0 = none; lets a retry cancel the previous in-flight download
+    private String latestTag, downloadUrl;
+    private long expectedSize, pendingDownload;
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -51,52 +43,44 @@ public class DermesActivity extends Activity {
         checkForUpdate();
     }
 
+    private static final class Tile {
+        final String label, sub; final int icon, accent; final Class<?> target;
+        Tile(String l, String s, int i, int a, Class<?> t) { label = l; sub = s; icon = i; accent = a; target = t; }
+    }
+
     private View build() {
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF181A1F);
-        root.setFitsSystemWindows(true);
-        root.setPadding(dp(22), dp(10), dp(22), dp(12));
+        LinearLayout root = UI.screen(this);
+        root.addView(UI.headerRow(this, "Dermes", "local AI · your phone, no cloud"));
 
-        // Header left-aligned (art review: centered stack looked like a dial pad)
-        TextView title = new TextView(this);
-        title.setText("Dermes");
-        title.setTextSize(26f);
-        title.setTextColor(0xFFEBEEF3);
-        title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        TextView tagline = new TextView(this);
-        tagline.setText("local AI · your phone, no cloud");
-        tagline.setTextSize(12f);
-        tagline.setTextColor(0xFF9BA3AF);
-        LinearLayout head = new LinearLayout(this);
-        head.setOrientation(LinearLayout.VERTICAL);
-        head.setPadding(0, 0, 0, dp(16));
-        head.addView(title);
-        head.addView(tagline);
-
-        // Hero: the one feature that matters, full width, dominant type sizes
         View hero = hero();
+        UI.animateIn(hero, 40);
+        root.addView(hero, new LinearLayout.LayoutParams(-1, UI.dp(this, 128)));
 
+        Tile[] tiles = {
+            new Tile("Digest", "Hermes morning feed", R.drawable.ic_feed, UI.ACCENT, DigestActivity.class),
+            new Tile("Capsules", "from the future", R.drawable.ic_capsule, UI.VIOLET, CapsuleActivity.class),
+            new Tile("Mac Pulse", "live mlx-serve", R.drawable.ic_pulse, UI.TEAL, DashboardActivity.class),
+            new Tile("History", "7-day usage", R.drawable.ic_bars, UI.OK, HistoryActivity.class),
+            new Tile("Update", "check now", R.drawable.ic_update, UI.TEXT_2, null),
+        };
         LinearLayout grid = new LinearLayout(this);
         grid.setOrientation(LinearLayout.VERTICAL);
         grid.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1f));
-        grid.addView(row(tile("Mac Pulse", "live mlx-serve", 0xFF6C8CC4, DashboardActivity.class),
-                tile("Digest", "Hermes morning feed", 0xFF5FA773, DigestActivity.class)));
-        grid.addView(row(tile("Capsules", "letters from the future", 0xFF9B87C9, CapsuleActivity.class),
-                tile("History", "7-day usage", 0xFF6E8FA8, HistoryActivity.class)));
-        grid.addView(row(tile("Update", "check now", 0xFF8A93A8, null),
-                tile("Digest+", "more feeds later", 0xFF4A5262, DigestActivity.class)));
+        for (int t = 0; t < tiles.length; t += 2) {
+            View a = tile(tiles[t]);
+            View b = t + 1 < tiles.length ? tile(tiles[t + 1]) : new View(this);
+            LinearLayout r = row(a, b);
+            UI.animateIn(r, 120 + t * 80L);
+            grid.addView(r);
+        }
+        root.addView(grid);
 
         status = new TextView(this);
         status.setTextSize(11.5f);
-        status.setTextColor(0xFF6E7580);
+        status.setTextColor(UI.TEXT_2);
         status.setGravity(Gravity.CENTER);
-        status.setPadding(0, dp(10), 0, 0);
+        status.setPadding(0, UI.dp(this, 12), 0, 0);
         status.setText("checking for updates…");
-
-        root.addView(head);
-        root.addView(hero, new LinearLayout.LayoutParams(-1, dp(130)));
-        root.addView(grid);
         root.addView(status);
         return root;
     }
@@ -105,103 +89,84 @@ public class DermesActivity extends Activity {
         LinearLayout t = new LinearLayout(this);
         t.setOrientation(LinearLayout.HORIZONTAL);
         t.setGravity(Gravity.CENTER_VERTICAL);
-        GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0xFF2C323E, 0xFF22262E});
-        g.setCornerRadius(dp(20));
-        g.setStroke(dp(1), 0xFF465064);
-        t.setBackground(g);
-        t.setPadding(dp(20), 0, dp(20), 0);
+        t.setBackground(UI.card(this, 22));
+        t.setPadding(UI.dp(this, 18), 0, UI.dp(this, 18), 0);
         t.setClickable(true);
 
-        IconView ic = new IconView(this, IconView.BRAIN, 0xFF6C8CC4, dp(52));
-        t.addView(ic, new LinearLayout.LayoutParams(dp(64), dp(64)));
-
+        t.addView(UI.iconChip(this, R.drawable.ic_brain, UI.ACCENT, 54, 32));
         LinearLayout txt = new LinearLayout(this);
         txt.setOrientation(LinearLayout.VERTICAL);
-        txt.setPadding(dp(18), 0, 0, 0);
-        TextView l = new TextView(this);
-        l.setText("Pocket Brain");
-        l.setTextSize(21f);
-        l.setTextColor(0xFFEBEEF3);
-        l.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        TextView s = new TextView(this);
-        s.setText("download & run local LLM models");
+        txt.setPadding(UI.dp(this, 16), 0, 0, 0);
+        txt.addView(bold("Pocket Brain", 20));
+        TextView s = sub("download & run local LLM models");
         s.setTextSize(13f);
-        s.setTextColor(0xFFA8B1C0);
-        s.setPadding(0, dp(3), 0, 0);
-        TextView meta = new TextView(this);
-        meta.setText("0.7–4.8 GB · offline in the metro");
-        meta.setTextSize(12f);
-        meta.setTextColor(0xFF7C879A);
-        meta.setPadding(0, dp(4), 0, 0);
-        txt.addView(l); txt.addView(s); txt.addView(meta);
+        s.setPadding(0, UI.dp(this, 3), 0, 0);
+        txt.addView(s);
+        TextView meta = sub("0.7–4.8 GB · offline in the metro");
+        meta.setTextColor(UI.TEXT_2);
+        meta.setPadding(0, UI.dp(this, 3), 0, 0);
+        txt.addView(meta);
         t.addView(txt, new LinearLayout.LayoutParams(0, -2, 1f));
 
         t.setOnClickListener(v -> {
-            v.setAlpha(0.6f);
-            v.animate().alpha(1f).setDuration(140).start();
+            press(v);
             startActivity(new Intent(this, PocketActivity.class));
         });
         return t;
+    }
+
+    private void press(View v) {
+        v.animate().scaleX(0.95f).scaleY(0.95f).setDuration(70)
+         .withEndAction(() -> v.animate().scaleX(1f).scaleY(1f).setDuration(130).start())
+         .start();
+    }
+
+    private TextView bold(String s, float sp) {
+        TextView l = new TextView(this);
+        l.setText(s); l.setTextSize(sp); l.setTextColor(UI.TEXT_0);
+        l.setTypeface(android.graphics.Typeface.create("sans-serif-medium",
+                android.graphics.Typeface.NORMAL));
+        return l;
+    }
+    private TextView sub(String s) {
+        TextView l = new TextView(this);
+        l.setText(s); l.setTextSize(11.5f); l.setTextColor(UI.TEXT_1);
+        return l;
     }
 
     private LinearLayout row(View a, View b2) {
         LinearLayout r = new LinearLayout(this);
         r.setOrientation(LinearLayout.HORIZONTAL);
         r.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1f));
-        r.setPadding(0, dp(7), 0, dp(0));
+        r.setPadding(0, UI.dp(this, 6), 0, 0);
         LinearLayout.LayoutParams lap = new LinearLayout.LayoutParams(0, -1, 1f);
-        lap.rightMargin = dp(7);
+        lap.rightMargin = UI.dp(this, 6);
         LinearLayout.LayoutParams rap = new LinearLayout.LayoutParams(0, -1, 1f);
-        rap.leftMargin = dp(7);
+        rap.leftMargin = UI.dp(this, 6);
         r.addView(a, lap);
         r.addView(b2, rap);
         return r;
     }
 
-    private View tile(final String label, String sub, int accent, final Class<?> target) {
+    private View tile(final Tile spec) {
         LinearLayout t = new LinearLayout(this);
         t.setOrientation(LinearLayout.VERTICAL);
         t.setGravity(Gravity.BOTTOM);
-        GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0xFF262A32, 0xFF22252D});
-        g.setCornerRadius(dp(20));
-        g.setStroke(dp(1), 0xFF383E4A);
-        t.setBackground(g);
-        t.setPadding(dp(18), 0, dp(18), dp(16));
+        t.setBackground(UI.card(this, 22));
+        t.setPadding(UI.dp(this, 16), 0, UI.dp(this, 16), UI.dp(this, 14));
         t.setClickable(true);
 
-        IconView ic = new IconView(this, iconFor(label), accent, dp(22));
-        LinearLayout.LayoutParams icp = new LinearLayout.LayoutParams(dp(26), dp(26));
-        icp.bottomMargin = dp(12);
-        t.addView(ic, icp);
-
-        TextView l = new TextView(this);
-        l.setText(label);
-        l.setTextSize(15.5f);
-        l.setTextColor(0xFFEBEEF3);
-        l.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        TextView s = new TextView(this);
-        s.setText(sub);
-        s.setTextSize(12f);
-        s.setTextColor(0xFF9BA3AF);
-        t.addView(l);
-        t.addView(s);
+        View chip = UI.iconChip(this, spec.icon, spec.accent, 38, 22);
+        ((LinearLayout.LayoutParams) chip.getLayoutParams()).bottomMargin = UI.dp(this, 10);
+        t.addView(chip);
+        t.addView(bold(spec.label, 15));
+        t.addView(sub(spec.sub));
         t.setOnClickListener(v -> {
-            v.setAlpha(0.55f);
-            v.animate().alpha(1f).setDuration(140).start();
-            if (target != null) startActivity(new Intent(this, target));
+            press(v);
+            if (spec.target != null) startActivity(new Intent(this, spec.target));
             else onUpdateTile();
         });
         return t;
-    }
-
-    private static int iconFor(String label) {
-        if (label.equals("Mac Pulse")) return IconView.PULSE;
-        if (label.equals("Digest") || label.equals("Digest+")) return IconView.FEED;
-        if (label.equals("History"))   return IconView.BARS;
-        if (label.equals("Capsules"))  return IconView.LOCK;
-        return IconView.ARROW;   // Update
     }
 
     // ---------- updater ----------
@@ -238,42 +203,30 @@ public class DermesActivity extends Activity {
                 if (isDestroyed()) return;
                 String cur = installedVersion();
                 if (fLatest == null) {
-                    status.setTextColor(0xFFD29922);
                     status.setText("v" + cur + " installed · " + (fNote != null ? fNote : "no releases yet"));
                     return;
                 }
                 if (isNewer(fLatest, cur) && fDl != null) {
                     latestTag = fLatest;
                     downloadUrl = fDl;
-                    status.setTextColor(0xFF3FB950);
-                    status.setText("v" + cur + " installed · v" + fLatest + " available — tap Update");
+                    status.setTextColor(UI.OK);
+                    status.setText("v" + fLatest + " available · tap Update");
                     if (!getPackageManager().canRequestPackageInstalls()) {
                         status.setText(status.getText()
-                                + "\ngrant 'Install unknown apps' for Dermes, then tap Update again");
+                                + " · grant 'install unknown apps' first");
                     }
                 } else {
                     latestTag = null;
                     downloadUrl = null;
-                    status.setTextColor(0xFF6E7681);
-                    status.setText("v" + cur + " installed · up to date");
+                    status.setTextColor(UI.TEXT_2);
+                    status.setText("v" + cur + " · up to date");
                 }
             });
         });
     }
 
     private void onUpdateTile() {
-        if (latestTag == null || downloadUrl == null) {
-            status.setText("no pending update · rechecking…");
-            status.setTextColor(0xFFB0C4DE);
-            checkForUpdate();
-            return;
-        }
-        startDownload();
-    }
-
-    private void startDownload() {
-        String url = downloadUrl;
-        if (url == null) return;
+        if (latestTag == null || downloadUrl == null) { checkForUpdate(); return; }
         if (!getPackageManager().canRequestPackageInstalls()) {
             try {
                 startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
@@ -283,16 +236,13 @@ public class DermesActivity extends Activity {
             }
             return;
         }
-        // Cancel any still-running previous download; two concurrent ones overwrite each other.
         if (pendingDownload > 0) { try { dm().remove(pendingDownload); } catch (Exception ignored) {} }
         java.io.File dir = new java.io.File(getExternalFilesDir(null), "updates");
         dir.mkdirs();
-        // Version-stamped name: the old file must NEVER look like the new download mid-flight
-        // (size-check polling on a shared name installs partial APKs).
         java.io.File out = new java.io.File(dir, "dermes-" + latestTag + ".apk");
         if (out.exists()) out.delete();
         try {
-            DownloadManager.Request r = new DownloadManager.Request(Uri.parse(url));
+            DownloadManager.Request r = new DownloadManager.Request(Uri.parse(downloadUrl));
             r.setDestinationUri(Uri.fromFile(out));
             r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
             r.setTitle("Dermes update");
@@ -306,7 +256,6 @@ public class DermesActivity extends Activity {
 
     private DownloadManager dm() { return (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE); }
 
-    // Once DownloadManager lands the APK, launch the system installer for it.
     private void pollInstall(java.io.File apk) {
         final android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
         h.postDelayed(new Runnable() {
@@ -341,8 +290,6 @@ public class DermesActivity extends Activity {
         return false;
     }
     private static int parseInt(String s) { try { return Integer.parseInt(s); } catch (Exception e) { return 0; } }
-
-    private int dp(float v) { return Math.round(v * getResources().getDisplayMetrics().density); }
 
     public static String httpGetPublic(String url) throws Exception {
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();

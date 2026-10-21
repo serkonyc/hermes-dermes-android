@@ -48,7 +48,7 @@ public class DigestActivity extends Activity {
         scroll.addView(list);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF181A1F);
+        root.setBackgroundColor(0xFF12141A);
         root.setFitsSystemWindows(true);
         root.addView(header);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
@@ -100,9 +100,9 @@ public class DigestActivity extends Activity {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-        bg.setColor(0xFF262A32);
+        bg.setColor(0xFF1C2029);
         bg.setCornerRadius(dp(14));
-        bg.setStroke(dp(1), 0xFF383E4A);
+        bg.setStroke(dp(1), 0xFF2E3644);
         c.setBackground(bg);
         c.setPadding(dp(16), dp(12), dp(16), dp(14));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);

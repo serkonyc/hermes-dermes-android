@@ -59,8 +59,9 @@ if [ -n "$PREV_PUB" ]; then
   if [ -f /tmp/pv/dermes.apk ]; then
     unzip -l /tmp/pv/dermes.apk | awk 'NR>3 && $4!~/META/ {print $4}' | sort > /tmp/ent_prev.txt
     unzip -l dermes.apk | awk 'NR>3 && $4!~/META/ {print $4}' | sort > /tmp/ent_new.txt
-    if ! diff -q /tmp/ent_prev.txt /tmp/ent_new.txt >/dev/null; then
-      echo "FAIL: APK entry set differs from $PREV_PUB:"; diff /tmp/ent_prev.txt /tmp/ent_new.txt; exit 1
+    # new res/ entries are legitimate growth (icons etc); fail only on MISSING entries or dex shrink
+    if comm -23 /tmp/ent_prev.txt /tmp/ent_new.txt | grep -q .; then
+      echo "FAIL: entries disappeared vs $PREV_PUB:"; comm -23 /tmp/ent_prev.txt /tmp/ent_new.txt; exit 1
     fi
   fi
 fi

@@ -104,7 +104,7 @@ public class DeviceActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF181A1F);
+        root.setBackgroundColor(0xFF12141A);
         root.setFitsSystemWindows(true);
         ScrollView sc = new ScrollView(this);
         sc.addView(info);

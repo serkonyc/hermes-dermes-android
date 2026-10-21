@@ -30,7 +30,7 @@ public class HistoryActivity extends Activity {
         super.onCreate(b);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF181A1F);
+        root.setBackgroundColor(0xFF12141A);
         root.setFitsSystemWindows(true);
 
         TextView title = new TextView(this);

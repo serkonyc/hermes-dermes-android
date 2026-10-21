@@ -41,7 +41,7 @@ public class CapsuleActivity extends Activity {
 
         final TextView when = new TextView(this);
         when.setTextSize(13f);
-        when.setTextColor(0xFFA8B1C0);
+        when.setTextColor(0xFFA9B3C2);
         when.setText(fmt(unlockAt));
         Button plus1h = chip("+1h", () -> { unlockAt += 3600_000L; when.setText(fmt(unlockAt)); });
         Button plus1d = chip("+1d", () -> { unlockAt += 86_400_000L; when.setText(fmt(unlockAt)); });
@@ -65,7 +65,7 @@ public class CapsuleActivity extends Activity {
         root.addView(bodyIn);
         LinearLayout chips = new LinearLayout(this);
         chips.setPadding(dp(18), dp(6), dp(18), 0);
-        chips.addView(new TextView(this) {{ setText("unlocks: "); setTextColor(0xFF6E7580); }});
+        chips.addView(new TextView(this) {{ setText("unlocks: "); setTextColor(0xFF69748A); }});
         chips.addView(when);
         root.addView(chips);
         LinearLayout row = new LinearLayout(this);
@@ -82,14 +82,14 @@ public class CapsuleActivity extends Activity {
 
     private TextView title(String t) {
         TextView v = new TextView(this);
-        v.setText(t); v.setTextSize(20f); v.setTextColor(0xFFEBEEF3);
+        v.setText(t); v.setTextSize(20f); v.setTextColor(0xFFF2F5FA);
         v.setGravity(Gravity.CENTER); v.setPadding(0, dp(10), 0, dp(4));
         return v;
     }
 
     private EditText field(String hint, boolean multiline) {
         EditText e = new EditText(this);
-        e.setHint(hint); e.setTextColor(0xFFEBEEF3); e.setHintTextColor(0xFF6E7580);
+        e.setHint(hint); e.setTextColor(0xFFF2F5FA); e.setHintTextColor(0xFF69748A);
         e.setTextSize(14f);
         e.setMaxLines(multiline ? 3 : 1);
         if (!multiline) e.setInputType(InputType.TYPE_CLASS_TEXT);
@@ -154,7 +154,7 @@ public class CapsuleActivity extends Activity {
                 TextView t = new TextView(this);
                 t.setTextSize(13f);
                 android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
-                g.setColor(0xFF262A32); g.setCornerRadius(dp(14)); g.setStroke(dp(1), 0xFF383E4A);
+                g.setColor(0xFF1C2029); g.setCornerRadius(dp(14)); g.setStroke(dp(1), 0xFF2E3644);
                 t.setBackground(g);
                 t.setPadding(dp(16), dp(12), dp(16), dp(14));
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
@@ -162,13 +162,13 @@ public class CapsuleActivity extends Activity {
                 t.setLayoutParams(lp);
                 if (!open) {
                     t.setText("🔒 " + o.getString("label") + "\nsealed · " + countdown(at));
-                    t.setTextColor(0xFF7C879A);
+                    t.setTextColor(0xFF69748A);
                 } else {
                     String body;
                     try { body = dec(o.getString("cipher"), at); }
                     catch (Exception e) { body = "(corrupted)"; }
                     t.setText("✉ " + o.getString("label") + " · opened\n\n" + body);
-                    t.setTextColor(0xFFEBEEF3);
+                    t.setTextColor(0xFFF2F5FA);
                     final int idx = i;
                     t.setOnLongClickListener(v -> { delete(idx); return true; });
                 }
