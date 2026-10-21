@@ -29,13 +29,13 @@ public class RunnerActivity extends Activity {
 
     private static class RunnerView extends View implements Choreographer.FrameCallback {
         // ---- camera / projection (pure software 3D) ----
-        float camH = 1.7f, camBack = 4.2f, pitch = 0.10f, focal = 0.95f;
+        float camH = 2.3f, camBack = 6.5f, pitch = 0.10f, focal = 0.95f;
         float camShakeX, camShakeY;                 // decaying trauma
 
         // ---- world ----
         static final float LANE_W = 0.9f, Z_FAR = 22f, ROAD_HALF = 2.4f;
         int lane = 1; float px;                     // lane target + lerp'd x
-        float y, vy, roll; boolean rolling, airborne;
+        float y, vy; boolean airborne;
         float speed = 9f, dist, runT;               // runT = animation clock
         boolean dead, running, started;
         int score, best, coins;
@@ -61,9 +61,9 @@ public class RunnerActivity extends Activity {
         }
         private void reset() {
             obs.clear(); coinL.clear(); pop.clear(); parts.clear();
-            lane = 1; px = 0; y = vy = roll = 0; speed = 9f;
+            lane = 1; px = 0; y = vy = 0; speed = 9f;
             dist = 0; runT = 0; score = 0; coins = 0;
-            dead = false; rolling = airborne = false; started = true;
+            dead = false; airborne = false; started = true;
             nextSpawnZ = 10f; camShakeX = camShakeY = 0;
         }
         void go(boolean on) {
@@ -106,7 +106,6 @@ public class RunnerActivity extends Activity {
                 airborne = true; vy -= 17f * dt; y += vy * dt;
                 if (y < 0) { y = 0; vy = 0; airborne = false; camShakeY = Math.min(9f, speed*0.5f); }
             }
-            if (rolling) { roll -= dt; if (roll <= 0) rolling = false; }
             for (float[] o : obs) o[0] -= speed * dt;
             obs.removeIf(o -> o[0] < -camBack + 0.3f);
             for (float[] o : coinL) o[0] -= speed * dt;
@@ -127,7 +126,7 @@ public class RunnerActivity extends Activity {
             }
             for (float[] o : obs) {
                 if (o[0] > 0.9f || o[0] < -0.7f || (int)o[2] != lane) continue;
-                float top = o[4], head = rolling ? 0.85f : y;
+                float top = o[4], head = y;
                 if (head < top) { die(); return; }
             }
         }
@@ -135,9 +134,8 @@ public class RunnerActivity extends Activity {
         private void spawn(float z) {
             int r = (int)(Math.random() * 10);
             int ln = (int)(Math.random() * 3);
-            if (r < 3) obs.add(new float[]{z, 0, ln, 0.42f, 0.8f});          // low: jump
-            else if (r < 5) obs.add(new float[]{z, 1, ln, 0.42f, 2.3f});     // overhead: roll
-            else if (r < 7) {                                                // full: lane change
+            if (r < 4) obs.add(new float[]{z, 0, ln, 0.42f, 0.8f});          // low: jump
+            else if (r < 6) {                                                // full: lane change
                 int a = ln, b = (ln + 1 + (int)(Math.random()*2)) % 3;
                 obs.add(new float[]{z, 2, a, 0.42f, 3f});
                 obs.add(new float[]{z, 2, b, 0.42f, 3f});
@@ -171,8 +169,7 @@ public class RunnerActivity extends Activity {
                     long dt = e.getEventTime() - downT;
                     if (Math.abs(dx) > dp(40) && Math.abs(dx) > Math.abs(dy))
                         lane = Math.max(0, Math.min(2, lane + (dx > 0 ? 1 : -1)));
-                    else if (dy < -dp(40) && dt < 400) { rolling = true; roll = 0.5f; if (y > 0) vy = -8f; }
-                    else if (dt < 250 && y <= 0.01f && !rolling) { vy = 8f; y = 0.01f; }
+                    else if (dy < -dp(40)) { if (y <= 0.01f) { vy = 8f; y = 0.01f; } }  // swipe up = jump
                     return true;
                 }
             }
@@ -240,8 +237,8 @@ public class RunnerActivity extends Activity {
                 float wx = (o[2] - 1) * LANE_W;
                 if (o[1] == 3) coin(cv, wx, o[0]);
                 else box3d(cv, wx, 0, o[4], o[0], o[3],
-                        o[1]==0 ? 0xFF3D5A80 : o[1]==1 ? 0xFF5B4680 : 0xFF323F52,
-                        o[1]==0 ? 0xFF9DB8D9 : o[1]==1 ? 0xFFC3A9E6 : 0xFF8FA2B8);
+                        o[1]==0 ? 0xFF3D5A80 : 0xFF323F52,
+                        o[1]==0 ? 0xFF9DB8D9 : 0xFF8FA2B8);
             }
             if (!dead) { shadow(cv); runner(cv); }
             for (float[] q : parts) {
@@ -291,7 +288,7 @@ public class RunnerActivity extends Activity {
             } else if (dist < 40) {
                 p.setTextAlign(Paint.Align.CENTER);
                 p.setColor(UI.TEXT_2); p.setTextSize(sp(14));
-                cv.drawText("swipe: lane · tap: jump · swipe up: roll", w/2, h*0.62f, p);
+                cv.drawText("swipe left/right: lane · swipe up: jump", w/2, h*0.62f, p);
                 p.setTextAlign(Paint.Align.LEFT);
             }
         }
@@ -339,55 +336,80 @@ public class RunnerActivity extends Activity {
             cv.drawOval(cx - r, gy - r*0.26f, cx + r, gy + r*0.26f, fillP);
         }
 
-        /** The runner: glossy capsule with squash/stretch, lean into lane change,
-         *  stride-cycle feet, head light, rim glow, dust puffs. A character, not a dot. */
+        /** The runner: a real little person seen from behind — head, glossy jacket
+         *  torso, swinging arms, two-segment legs with a running cycle, knee shins,
+         *  bob + jump tuck + lean into lane change. */
         private void runner(Canvas cv) {
             float s = sscale(0);
             float cx = sx(px, 0);
-            float lean = ((lane - 1) * LANE_W - px) * 28f;            // deg into the turn
-            float bob = airborne ? 0 : (float)Math.abs(Math.sin(runT)) * 0.06f;
-            float squash = airborne ? (vy > 0 ? 0.92f : 1.06f) : 1f + bob * 0.5f;
-            float bodyH = 1.35f * s * squash, bodyW = 0.46f * s;
-            float baseY = sy(y, 0), topY = baseY - bodyH;
-            float midY = (baseY + topY) / 2f;
-            cv.save(); cv.translate(cx, midY); cv.rotate(lean);
-            // rim glow
-            fillP.setShader(new android.graphics.RadialGradient(0, 0, bodyH*0.75f,
+            float lean = ((lane - 1) * LANE_W - px) * 24f;                 // deg into the turn
+            float bob = airborne ? 0 : (float)Math.abs(Math.sin(runT)) * 0.05f;
+            float Hh = 1.5f * s;                                           // full body height
+            float baseY = sy(y, 0) - bob * s;
+            cv.save(); cv.translate(cx, baseY); cv.rotate(lean);
+            // rim glow under the figure
+            fillP.setShader(new android.graphics.RadialGradient(0, -Hh*0.45f, Hh*0.7f,
                     0x3326D8E0, 0x00000000, android.graphics.Shader.TileMode.CLAMP));
-            cv.drawRoundRect(-bodyW, -bodyH/2f, bodyW, bodyH/2f, bodyW, bodyW, fillP);
+            cv.drawRoundRect(-Hh*0.5f, -Hh, Hh*0.5f, dp(4), Hh*0.3f, Hh*0.3f, fillP);
             fillP.setShader(null);
-            // glossy body
-            fillP.setShader(new android.graphics.LinearGradient(0, -bodyH/2f, 0, bodyH/2f,
+            float stride = airborne ? 0.9f : (float)Math.sin(runT * 2f);   // leg phase
+            float hipY = -Hh*0.42f, shoY = -Hh*0.78f, headY = -Hh*0.9f;
+            // --- legs (behind body first, then front) ---
+            drawLeg(cv,  s, hipY, -stride, airborne);
+            drawLeg(cv, -s, hipY,  stride, airborne);
+            // --- torso: glossy jacket, wider at shoulders ---
+            path.reset();
+            path.moveTo(-Hh*0.16f, hipY); path.lineTo(-Hh*0.24f, shoY);
+            path.quadTo(0, shoY - Hh*0.06f, Hh*0.24f, shoY);
+            path.lineTo(Hh*0.16f, hipY); path.close();
+            fillP.setShader(new android.graphics.LinearGradient(0, shoY, 0, hipY,
                     0xFF7FF3EC, 0xFF0E6E68, android.graphics.Shader.TileMode.CLAMP));
-            cv.drawRoundRect(-bodyW/2f, -bodyH/2f, bodyW/2f, bodyH/2f,
-                    bodyW/2.2f, bodyW/2.2f, fillP);
+            cv.drawPath(path, fillP);
             fillP.setShader(null);
-            // gloss streak (top-left highlight, skeuomorphic)
-            fillP.setColor(0x59FFFFFF);
-            cv.drawRoundRect(-bodyW/2f + bodyW*0.12f, -bodyH/2f + bodyH*0.06f,
-                    -bodyW/2f + bodyW*0.42f, -bodyH/2f + bodyH*0.55f, bodyW*0.12f, bodyW*0.12f, fillP);
-            // head light
-            fillP.setColor(0xFFEAFBF8);
-            cv.drawCircle(0, -bodyH/2f + bodyH*0.16f, bodyW*0.26f, fillP);
-            // stride feet (anti-phase) when grounded
-            if (!airborne && !rolling) {
-                float ph = (float)Math.sin(runT * 2f);
-                fillP.setColor(0xFF0A4F4A);
-                cv.drawOval(-bodyW*0.5f + ph*bodyW*0.4f, bodyH/2f - bodyH*0.06f,
-                            -bodyW*0.1f + ph*bodyW*0.4f, bodyH/2f + bodyH*0.05f, fillP);
-                cv.drawOval(bodyW*0.1f - ph*bodyW*0.4f, bodyH/2f - bodyH*0.06f,
-                            bodyW*0.5f - ph*bodyW*0.4f, bodyH/2f + bodyH*0.05f, fillP);
-            }
-            if (rolling) cv.rotate(-20);   // tuck pose mid-roll
+            fillP.setColor(0x4DFFFFFF);   // gloss on left shoulder blade
+            cv.drawRoundRect(-Hh*0.2f, shoY + Hh*0.02f, -Hh*0.06f, shoY + Hh*0.3f, Hh*0.05f, Hh*0.05f, fillP);
+            // --- arms anti-phase to legs, elbow bend ---
+            drawArm(cv,  s, shoY, stride, airborne);
+            drawArm(cv, -s, shoY, -stride, airborne);
+            // --- head + hood ---
+            fillP.setColor(0xFF0B5750);
+            cv.drawCircle(0, headY, Hh*0.135f, fillP);
+            fillP.setColor(0xFFE8F4F1);
+            cv.drawCircle(0, headY - Hh*0.015f, Hh*0.105f, fillP);
+            fillP.setColor(0x66FFFFFF);
+            cv.drawCircle(-Hh*0.04f, headY - Hh*0.05f, Hh*0.035f, fillP);   // head gloss
             cv.restore();
+            p.setStrokeCap(Paint.Cap.BUTT);
             // dust puffs while grounded
-            if (!airborne && !rolling) {
+            if (!airborne) {
                 int a = (int)(60 * Math.abs(Math.cos(runT)));
                 fillP.setColor(android.graphics.Color.argb(a, 160, 180, 200));
                 float gy = sy(0, 0);
-                cv.drawCircle(cx - bodyW*1.4f, gy - dp(3), dp(4.5f), fillP);
-                cv.drawCircle(cx + bodyW*1.5f, gy - dp(2), dp(3.5f), fillP);
+                cv.drawCircle(cx - Hh*0.4f, gy - dp(3), dp(4.5f), fillP);
+                cv.drawCircle(cx + Hh*0.42f, gy - dp(2), dp(3.5f), fillP);
             }
+        }
+        /** one leg: thigh from hip swinging with phase, shin folded when back. */
+        private void drawLeg(Canvas cv, float sgn, float hipY, float ph, boolean air) {
+            float L = 0.42f * sscale(0);
+            float kneeX = sgn * L * 0.25f + ph * L * 0.5f, kneeY = hipY + L * 0.55f;
+            float footX = kneeX + (air ? L*0.15f : ph * L * 0.35f - (ph < 0 ? L*0.25f : 0));
+            float footY = air ? kneeY + L*0.3f : (ph > 0 ? 0f : -L*0.25f*(float)(-ph));
+            p.setStrokeWidth(dp(6.5f)); p.setStrokeCap(Paint.Cap.ROUND); p.setColor(0xFF173B52);
+            cv.drawLine(sgn * dp(4), hipY, kneeX, kneeY, p);
+            cv.drawLine(kneeX, kneeY, footX, footY, p);
+            p.setColor(0xFF0E2A3C);   // shoe
+            p.setStrokeWidth(dp(5));
+            cv.drawLine(footX - dp(1), footY, footX + dp(4), footY, p);
+        }
+        /** one arm: upper + fore, swing opposite the same-side leg. */
+        private void drawArm(Canvas cv, float sgn, float shoY, float ph, boolean air) {
+            float L = 0.34f * sscale(0);
+            float ex = sgn * L * 0.5f + ph * L * 0.4f, ey = shoY + L * 0.6f;
+            float hx = ex + ph * L * 0.3f + (air ? sgn*L*0.3f : 0), hy = ey + L * (air ? -0.2f : 0.45f);
+            p.setStrokeWidth(dp(5f)); p.setStrokeCap(Paint.Cap.ROUND); p.setColor(0xFF12726B);
+            cv.drawLine(sgn * dp(9), shoY + dp(2), ex, ey, p);
+            cv.drawLine(ex, ey, hx, hy, p);
         }
 
         private int dp(float v)   { return UI.dp(getContext(), v); }
