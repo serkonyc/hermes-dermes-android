@@ -71,15 +71,20 @@ public class DashboardActivity extends Activity {
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         titleView = new TextView(this);
-        titleView.setTextSize(20f);
+        titleView.setTextSize(18f);
         titleView.setTextColor(0xFFFFFFFF);
         titleView.setText("Dermes");
         titleView.setGravity(Gravity.CENTER_HORIZONTAL);
+        titleView.setPadding(0, dp(10), 0, 0);
 
+        // One short status line instead of the old debug-log wall (art review v3.1.1:
+        // raw monospace text = "looks like debug output, not UI").
         statusView = new TextView(this);
-        statusView.setTextSize(12f);
+        statusView.setTextSize(11f);
         statusView.setTextColor(0xFF8B949E);
-        statusView.setPadding(24, 16, 24, 16);
+        statusView.setGravity(Gravity.CENTER);
+        statusView.setSingleLine(true);
+        statusView.setPadding(dp(16), dp(2), dp(16), dp(6));
 
         refreshButton = new Button(this);
         refreshButton.setText("Refresh");
@@ -87,16 +92,14 @@ public class DashboardActivity extends Activity {
 
         dash = new DashboardView(this);
 
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(statusView);
-
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(0xFF0D1117);
+        root.setFitsSystemWindows(true);   // keep clear of notch/status bar (review note)
         root.addView(titleView);
+        root.addView(statusView);
         root.addView(refreshButton, new LinearLayout.LayoutParams(-2, -2, 0f));
-        root.addView(dash, new LinearLayout.LayoutParams(-1, 0, 1.5f));
-        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
+        root.addView(dash, new LinearLayout.LayoutParams(-1, 0, 1f));
         setContentView(root);
     }
 
@@ -120,11 +123,11 @@ public class DashboardActivity extends Activity {
         refreshButton.setEnabled(false);
         pool.execute(() -> {
             LiveSnapshot snap = fetchLive();
-            String text = snap != null ? snap.text : demoText(lastLiveText);
+            final String statusLine = snap != null ? snap.statusLine : demoStatusLine();
             if (snap != null) lastLiveText = snap.text;
             runOnUiThread(() -> {
                 if (isDestroyed()) return;
-                statusView.setText(text);
+                statusView.setText(statusLine);
                 refreshButton.setEnabled(true);
                 if (snap != null) applyLive(snap); else advanceDemo();
             });
@@ -132,14 +135,15 @@ public class DashboardActivity extends Activity {
     }
 
     private static final class LiveSnapshot {
-        final String text, base;
+        final String text, base, statusLine;
         final DashState state;            // visual state (may be null if metrics unavailable)
         final Double genTokens, requests; // raw cumulative for sparkline/ripple deltas
         final int running, waiting;
         final List<StarModel> models;
-        LiveSnapshot(String text, String base, DashState state, Double genTokens, Double requests,
+        LiveSnapshot(String text, String base, String statusLine, DashState state,
+                     Double genTokens, Double requests,
                      int running, int waiting, List<StarModel> models) {
-            this.text = text; this.base = base; this.state = state;
+            this.text = text; this.base = base; this.statusLine = statusLine; this.state = state;
             this.genTokens = genTokens; this.requests = requests;
             this.running = running; this.waiting = waiting; this.models = models;
         }
@@ -213,11 +217,16 @@ public class DashboardActivity extends Activity {
                 sb.append("Live metrics:\n");
                 for (DashState.Card cd : ds.cards) sb.append("  ").append(cd.label).append(": ").append(cd.value).append("\n");
                 sb.append("  running now: ").append(ds.running).append("  waiting: ").append(ds.waiting).append("\n");
-                return new LiveSnapshot(sb.toString(), base, ds, s_gen(metrics), s_req(metrics),
+                return new LiveSnapshot(sb.toString(), base,
+                        "ONLINE · " + latency + " ms · " + base.replaceFirst("https?://", "")
+                                + " · " + DateFormat.getTimeInstance().format(System.currentTimeMillis()),
+                        ds, s_gen(metrics), s_req(metrics),
                         ds.running, ds.waiting, models);
             } catch (Exception e) {
                 sb.append("(metrics endpoint unavailable)\n");
-                return new LiveSnapshot(sb.toString(), base, null, null, null, 0, 0, models);
+                return new LiveSnapshot(sb.toString(), base,
+                        "ONLINE · " + latency + " ms · metrics unavailable",
+                        null, null, null, 0, 0, models);
             }
         } catch (Exception e) {
             return null;
@@ -267,30 +276,9 @@ public class DashboardActivity extends Activity {
         demoIndex++;
     }
 
-    private String demoText(String lastLive) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("OFFLINE DEMO (tap Refresh to retry live)\n");
-        if (lastLive != null) {
-            sb.append("last live snapshot:\n");
-            String[] lines = lastLive.trim().split("\n");
-            for (int i = 0; i < Math.min(4, lines.length); i++) sb.append("  ").append(lines[i]).append("\n");
-            sb.append("\n");
-        }
-        sb.append("Status: OFFLINE\n");
-        sb.append("Tried: ").append(ENDPOINT_LOOPBACK).append(" (tunnel), ").append(ENDPOINT_LAN).append(" (LAN)\n\n");
-        sb.append("Models: 1  (snapshot 21.10 11:30)\n");
-        sb.append("  - Qwen3.8-Flash  [ready]  ctx 262144\n\n");
-        sb.append("Live metrics (snapshot):\n");
-        sb.append("  requests: 499\n");
-        sb.append("  generated tokens: 122 643\n");
-        sb.append("  prompt tokens: 34 212 497\n");
-        sb.append("  prefix cache hit rate: 58.8%\n");
-        sb.append("  running now: 1   waiting: 0\n");
-        sb.append("  server memory: 75 644 MB\n");
-        sb.append("  GPU: 88%\n");
-        sb.append("  uptime: 4h 52m\n\n");
-        sb.append("Last refresh: ").append(DateFormat.getTimeInstance().format(System.currentTimeMillis()))
-          .append(" (auto ").append(REFRESH_SECONDS).append("s)\n");
+    private String demoStatusLine() {
+        StringBuilder sb = new StringBuilder("OFFLINE DEMO · tap Refresh to retry");
+        sb.append(" · ").append(DateFormat.getTimeInstance().format(System.currentTimeMillis()));
         return sb.toString();
     }
 

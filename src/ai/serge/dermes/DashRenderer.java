@@ -219,7 +219,11 @@ final class DashRenderer {
     void cards(Canvas c, float y0, java.util.List<DashState.Card> items) {
         float pad = sp(20), gap = sp(10);
         float cw = (w - pad * 2 - gap) / 2;
-        float ch = sp(62);
+        int rows = (items.size() + 1) / 2;
+        // fit all rows into remaining height (cover screen is short; bottom row was clipping)
+        float avail = h - y0 - pad;
+        float ch = Math.min(sp(62), (avail - gap * (rows - 1)) / rows);
+        if (ch < sp(34)) return;
         for (int i = 0; i < items.size(); i++) {
             DashState.Card cd = items.get(i);
             float x = pad + (i % 2) * (cw + gap);
@@ -234,7 +238,14 @@ final class DashRenderer {
             r.set(x + sp(12), y + sp(13), x + sp(15), y + sp(21));
             c.drawRoundRect(r, sp(1.5f), sp(1.5f), p);
             txt(c, cd.label.toUpperCase(java.util.Locale.US), x + sp(21), y + sp(21), 9.5f, TEXT_DIM);
-            txt(c, cd.value, x + sp(12), y + ch - sp(13), 17, TEXT_MAIN);
+            // shrink-to-fit: "75 644 MB" must never clip on narrow panels (review v3.1.1)
+            float vs = 17f;
+            text.setTextSize(sp(vs));
+            while (text.measureText(cd.value) > cw - sp(24) && vs > 11f) {
+                vs -= 1f; text.setTextSize(sp(vs));
+            }
+            text.setColor(TEXT_MAIN);
+            c.drawText(cd.value, x + sp(12), y + ch - sp(13), text);
         }
     }
 
