@@ -24,8 +24,20 @@ cd build && zip -q base.apk classes.dex && cd ..
 $BT/zipalign -f 4 build/base.apk build/aligned.apk
 $BT/apksigner sign --ks monitor.keystore --ks-pass pass:dermes --v1-signing-enabled true --out dermes.apk build/aligned.apk
 
-# Gate 1: signature.
+# Gate 1: signature valid, signer key stable (key rotation on an installed app = uninstall).
 $BT/apksigner verify dermes.apk
+CUR_CERT=$($BT/apksigner verify --print-certs dermes.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+PREV_TAG=$(gh api "repos/$REPO/releases" -q '[.[] | select(.draft|not) | .tag_name][0]')
+if [ -n "$PREV_TAG" ]; then
+  PREV_SHA=$(gh api "repos/$REPO/releases/tags/$PREV_TAG" -q '.assets[0].id' 2>/dev/null)
+  if [ -n "$PREV_SHA" ]; then
+    gh api "repos/$REPO/releases/assets/$PREV_SHA" -H "Accept: application/octet-stream" > /tmp/prev.apk 2>/dev/null
+    PREV_CERT=$($BT/apksigner verify --print-certs /tmp/prev.apk 2>/dev/null | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+    if [ -n "$PREV_CERT" ] && [ "$PREV_CERT" != "$CUR_CERT" ]; then
+      echo "FAIL: signer key changed ($PREV_CERT -> $CUR_CERT). Phone will require uninstall + fresh install."; exit 1;
+    fi
+  fi
+fi
 
 # Gate 2: launcher class + package (dex and manifest must agree — the original sin).
 ACT=$($BT/aapt2 dump badging dermes.apk | sed -n "s/launchable-activity: name='\([^']*\)'.*/\1/p")
