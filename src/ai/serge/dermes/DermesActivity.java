@@ -72,6 +72,10 @@ public class DermesActivity extends Activity {
 
         updateBtn.setOnClickListener(v -> startDownload());
 
+        android.widget.Button dev = new android.widget.Button(this);
+        dev.setText("Device intel · local LLM");
+        dev.setOnClickListener(v -> startActivity(new Intent(this, DeviceActivity.class)));
+
         android.widget.Button chat = new android.widget.Button(this);
         chat.setText("Chat with Hermes");
         chat.setOnClickListener(v -> startActivity(new Intent(this, ChatActivity.class)));
@@ -92,6 +96,7 @@ public class DermesActivity extends Activity {
         root.addView(digest);
         root.addView(hist);
         root.addView(chat);
+        root.addView(dev);
         setContentView(root);
         checkForUpdate();
     }
