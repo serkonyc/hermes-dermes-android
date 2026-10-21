@@ -57,11 +57,11 @@ public class DermesActivity extends Activity {
         root.addView(hero, new LinearLayout.LayoutParams(-1, UI.dp(this, 128)));
 
         Tile[] tiles = {
-            new Tile("Digest", "Hermes morning feed", R.drawable.ic_feed, UI.ACCENT, DigestActivity.class),
-            new Tile("Capsules", "from the future", R.drawable.ic_capsule, UI.VIOLET, CapsuleActivity.class),
-            new Tile("Mac Pulse", "live mlx-serve", R.drawable.ic_pulse, UI.TEAL, DashboardActivity.class),
-            new Tile("History", "7-day usage", R.drawable.ic_bars, UI.OK, HistoryActivity.class),
-            new Tile("Update", "check now", R.drawable.ic_update, UI.TEXT_2, null),
+            new Tile("Digest", "Hermes morning feed", R.mipmap.t_feed_icon, UI.ACCENT, DigestActivity.class),
+            new Tile("Capsules", "from the future", R.mipmap.t_capsule_icon, UI.VIOLET, CapsuleActivity.class),
+            new Tile("Mac Pulse", "live mlx-serve", R.mipmap.t_pulse_icon, UI.TEAL, DashboardActivity.class),
+            new Tile("History", "7-day usage", R.mipmap.t_bars_icon, UI.OK, HistoryActivity.class),
+            new Tile("Update", "check now", R.mipmap.t_update_icon, UI.TEXT_2, null),
         };
         LinearLayout grid = new LinearLayout(this);
         grid.setOrientation(LinearLayout.VERTICAL);
@@ -93,7 +93,10 @@ public class DermesActivity extends Activity {
         t.setPadding(UI.dp(this, 18), 0, UI.dp(this, 18), 0);
         t.setClickable(true);
 
-        t.addView(UI.iconChip(this, R.drawable.ic_brain, UI.ACCENT, 54, 32));
+                android.widget.ImageView heroIcon = new android.widget.ImageView(this);
+        heroIcon.setImageResource(R.mipmap.t_brain_icon);
+        heroIcon.setBackground(UI.card(this, 12));
+        t.addView(heroIcon, new LinearLayout.LayoutParams(UI.dp(this, 54), UI.dp(this, 54)));
         LinearLayout txt = new LinearLayout(this);
         txt.setOrientation(LinearLayout.VERTICAL);
         txt.setPadding(UI.dp(this, 16), 0, 0, 0);
@@ -156,9 +159,12 @@ public class DermesActivity extends Activity {
         t.setPadding(UI.dp(this, 16), 0, UI.dp(this, 16), UI.dp(this, 14));
         t.setClickable(true);
 
-        View chip = UI.iconChip(this, spec.icon, spec.accent, 38, 22);
-        ((LinearLayout.LayoutParams) chip.getLayoutParams()).bottomMargin = UI.dp(this, 10);
-        t.addView(chip);
+        android.widget.ImageView chip = new android.widget.ImageView(this);
+        chip.setImageResource(spec.icon);
+        chip.setElevation(UI.dp(this, 2));
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(UI.dp(this, 42), UI.dp(this, 42));
+        clp.bottomMargin = UI.dp(this, 10);
+        t.addView(chip, clp);
         t.addView(bold(spec.label, 15));
         t.addView(sub(spec.sub));
         t.setOnClickListener(v -> {
