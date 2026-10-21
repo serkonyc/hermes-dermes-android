@@ -25,7 +25,12 @@ import java.net.URL;
  * Dermes update launcher — pure Java. Checks GitHub Releases for the latest tag; when it is
  * newer than the installed version, it shows the "Update vX" button, downloads the APK via
  * DownloadManager (system handles the proxy — important here), and hands the finished file to
- * the package installer. Also exposes the dashboard as a second button.
+ * the package installer. The dashboard is a second button.
+ *
+ * Device notes (Samsung Fold, no adb — the phone is the only test bench):
+ * - Kotlin is out: this device kills Kotlin activities before onCreate (v1.2.x diagnostics).
+ * - Raw sockets/LAN die under the always-on MyCom TUN; DownloadManager works because it goes
+ *   through the system proxy, which is why the updater does not hand-roll HTTP.
  */
 public class DermesActivity extends Activity {
 
@@ -65,10 +70,7 @@ public class DermesActivity extends Activity {
         dash.setOnClickListener(v ->
                 startActivity(new Intent(this, DashboardActivity.class)));
 
-        updateBtn.setOnClickListener(v -> {
-            String url = (String) updateBtn.getTag();
-            if (url != null) startDownload(url);
-        });
+        updateBtn.setOnClickListener(v -> startDownload());
 
         root.addView(title);
         root.addView(status);
@@ -131,7 +133,9 @@ public class DermesActivity extends Activity {
         });
     }
 
-    private void startDownload(String url) {
+    private void startDownload() {
+        String url = (String) updateBtn.getTag();
+        if (url == null) return;
         if (!getPackageManager().canRequestPackageInstalls()) {
             try {
                 startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
@@ -141,6 +145,8 @@ public class DermesActivity extends Activity {
             }
             return;
         }
+        // Cancel any still-running previous download; two concurrent ones overwrite each other.
+        if (pendingDownload > 0) { try { dm().remove(pendingDownload); } catch (Exception ignored) {} }
         java.io.File dir = new java.io.File(getExternalFilesDir(null), "updates");
         dir.mkdirs();
         // Version-stamped name: the old file must NEVER look like the new download mid-flight
@@ -148,18 +154,20 @@ public class DermesActivity extends Activity {
         java.io.File out = new java.io.File(dir, "dermes-" + latestTag + ".apk");
         if (out.exists()) out.delete();
         try {
-            DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
             DownloadManager.Request r = new DownloadManager.Request(Uri.parse(url));
             r.setDestinationUri(Uri.fromFile(out));
             r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
             r.setTitle("Dermes update");
-            dm.enqueue(r);
+            pendingDownload = dm().enqueue(r);
             status.setText("downloading… install prompt appears when done");
             pollInstall(out);
         } catch (Exception e) {
             status.setText("download failed: " + e);
         }
     }
+
+    private DownloadManager dm() { return (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE); }
+    private long pendingDownload;   // 0 = none; lets a retry cancel the previous in-flight download
 
     // Once DownloadManager lands the APK, launch the system installer for it.
     private void pollInstall(java.io.File apk) {
