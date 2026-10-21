@@ -22,7 +22,7 @@ javac -nowarn --release 8 -cp "$AJ:ext-src/core.jar" -d build/classes $(find bui
 $BT/d8 --release --lib "$AJ" --min-api 26 --output build/ $(find build/classes -name '*.class') ext-src/core.jar
 cd build && zip -q base.apk classes.dex && cd ..
 $BT/zipalign -f 4 build/base.apk build/aligned.apk
-$BT/apksigner sign --ks monitor.keystore --ks-pass pass:dermes --v1-signing-enabled true --out dermes.apk build/aligned.apk
+$BT/apksigner sign --ks monitor.keystore --ks-pass pass:dermes --ks-key-alias dermes --v1-signing-enabled true --v2-signing-enabled true --out dermes.apk build/aligned.apk
 
 # Gate 1: signature valid, signer key stable (key rotation on an installed app = uninstall).
 $BT/apksigner verify dermes.apk
