@@ -128,6 +128,7 @@ public class DermesActivity extends Activity {
                     }
                 } else {
                     status.setText("v" + cur + " installed — up to date");
+                    updateBtn.setVisibility(View.GONE); // stale button from a previous check must not linger
                 }
             });
         });
