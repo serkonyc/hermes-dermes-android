@@ -48,7 +48,22 @@ rm -rf /tmp/dz && mkdir /tmp/dz && unzip -qo dermes.apk classes.dex -d /tmp/dz
 $BT/dexdump -f /tmp/dz/classes.dex 2>/dev/null | grep -q "Lai/serge/dermes/DermesActivity;" || { echo "FAIL: DermesActivity not in dex"; exit 1; }
 
 # Gate 3: no stray assets (core.jar-in-assets bug of 2026-10-21).
-unzip -l dermes.apk | grep -q "assets/" && { echo "FAIL: assets/ found in APK"; exit 1; }
+if unzip -l dermes.apk | awk '{print $4}' | grep -q '^assets/'; then echo "FAIL: assets/ found in APK"; exit 1; fi
+
+# Gate 3b: entry set identical to the last published release except META-INF (v3.0.7 bug:
+# an unconditional grep -c exit-1 killed the script right before push, after dex rebuild —
+# dermes.apk stayed stale while the error looked like git noise).
+PREV_PUB=$(gh api "repos/$REPO/releases" -q '[.[] | select(.draft|not) | .tag_name][0]' 2>/dev/null)
+if [ -n "$PREV_PUB" ]; then
+  gh release download "$PREV_PUB" -R "$REPO" -p dermes.apk -D /tmp/pv --clobber >/dev/null 2>&1
+  if [ -f /tmp/pv/dermes.apk ]; then
+    unzip -l /tmp/pv/dermes.apk | awk 'NR>3 && $4!~/META/ {print $4}' | sort > /tmp/ent_prev.txt
+    unzip -l dermes.apk | awk 'NR>3 && $4!~/META/ {print $4}' | sort > /tmp/ent_new.txt
+    if ! diff -q /tmp/ent_prev.txt /tmp/ent_new.txt >/dev/null; then
+      echo "FAIL: APK entry set differs from $PREV_PUB:"; diff /tmp/ent_prev.txt /tmp/ent_new.txt; exit 1
+    fi
+  fi
+fi
 
 SHA=$(shasum -a 256 dermes.apk | cut -d' ' -f1)
 
