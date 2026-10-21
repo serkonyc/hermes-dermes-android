@@ -72,10 +72,16 @@ public class DermesActivity extends Activity {
 
         updateBtn.setOnClickListener(v -> startDownload());
 
+        android.widget.Button digest = new android.widget.Button(this);
+        digest.setText("Open digest");
+        digest.setOnClickListener(v ->
+                startActivity(new Intent(this, DigestActivity.class)));
+
         root.addView(title);
         root.addView(status);
         root.addView(updateBtn);
         root.addView(dash);
+        root.addView(digest);
         setContentView(root);
         checkForUpdate();
     }
@@ -91,7 +97,7 @@ public class DermesActivity extends Activity {
         pool.execute(() -> {
             String latest = null, dl = null, note = null;
             try {
-                JSONObject rel = new JSONObject(httpGet(
+                JSONObject rel = new JSONObject(httpGetPublic(
                         "https://api.github.com/repos/" + REPO + "/releases/latest"));
                 latest = rel.optString("tag_name").replaceFirst("^v", "");
                 JSONArray assets = rel.optJSONArray("assets");
@@ -206,7 +212,7 @@ public class DermesActivity extends Activity {
     }
     private static int parseInt(String s) { try { return Integer.parseInt(s); } catch (Exception e) { return 0; } }
 
-    private static String httpGet(String url) throws Exception {
+    public static String httpGetPublic(String url) throws Exception {
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
         conn.setConnectTimeout(4000);
         conn.setReadTimeout(4000);
