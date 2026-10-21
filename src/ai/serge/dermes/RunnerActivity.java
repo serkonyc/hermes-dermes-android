@@ -35,7 +35,7 @@ public class RunnerActivity extends Activity {
         // ---- world ----
         static final float LANE_W = 0.9f, Z_FAR = 22f, ROAD_HALF = 2.4f;
         int lane = 1; float px;                     // lane target + lerp'd x
-        float y, vy; boolean airborne;
+        float y, vy, roll; boolean rolling, airborne;
         float speed = 9f, dist, runT;               // runT = animation clock
         boolean dead, running, started;
         int score, best, coins;
@@ -63,7 +63,7 @@ public class RunnerActivity extends Activity {
             obs.clear(); coinL.clear(); pop.clear(); parts.clear();
             lane = 1; px = 0; y = vy = 0; speed = 9f;
             dist = 0; runT = 0; score = 0; coins = 0;
-            dead = false; airborne = false; started = true;
+            dead = false; rolling = airborne = false; started = true;
             nextSpawnZ = 10f; camShakeX = camShakeY = 0;
         }
         void go(boolean on) {
@@ -102,6 +102,7 @@ public class RunnerActivity extends Activity {
             score = (int) dist + coins * 25;
             camShakeX *= (float)Math.pow(0.001f, dt); camShakeY *= (float)Math.pow(0.001f, dt);
             px += ((lane - 1) * LANE_W - px) * Math.min(1f, dt * 9f);   // lane lerp
+            if (rolling) { roll -= dt; if (roll <= 0) rolling = false; }
             if (y > 0 || vy > 0) {
                 airborne = true; vy -= 17f * dt; y += vy * dt;
                 if (y < 0) { y = 0; vy = 0; airborne = false; camShakeY = Math.min(9f, speed*0.5f); }
@@ -126,7 +127,7 @@ public class RunnerActivity extends Activity {
             }
             for (float[] o : obs) {
                 if (o[0] > 0.9f || o[0] < -0.7f || (int)o[2] != lane) continue;
-                float top = o[4], head = y;
+                float top = o[4], head = (rolling && o[1] == 1) ? 1.0f : y;   // roll ducks bars, not walls
                 if (head < top) { die(); return; }
             }
         }
@@ -134,8 +135,9 @@ public class RunnerActivity extends Activity {
         private void spawn(float z) {
             int r = (int)(Math.random() * 10);
             int ln = (int)(Math.random() * 3);
-            if (r < 4) obs.add(new float[]{z, 0, ln, 0.42f, 0.8f});          // low: jump
-            else if (r < 6) {                                                // full: lane change
+            if (r < 3) obs.add(new float[]{z, 0, ln, 0.42f, 0.8f});          // low: jump
+            else if (r < 6) obs.add(new float[]{z, 1, ln, 0.42f, 2.3f});     // overhead bar: roll under
+            else if (r < 7) {                                                // full: lane change
                 int a = ln, b = (ln + 1 + (int)(Math.random()*2)) % 3;
                 obs.add(new float[]{z, 2, a, 0.42f, 3f});
                 obs.add(new float[]{z, 2, b, 0.42f, 3f});
@@ -169,7 +171,8 @@ public class RunnerActivity extends Activity {
                     long dt = e.getEventTime() - downT;
                     if (Math.abs(dx) > dp(40) && Math.abs(dx) > Math.abs(dy))
                         lane = Math.max(0, Math.min(2, lane + (dx > 0 ? 1 : -1)));
-                    else if (dy < -dp(40)) { if (y <= 0.01f) { vy = 8f; y = 0.01f; } }  // swipe up = jump
+                    else if (dy < -dp(40)) { if (y <= 0.01f) { vy = 8f; y = 0.01f; } }      // swipe up = jump
+                    else if (dy > dp(40)) { rolling = true; roll = 0.55f; if (y > 0) vy = -9f; } // swipe down = roll
                     return true;
                 }
             }
@@ -236,6 +239,7 @@ public class RunnerActivity extends Activity {
                 if (o[0] < -camBack + 0.4f || o[0] > Z_FAR) continue;
                 float wx = (o[2] - 1) * LANE_W;
                 if (o[1] == 3) coin(cv, wx, o[0]);
+                else if (o[1] == 1) overheadBar(cv, wx, o[0]);
                 else box3d(cv, wx, 0, o[4], o[0], o[3],
                         o[1]==0 ? 0xFF3D5A80 : 0xFF323F52,
                         o[1]==0 ? 0xFF9DB8D9 : 0xFF8FA2B8);
@@ -288,7 +292,7 @@ public class RunnerActivity extends Activity {
             } else if (dist < 40) {
                 p.setTextAlign(Paint.Align.CENTER);
                 p.setColor(UI.TEXT_2); p.setTextSize(sp(14));
-                cv.drawText("swipe left/right: lane · swipe up: jump", w/2, h*0.62f, p);
+                cv.drawText("swipe: lane · up: jump · down: roll under bars", w/2, h*0.62f, p);
                 p.setTextAlign(Paint.Align.LEFT);
             }
         }
@@ -321,6 +325,17 @@ public class RunnerActivity extends Activity {
             return 0xFF000000 | (((a>>16&255)+(b>>16&255))/2<<16) | (((a>>8&255)+(b>>8&255))/2<<8) | ((a&255)+(b&255))/2;
         }
 
+        /** overhead bar: horizontal slab from 1.05 to 2.3 + posts; clear duck-under cue. */
+        private void overheadBar(Canvas cv, float wx, float z) {
+            float z2 = z + 0.4f, yb = 1.05f, yt = 2.3f;
+            box3d(cv, wx, yb, yt, z, 0.46f, 0xFF5B4680, 0xFFC3A9E6);
+            // warning chevrons on the front face
+            p.setStrokeWidth(dp(2.5f)); p.setColor(0xFFFFE9A8);
+            float mx = sx(wx, z), by = sy(yb + 0.25f, z);
+            cv.drawLine(mx - dp(8), by - dp(8), mx, by, p);
+            cv.drawLine(mx, by, mx + dp(8), by - dp(8), p);
+        }
+
         private void coin(Canvas cv, float wx, float z) {
             float cx = sx(wx, z), cy = sy(0.7f, z), r = 0.18f * sscale(z);
             fillP.setShader(new android.graphics.RadialGradient(cx - r*0.35f, cy - r*0.4f, r*0.15f,
@@ -336,15 +351,45 @@ public class RunnerActivity extends Activity {
             cv.drawOval(cx - r, gy - r*0.26f, cx + r, gy + r*0.26f, fillP);
         }
 
-        /** The runner: a real little person seen from behind — head, glossy jacket
-         *  torso, swinging arms, two-segment legs with a running cycle, knee shins,
-         *  bob + jump tuck + lean into lane change. */
+        /** Sprite runner: 8-frame atlas (6 run + jump + roll), AI-generated, chroma-keyed.
+         *  Feet anchored to ground, bob comes from the art itself; lean via canvas rotate. */
+        private android.graphics.Bitmap atlas;
+        private final android.graphics.Rect src = new android.graphics.Rect(), dst = new android.graphics.Rect();
         private void runner(Canvas cv) {
+            if (atlas == null)
+                atlas = android.graphics.BitmapFactory.decodeResource(getContext().getResources(),
+                        R.drawable.runner_atlas);
+            if (atlas != null) { sprite(cv); return;
+            }
+            vectorRunner(cv);   // fallback if decode ever fails
+        }
+        private void sprite(Canvas cv) {
+            int cell = atlas.getWidth() / 3;
+            int frame;
+            if (airborne) frame = 6;
+            else if (rolling) frame = 7;
+            else frame = ((int)(runT * 1.6f)) % 6;
+            int fx = (frame % 3) * cell, fy = (frame / 3) * (atlas.getHeight() / 3);
+            if (frame >= 6) { fx = (frame - 6) * cell; fy = 2 * (atlas.getHeight() / 3); }
+            src.set(fx, fy, fx + cell, fy + atlas.getHeight() / 3);
+            float hpx = 1.55f * sscale(0) * (rolling ? 0.85f : 1f);
+            float cxp = sx(px, 0), baseY = sy(y, 0);
+            int dw = Math.round(hpx * cell / (atlas.getHeight() / 3f)), dh = Math.round(hpx);
+            float lean = ((lane - 1) * LANE_W - px) * 18f;
+            cv.save(); cv.translate(cxp, baseY - dh/2f); cv.rotate(lean);
+            dst.set(-dw/2, -dh/2, dw/2, dh/2);
+            p.setFilterBitmap(true);
+            cv.drawBitmap(atlas, src, dst, p);
+            p.setFilterBitmap(false);
+            cv.restore();
+        }
+        private void vectorRunner(Canvas cv) {
             float s = sscale(0);
             float cx = sx(px, 0);
             float lean = ((lane - 1) * LANE_W - px) * 24f;                 // deg into the turn
+            float hunch = rolling ? 0.45f : 0;
             float bob = airborne ? 0 : (float)Math.abs(Math.sin(runT)) * 0.05f;
-            float Hh = 1.5f * s;                                           // full body height
+            float Hh = 1.5f * s * (rolling ? 0.68f : 1f);                   // full body height, tucked when rolling
             float baseY = sy(y, 0) - bob * s;
             cv.save(); cv.translate(cx, baseY); cv.rotate(lean);
             // rim glow under the figure
@@ -352,7 +397,7 @@ public class RunnerActivity extends Activity {
                     0x3326D8E0, 0x00000000, android.graphics.Shader.TileMode.CLAMP));
             cv.drawRoundRect(-Hh*0.5f, -Hh, Hh*0.5f, dp(4), Hh*0.3f, Hh*0.3f, fillP);
             fillP.setShader(null);
-            float stride = airborne ? 0.9f : (float)Math.sin(runT * 2f);   // leg phase
+            float stride = airborne ? 0.9f : (rolling ? 0.2f : (float)Math.sin(runT * 2f));   // leg phase
             float hipY = -Hh*0.42f, shoY = -Hh*0.78f, headY = -Hh*0.9f;
             // --- legs (behind body first, then front) ---
             drawLeg(cv,  s, hipY, -stride, airborne);
