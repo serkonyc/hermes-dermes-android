@@ -61,6 +61,8 @@ public class DashboardActivity extends Activity {
     private Double prevRequests = null;
     private Long prevTimeMs = null;
     private int demoIndex = 0;
+    private Double lastGenTokens;   // for history deltas
+    private Double lastGenSnapshot;
 
     private final Runnable refreshTick = new Runnable() {
         @Override public void run() {
@@ -248,8 +250,16 @@ public class DashboardActivity extends Activity {
             prevTimeMs = now;
         }
         int reqDelta = 0;
+        long tokDelta = 0;
         if (s.requests != null && prevRequests != null) reqDelta = (int) Math.max(0, s.requests - prevRequests);
         if (s.requests != null) prevRequests = s.requests;
+        if (s.genTokens != null && lastGenTokens != null) tokDelta = (long) Math.max(0, s.genTokens - lastGenTokens);
+        if (s.genTokens != null) {
+            if (lastGenSnapshot != null && lastGenSnapshot != s.genTokens && (reqDelta > 0 || tokDelta > 0) )
+                HistoryActivity.accumulate(this, reqDelta, tokDelta);
+            lastGenSnapshot = s.genTokens;
+        }
+        lastGenTokens = s.genTokens;
 
         DashState st = s.state;
         if (st == null) { st = new DashState(); st.models = DashState.modelsFrom(s.models);

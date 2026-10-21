@@ -72,6 +72,10 @@ public class DermesActivity extends Activity {
 
         updateBtn.setOnClickListener(v -> startDownload());
 
+        android.widget.Button hist = new android.widget.Button(this);
+        hist.setText("Open history");
+        hist.setOnClickListener(v -> startActivity(new Intent(this, HistoryActivity.class)));
+
         android.widget.Button digest = new android.widget.Button(this);
         digest.setText("Open digest");
         digest.setOnClickListener(v ->
@@ -82,6 +86,7 @@ public class DermesActivity extends Activity {
         root.addView(updateBtn);
         root.addView(dash);
         root.addView(digest);
+        root.addView(hist);
         setContentView(root);
         checkForUpdate();
     }
