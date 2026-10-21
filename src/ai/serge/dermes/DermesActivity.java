@@ -30,11 +30,12 @@ import java.net.URL;
 public class DermesActivity extends Activity {
 
     private static final String REPO = "serkonyc/hermes-dermes-android";
-    private static final String APP_VERSION = "3.0.0";
     private final java.util.concurrent.ExecutorService pool =
             java.util.concurrent.Executors.newSingleThreadExecutor();
     private TextView status;
     private android.widget.Button updateBtn;
+    private String latestTag;          // tag shown by the update button, e.g. "3.1.0"
+    private long expectedSize;         // asset size from GitHub; download-complete check
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -80,8 +81,8 @@ public class DermesActivity extends Activity {
     private String installedVersion() {
         try {
             PackageInfo pi = getPackageManager().getPackageInfo(getPackageName(), 0);
-            return pi.versionName;
-        } catch (Exception e) { return APP_VERSION; }
+            return pi.versionName;   // single source of truth: the manifest
+        } catch (Exception e) { return "0"; }
     }
 
     private void checkForUpdate() {
@@ -97,6 +98,7 @@ public class DermesActivity extends Activity {
                         JSONObject a = assets.getJSONObject(i);
                         if (a.optString("name").endsWith(".apk")) {
                             dl = a.optString("browser_download_url");
+                            expectedSize = a.optLong("size");
                             break;
                         }
                     }
@@ -113,6 +115,7 @@ public class DermesActivity extends Activity {
                     return;
                 }
                 if (isNewer(fLatest, cur) && fDl != null) {
+                    latestTag = fLatest;
                     status.setText("v" + cur + " installed — v" + fLatest + " available");
                     updateBtn.setText("Update to " + fLatest);
                     updateBtn.setTag(fDl);
@@ -140,7 +143,9 @@ public class DermesActivity extends Activity {
         }
         java.io.File dir = new java.io.File(getExternalFilesDir(null), "updates");
         dir.mkdirs();
-        java.io.File out = new java.io.File(dir, "dermes-update.apk");
+        // Version-stamped name: the old file must NEVER look like the new download mid-flight
+        // (size-check polling on a shared name installs partial APKs).
+        java.io.File out = new java.io.File(dir, "dermes-" + latestTag + ".apk");
         if (out.exists()) out.delete();
         try {
             DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
@@ -158,25 +163,28 @@ public class DermesActivity extends Activity {
 
     // Once DownloadManager lands the APK, launch the system installer for it.
     private void pollInstall(java.io.File apk) {
-        final android.os.Handler h = mainHandler();
+        final android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
         h.postDelayed(new Runnable() {
+            int misses = 0;
             @Override public void run() {
-                if (apk.exists() && apk.length() > 100_000) {
+                if (apk.exists() && apk.length() == expectedSize) {
                     Uri uri = androidx.core.content.FileProvider.getUriForFile(
                             DermesActivity.this, "ai.serge.dermes.fileprovider", apk);
                     Intent i = new Intent(Intent.ACTION_VIEW);
                     i.setDataAndType(uri, "application/vnd.android.package-archive");
                     i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                     i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    try { startActivity(i); } catch (Exception ignored) {}
-                } else if (!isDestroyed()) {
+                    try { startActivity(i); } catch (Exception e) {
+                        status.setText("installer failed: " + e);
+                    }
+                } else if (!isDestroyed() && ++misses < 80) { // ~2 min cap
                     h.postDelayed(this, 1500);
+                } else if (!isDestroyed()) {
+                    status.setText("download did not finish; open the release page manually");
                 }
             }
         }, 1500);
     }
-
-    private android.os.Handler mainHandler() { return new android.os.Handler(android.os.Looper.getMainLooper()); }
 
     private static boolean isNewer(String latest, String current) {
         String[] a = latest.split("[.\\-]"), b = current.split("[.\\-]");
