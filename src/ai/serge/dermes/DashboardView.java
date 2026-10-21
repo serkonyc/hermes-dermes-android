@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * One View that paints the whole visual column (pulse / galaxy / sparkline / load bar /
+ * One View painting the visual column (pulse / galaxy / load bar /
  * metric cards). Replaces the old four-View stack: fewer layers, one animation clock,
  * everything fits the screen height on purpose (layout_weight 1 in the activity).
  *

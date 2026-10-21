@@ -11,7 +11,7 @@ import android.graphics.Shader;
 /**
  * One visual column of the dashboard, drawn in a single View (one surface, no LinearLayout
  * stacking). Coordinates are dp-scaled by the host view; everything is procedural Canvas —
- * no bitmaps, no Kotlin. Geometry: nebula-pulse -> starfield/galaxy -> sparkline -> load
+ * no bitmaps, no Kotlin. Geometry: nebula-pulse -> starfield/galaxy -> load
  * bar -> metric cards. Height is whatever the host gives; sections are proportional.
  */
 final class DashRenderer {
