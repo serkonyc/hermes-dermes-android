@@ -62,7 +62,6 @@ public class DermesActivity extends Activity {
             new Tile("Neon Runner", "tap. jump. repeat", R.mipmap.t_runner_icon, UI.TEAL, RunnerActivity.class),
             new Tile("History", "7-day usage", R.mipmap.t_bars_icon, UI.OK, HistoryActivity.class),
             new Tile("Update", "check now", R.mipmap.t_update_icon, UI.TEXT_2, null),
-            new Tile("Neon Runner", "tap. jump. repeat", R.mipmap.t_runner_icon, UI.TEAL, RunnerActivity.class),
         };
         LinearLayout grid = new LinearLayout(this);
         grid.setOrientation(LinearLayout.VERTICAL);
