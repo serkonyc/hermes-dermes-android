@@ -34,7 +34,7 @@ if [ -n "$PREV_TAG" ]; then
     gh api "repos/$REPO/releases/assets/$PREV_SHA" -H "Accept: application/octet-stream" > /tmp/prev.apk 2>/dev/null
     PREV_CERT=$($BT/apksigner verify --print-certs /tmp/prev.apk 2>/dev/null | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
     if [ -n "$PREV_CERT" ] && [ "$PREV_CERT" != "$CUR_CERT" ]; then
-      echo "FAIL: signer key changed ($PREV_CERT -> $CUR_CERT). Phone will require uninstall + fresh install."; exit 1;
+      echo "FAIL: signer key changed ($PREV_CERT -> $CUR_CERT). Phone will require uninstall + fresh install. Only after telling the user, rerun: KEY_CHANGE_OK=1 bash release.sh $TAG"; if [ -z "$KEY_CHANGE_OK" ]; then exit 1; fi;
     fi
   fi
 fi
