@@ -55,11 +55,13 @@ public class DashboardActivity extends Activity {
     private SparklineView sparkline;
     private ActivityMeterView meter;
     private GalaxyView galaxy;
+    private PulseView pulse;
     private LinearLayout visualColumn;
 
     private String lastLiveText = null;
     private String liveBase = null;
     private Double prevGenTokens = null;
+    private Double prevRequests = null;
     private Long prevTimeMs = null;
     private int demoIndex = 0;
 
@@ -90,11 +92,13 @@ public class DashboardActivity extends Activity {
         galaxy = new GalaxyView(this);
         sparkline = new SparklineView(this);
         meter = new ActivityMeterView(this);
+        pulse = new PulseView(this);
 
         visualColumn = new LinearLayout(this);
         visualColumn.setOrientation(LinearLayout.VERTICAL);
         visualColumn.setPadding(24, 24, 24, 24);
-        visualColumn.addView(galaxy, new LinearLayout.LayoutParams(-1, dp(220)));
+        visualColumn.addView(pulse, new LinearLayout.LayoutParams(-1, dp(150)));
+        visualColumn.addView(galaxy, new LinearLayout.LayoutParams(-1, dp(200)));
         visualColumn.addView(sparkline, new LinearLayout.LayoutParams(-1, dp(120)));
         visualColumn.addView(meter, new LinearLayout.LayoutParams(-1, dp(64)));
 
@@ -114,6 +118,7 @@ public class DashboardActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         galaxy.resumeTicker();
+        pulse.resumeTicker();
         doRefresh();
         mainHandler.removeCallbacks(refreshTick);
         mainHandler.postDelayed(refreshTick, REFRESH_SECONDS * 1000L);
@@ -122,6 +127,7 @@ public class DashboardActivity extends Activity {
     @Override protected void onPause() {
         mainHandler.removeCallbacks(refreshTick);
         galaxy.pauseTicker();
+        pulse.pauseTicker();
         super.onPause();
     }
 
@@ -143,10 +149,12 @@ public class DashboardActivity extends Activity {
     }
 
     private static final class LiveSnapshot {
-        final String text, base; final Double genTokens; final int running, waiting;
+        final String text, base; final Double genTokens, requests;
+        final int running, waiting;
         final List<StarModel> models;
-        LiveSnapshot(String text, String base, Double genTokens, int running, int waiting, List<StarModel> models) {
-            this.text = text; this.base = base; this.genTokens = genTokens;
+        LiveSnapshot(String text, String base, Double genTokens, Double requests, int running, int waiting,
+                     List<StarModel> models) {
+            this.text = text; this.base = base; this.genTokens = genTokens; this.requests = requests;
             this.running = running; this.waiting = waiting; this.models = models;
         }
     }
@@ -179,6 +187,7 @@ public class DashboardActivity extends Activity {
             try {
                 Map<String, String> metrics = parseMetrics(httpGet(base + "/metrics"));
                 Double genTokens = dbl(metrics.get("vllm:generation_tokens_total"));
+                Double requests = dbl(metrics.get("vllm:request_success_total"));
                 int running = intr(metrics.get("vllm:num_requests_running"));
                 int waiting = intr(metrics.get("vllm:num_requests_waiting"));
                 sb.append("Live metrics:\n");
@@ -187,10 +196,10 @@ public class DashboardActivity extends Activity {
                 if (metrics.containsKey("vllm:num_requests_running")) sb.append("  running now: ").append(num(metrics.get("vllm:num_requests_running"))).append("\n");
                 if (metrics.containsKey("mlx_serve:memory_mb")) sb.append("  server memory: ").append(num(metrics.get("mlx_serve:memory_mb"))).append(" MB\n");
                 if (metrics.containsKey("mlx_serve:gpu_utilization_pct")) sb.append("  GPU: ").append(num(metrics.get("mlx_serve:gpu_utilization_pct"))).append("%\n");
-                return new LiveSnapshot(sb.toString(), base, genTokens, running, waiting, models);
+                return new LiveSnapshot(sb.toString(), base, genTokens, requests, running, waiting, models);
             } catch (Exception e) {
                 sb.append("(metrics endpoint unavailable)\n");
-                return new LiveSnapshot(sb.toString(), base, null, 0, 0, models);
+                return new LiveSnapshot(sb.toString(), base, null, null, 0, 0, models);
             }
         } catch (Exception e) {
             return null;
@@ -198,7 +207,7 @@ public class DashboardActivity extends Activity {
     }
 
     private void applyLive(LiveSnapshot s) {
-        if (!s.base.equals(liveBase)) { liveBase = s.base; prevGenTokens = null; }
+        if (!s.base.equals(liveBase)) { liveBase = s.base; prevGenTokens = null; prevRequests = null; }
         if (s.genTokens != null) {
             long now = System.currentTimeMillis();
             if (prevGenTokens != null && prevTimeMs != null && now > prevTimeMs) {
@@ -207,15 +216,21 @@ public class DashboardActivity extends Activity {
             prevGenTokens = s.genTokens;
             prevTimeMs = now;
         }
+        int reqDelta = 0;
+        if (s.requests != null && prevRequests != null) reqDelta = (int) Math.max(0, s.requests - prevRequests);
+        if (s.requests != null) prevRequests = s.requests;
         meter.setCounts(s.running, s.waiting);
         galaxy.setStars(s.models);
+        pulse.setIntensity(s.running + s.waiting, reqDelta);
     }
 
     private void advanceDemo() {
-        liveBase = null; prevGenTokens = null;
-        meter.setCounts(Demo.RUNNING[demoIndex % Demo.RUNNING.length], Demo.WAITING[demoIndex % Demo.WAITING.length]);
-        sparkline.addSample(Demo.TPS[demoIndex % Demo.TPS.length]);
+        liveBase = null; prevGenTokens = null; prevRequests = null;
+        int idx = demoIndex % Demo.RUNNING.length;
+        meter.setCounts(Demo.RUNNING[idx], Demo.WAITING[idx]);
+        sparkline.addSample(Demo.TPS[idx]);
         galaxy.setStars(Demo.STARS);
+        pulse.setIntensity(Demo.RUNNING[idx] + Demo.WAITING[idx], Demo.RIPPLES[idx]);
         demoIndex++;
     }
 
@@ -289,6 +304,7 @@ public class DashboardActivity extends Activity {
         static final double[] TPS = {21.4, 24.8, 23.1, 31.6, 28.9, 26.4, 33.2, 29.7, 27.5, 35.1};
         static final int[] RUNNING = {1, 2, 1, 3, 2, 1, 2, 1, 3, 1};
         static final int[] WAITING = {0, 1, 0, 2, 0, 0, 1, 0, 1, 0};
+        static final int[] RIPPLES = {1, 3, 2, 5, 4, 1, 2, 1, 4, 2};
         static final List<StarModel> STARS = new ArrayList<>();
         static { STARS.add(new StarModel("Qwen3.8-Flash", "ready", 75_644_000_000d)); }
     }
@@ -343,6 +359,78 @@ public class DashboardActivity extends Activity {
             canvas.drawRoundRect(0, h * 0.35f, rw, h * 0.75f, 8, 8, run);
             canvas.drawRoundRect(rw, h * 0.35f, w, h * 0.75f, 8, 8, wait);
             canvas.drawText("running " + running + "   waiting " + waiting, 8, h * 0.28f, txt);
+        }
+    }
+
+    // The model "breathes": breathing speeds up with load; each completed request (delta of
+    // request_success_total between refreshes) sends one ripple out from the core.
+    // shortcut: ripples arrive in 10s batches (refresh period), smoothed over ~1.5s so they
+    // read as individual drops; upgrade if the phone ever gets a per-request event source.
+    static final class PulseView extends View {
+        private final Paint halo = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private int load = 1;
+        private final List<Float> ripples = new ArrayList<>(); // ages in seconds
+        private double emitQueue = 0;   // request events to spread across the refresh period
+        private double emitRate = 0;    // events per second until the next refresh
+        private boolean ticking = false;
+        private long lastNs = 0;
+        private double phase = 0;
+        private final Choreographer.FrameCallback cb = new Choreographer.FrameCallback() {
+            @Override public void doFrame(long t) {
+                if (!ticking || !isShown()) { Choreographer.getInstance().postFrameCallbackDelayed(this, 200); return; }
+                long dt = lastNs == 0 ? 33_000_000L : t - lastNs;
+                lastNs = t;
+                float secs = dt / 1e9f;
+                double breatheHz = 0.25 + Math.min(0.6, load * 0.12);
+                phase += secs * breatheHz;
+                if (phase >= 1.0) { phase -= 1.0; ripples.add(0f); }  // idle heartbeat
+                emitQueue += secs * emitRate;
+                while (emitQueue >= 1.0) { emitQueue -= 1.0; ripples.add(0f); }
+                for (int i = ripples.size() - 1; i >= 0; i--) {
+                    float a = ripples.get(i) + secs;
+                    if (a > 1.6f) ripples.remove(i); else ripples.set(i, a);
+                }
+                invalidate();
+                Choreographer.getInstance().postFrameCallbackDelayed(this, 33);
+            }
+        };
+        PulseView(Context c) {
+            super(c);
+            ring.setStyle(Paint.Style.STROKE); ring.setStrokeWidth(3f);
+        }
+        void setIntensity(int load, int requestDelta) {
+            this.load = Math.max(0, load);
+            this.emitRate = requestDelta / 10.0;  // spread over the 10s refresh window
+            resumeTicker(); // activity may resume while this view is still laid out invisible
+        }
+        void resumeTicker() {
+            // postFrameCallback dedupes the same callback, so repeat calls are safe.
+            // The doFrame loop stops rescheduling once ticking is false.
+            ticking = true; lastNs = 0;
+            Choreographer.getInstance().postFrameCallback(cb);
+        }
+        void pauseTicker() {
+            ticking = false;
+            Choreographer.getInstance().removeFrameCallback(cb);
+        }
+        @Override protected void onDraw(Canvas canvas) {
+            float w = getWidth(), h = getHeight();
+            float cx = w / 2f, cy = h / 2f + 6;
+            float base = h * 0.24f;
+            float breathe = 1f + 0.06f * (float) Math.sin(phase * Math.PI * 2);
+            halo.setColor(0x2658A6FF);
+            canvas.drawCircle(cx, cy, base * 2.6f * breathe, halo);
+            halo.setColor(0x5958A6FF);
+            canvas.drawCircle(cx, cy, base * 1.5f * breathe, halo);
+            halo.setColor(0xFF0D1117);
+            canvas.drawCircle(cx, cy, base * breathe, halo);
+            for (Float age : ripples) {
+                float r = base + (Math.min(w * 0.46f, h * 0.95f) - base) * (age / 1.6f);
+                int alpha = (int) (150 * (1 - age / 1.6f));
+                ring.setColor((alpha << 24) | 0x58A6FF);
+                canvas.drawCircle(cx, cy, r, ring);
+            }
         }
     }
 
