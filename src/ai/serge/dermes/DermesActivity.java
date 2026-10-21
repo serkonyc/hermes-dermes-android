@@ -83,8 +83,8 @@ public class DermesActivity extends Activity {
         grid.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1f));
         grid.addView(row(tile("Dashboard", "live Mac pulse", 0xFF1F6FEB, DashboardActivity.class),
                 tile("Digest", "Hermes feed", 0xFF238636, DigestActivity.class)));
-        grid.addView(row(tile("History", "usage on this phone", 0xFF8957E5, HistoryActivity.class),
-                tile("Device", "local LLM intel", 0xFF1B7FA8, DeviceActivity.class)));
+        grid.addView(row(tile("Pocket Brain", "local LLMs", 0xFF1B7FA8, PocketActivity.class),
+                tile("History", "usage on this phone", 0xFF8957E5, HistoryActivity.class)));
         grid.addView(row(tile("Update", "check & install", 0xFF6E40C9, null),
                 tile("About", "v" + installedVersion(), 0xFF30363D, null)));
 
