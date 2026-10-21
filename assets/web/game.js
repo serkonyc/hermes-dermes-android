@@ -153,13 +153,13 @@ function drawWorld() {
   for (let i = -1; i < W / 46 + 1; i++) { const bh = 22 + ((i * 7919) % 5) * 11; X.fillRect(bx + i * 46, hy - bh, 34, bh); }
   quad(-10, 0, 10, SPAWN_Z, '#131A2A', -0.02);                             // ground haze
   quad(-LANE * 1.6, 0, LANE * 1.6, SPAWN_Z, '#1A2233');                     // road
-  for (let z = (S.dist % 4); z < 62; z += 4)                                // center dashes
+  for (let z = -(S.dist % 4); z < 62; z += 4)                                // center dashes
     quad(-0.09, z + 1.4, 0.09, z + 2.6, 'rgba(126,166,245,0.5)');
   for (let i = 0; i < 2; i++) { const ex = (i ? 1 : -1) * LANE * 1.62;      // neon edges
     const p0 = project(ex, 0, 0), p1 = project(ex, 0, SPAWN_Z);
     if (p0 && p1) { X.strokeStyle = '#38E0D8'; X.lineWidth = 2.5; X.shadowColor = '#38E0D8'; X.shadowBlur = 12;
       X.beginPath(); X.moveTo(p0.x, p0.y); X.lineTo(p1.x, p1.y); X.stroke(); X.shadowBlur = 0; } }
-  for (let z = (S.dist % 8) - 8; z < 58; z += 8) {                          // pylons
+  for (let z = -(S.dist % 8); z < 58; z += 8) {                          // pylons
     for (const s of [-1, 1]) { const p = project(s * LANE * 1.75, 0, z), t = project(s * LANE * 1.75, 1.1, z);
       if (p && t) { X.strokeStyle = 'rgba(126,166,245,0.7)'; X.lineWidth = Math.max(1, 0.09 * p.s);
         X.beginPath(); X.moveTo(p.x, p.y); X.lineTo(t.x, t.y); X.stroke();
