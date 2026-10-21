@@ -59,7 +59,7 @@ public class DermesActivity extends Activity {
         Tile[] tiles = {
             new Tile("Digest", "Hermes morning feed", R.mipmap.t_feed_icon, UI.ACCENT, DigestActivity.class),
             new Tile("Capsules", "from the future", R.mipmap.t_capsule_icon, UI.VIOLET, CapsuleActivity.class),
-            new Tile("Mac Pulse", "live mlx-serve", R.mipmap.t_pulse_icon, UI.TEAL, DashboardActivity.class),
+            new Tile("Neon Runner", "tap. jump. repeat", R.mipmap.t_runner_icon, UI.TEAL, RunnerActivity.class),
             new Tile("History", "7-day usage", R.mipmap.t_bars_icon, UI.OK, HistoryActivity.class),
             new Tile("Update", "check now", R.mipmap.t_update_icon, UI.TEXT_2, null),
             new Tile("Neon Runner", "tap. jump. repeat", R.mipmap.t_runner_icon, UI.TEAL, RunnerActivity.class),

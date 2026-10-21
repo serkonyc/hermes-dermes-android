@@ -58,6 +58,7 @@ public class PocketActivity extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        HistoryActivity.accumulate(this, 1, 0); // one visit = one history unit
 
         long free = getExternalFilesDir(null).getUsableSpace();
         long ram = ramBytes();

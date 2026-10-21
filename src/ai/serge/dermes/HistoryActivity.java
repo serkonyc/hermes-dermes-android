@@ -52,8 +52,8 @@ public class HistoryActivity extends Activity {
         reqBars.setData(days);
         tokBars.setData(days);
         note.setText(days.isEmpty()
-                ? "no data yet — open Dashboard once to record a snapshot"
-                : days.size() + " day(s) recorded on this phone · deltas between dashboard visits");
+                ? "no data yet — open Pocket Brain to record a visit"
+                : days.size() + " day(s) recorded on this phone · one unit per app visit");
 
         root.addView(title);
         root.addView(reqBars, new LinearLayout.LayoutParams(-1, 0, 1f));
