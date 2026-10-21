@@ -34,9 +34,9 @@ public final class TpsChartView extends FrameLayout {
         float d = c.getResources().getDisplayMetrics().density;
 
         GradientDrawable cardBg = new GradientDrawable();
-        cardBg.setColor(0xFF161B22);
+        cardBg.setColor(0xFF262A32);
         cardBg.setCornerRadius(12 * d);
-        cardBg.setStroke(Math.max(1, (int) d), 0xFF30363D);
+        cardBg.setStroke(Math.max(1, (int) d), 0xFF383E4A);
         setBackground(cardBg);
 
         chart = new LineChart(c);

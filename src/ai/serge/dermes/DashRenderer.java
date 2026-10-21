@@ -17,13 +17,13 @@ import android.graphics.Shader;
 final class DashRenderer {
 
     // Palette
-    static final int BG = 0xFF0D1117;
+    static final int BG = 0xFF181A1F;
     private static final int ACCENT = 0xFF58A6FF;
     private static final int ACCENT_SOFT = 0xFF89C1FF;
     private static final int TEXT_MAIN = 0xFFFFFFFF;
     private static final int TEXT_DIM = 0xFF8B949E;
-    private static final int CARD = 0xFF161B22;
-    private static final int CARD_EDGE = 0xFF30363D;
+    private static final int CARD = 0xFF262A32;
+    private static final int CARD_EDGE = 0xFF383E4A;
     private static final int GREEN = 0xFF3FB950;
     private static final int AMBER = 0xFFD29922;
 

@@ -108,7 +108,7 @@ public class DashboardActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF0D1117);
+        root.setBackgroundColor(0xFF181A1F);
         root.setFitsSystemWindows(true);   // keep clear of notch/status bar (review note)
         root.addView(head);
         root.addView(tpsChart, new LinearLayout.LayoutParams(-1, dp(130)));

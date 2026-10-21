@@ -54,56 +54,104 @@ public class DermesActivity extends Activity {
     private View build() {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF0D1117);
+        root.setBackgroundColor(0xFF181A1F);
         root.setFitsSystemWindows(true);
-        root.setPadding(dp(14), dp(6), dp(14), dp(10));
+        root.setPadding(dp(22), dp(10), dp(22), dp(12));
 
+        // Header left-aligned (art review: centered stack looked like a dial pad)
         TextView title = new TextView(this);
         title.setText("Dermes");
-        title.setTextSize(24f);
-        title.setTextColor(0xFFFFFFFF);
-        title.setGravity(Gravity.CENTER);
+        title.setTextSize(26f);
+        title.setTextColor(0xFFEBEEF3);
+        title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        TextView tagline = new TextView(this);
+        tagline.setText("local AI · your phone, no cloud");
+        tagline.setTextSize(12f);
+        tagline.setTextColor(0xFF9BA3AF);
+        LinearLayout head = new LinearLayout(this);
+        head.setOrientation(LinearLayout.VERTICAL);
+        head.setPadding(0, 0, 0, dp(16));
+        head.addView(title);
+        head.addView(tagline);
 
-        TextView ver = new TextView(this);
-        ver.setText("v" + installedVersion());
-        ver.setTextSize(11f);
-        ver.setTextColor(0xFF6E7681);
-        ver.setGravity(Gravity.CENTER);
-        ver.setPadding(0, 0, 0, dp(6));
-
-        status = new TextView(this);
-        status.setTextSize(11f);
-        status.setTextColor(0xFFB0C4DE);
-        status.setGravity(Gravity.CENTER);
-        status.setPadding(0, dp(6), 0, 0);
-        status.setText("checking for updates…");
+        // Hero: the one feature that matters, full width, dominant type sizes
+        View hero = hero();
 
         LinearLayout grid = new LinearLayout(this);
         grid.setOrientation(LinearLayout.VERTICAL);
         grid.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1f));
-        grid.addView(row(tile("Dashboard", "live Mac pulse", 0xFF1F6FEB, DashboardActivity.class),
-                tile("Digest", "Hermes feed", 0xFF238636, DigestActivity.class)));
-        grid.addView(row(tile("Pocket Brain", "local LLMs", 0xFF1B7FA8, PocketActivity.class),
-                tile("History", "usage on this phone", 0xFF8957E5, HistoryActivity.class)));
-        grid.addView(row(tile("Update", "check & install", 0xFF6E40C9, null),
-                tile("About", "v" + installedVersion(), 0xFF30363D, null)));
+        grid.addView(row(tile("Mac Pulse", "live mlx-serve", 0xFF6C8CC4, DashboardActivity.class),
+                tile("Digest", "Hermes morning feed", 0xFF5FA773, DigestActivity.class)));
+        grid.addView(row(tile("History", "7-day usage", 0xFF9B87C9, HistoryActivity.class),
+                tile("Update", "check now", 0xFF8A93A8, null)));
 
-        root.addView(title);
-        root.addView(ver);
+        status = new TextView(this);
+        status.setTextSize(11.5f);
+        status.setTextColor(0xFF6E7580);
+        status.setGravity(Gravity.CENTER);
+        status.setPadding(0, dp(10), 0, 0);
+        status.setText("checking for updates…");
+
+        root.addView(head);
+        root.addView(hero, new LinearLayout.LayoutParams(-1, dp(150)));
         root.addView(grid);
         root.addView(status);
         return root;
+    }
+
+    private View hero() {
+        LinearLayout t = new LinearLayout(this);
+        t.setOrientation(LinearLayout.HORIZONTAL);
+        t.setGravity(Gravity.CENTER_VERTICAL);
+        GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0xFF2C323E, 0xFF22262E});
+        g.setCornerRadius(dp(20));
+        g.setStroke(dp(1), 0xFF465064);
+        t.setBackground(g);
+        t.setPadding(dp(20), 0, dp(20), 0);
+        t.setClickable(true);
+
+        IconView ic = new IconView(this, IconView.BRAIN, 0xFF6C8CC4, dp(52));
+        t.addView(ic, new LinearLayout.LayoutParams(dp(64), dp(64)));
+
+        LinearLayout txt = new LinearLayout(this);
+        txt.setOrientation(LinearLayout.VERTICAL);
+        txt.setPadding(dp(18), 0, 0, 0);
+        TextView l = new TextView(this);
+        l.setText("Pocket Brain");
+        l.setTextSize(21f);
+        l.setTextColor(0xFFEBEEF3);
+        l.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        TextView s = new TextView(this);
+        s.setText("download & run local LLM models");
+        s.setTextSize(13f);
+        s.setTextColor(0xFFA8B1C0);
+        s.setPadding(0, dp(3), 0, 0);
+        TextView meta = new TextView(this);
+        meta.setText("0.7–4.8 GB · offline in the metro");
+        meta.setTextSize(12f);
+        meta.setTextColor(0xFF7C879A);
+        meta.setPadding(0, dp(4), 0, 0);
+        txt.addView(l); txt.addView(s); txt.addView(meta);
+        t.addView(txt, new LinearLayout.LayoutParams(0, -2, 1f));
+
+        t.setOnClickListener(v -> {
+            v.setAlpha(0.6f);
+            v.animate().alpha(1f).setDuration(140).start();
+            startActivity(new Intent(this, PocketActivity.class));
+        });
+        return t;
     }
 
     private LinearLayout row(View a, View b2) {
         LinearLayout r = new LinearLayout(this);
         r.setOrientation(LinearLayout.HORIZONTAL);
         r.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1f));
-        r.setPadding(0, dp(5), 0, dp(5));
+        r.setPadding(0, dp(7), 0, dp(0));
         LinearLayout.LayoutParams lap = new LinearLayout.LayoutParams(0, -1, 1f);
-        lap.rightMargin = dp(5);
+        lap.rightMargin = dp(7);
         LinearLayout.LayoutParams rap = new LinearLayout.LayoutParams(0, -1, 1f);
-        rap.leftMargin = dp(5);
+        rap.leftMargin = dp(7);
         r.addView(a, lap);
         r.addView(b2, rap);
         return r;
@@ -112,32 +160,45 @@ public class DermesActivity extends Activity {
     private View tile(final String label, String sub, int accent, final Class<?> target) {
         LinearLayout t = new LinearLayout(this);
         t.setOrientation(LinearLayout.VERTICAL);
-        t.setGravity(Gravity.CENTER);
-        GradientDrawable g = new GradientDrawable();
-        g.setColor(0xFF161B22);
-        g.setCornerRadius(dp(16));
-        g.setStroke(dp(1), accent);
+        t.setGravity(Gravity.BOTTOM);
+        GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0xFF262A32, 0xFF22252D});
+        g.setCornerRadius(dp(20));
+        g.setStroke(dp(1), 0xFF383E4A);
         t.setBackground(g);
+        t.setPadding(dp(18), 0, dp(18), dp(16));
         t.setClickable(true);
+
+        IconView ic = new IconView(this, iconFor(label), accent, dp(22));
+        LinearLayout.LayoutParams icp = new LinearLayout.LayoutParams(dp(26), dp(26));
+        icp.bottomMargin = dp(12);
+        t.addView(ic, icp);
 
         TextView l = new TextView(this);
         l.setText(label);
-        l.setTextSize(16f);
-        l.setTextColor(0xFFFFFFFF);
+        l.setTextSize(15.5f);
+        l.setTextColor(0xFFEBEEF3);
+        l.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         TextView s = new TextView(this);
         s.setText(sub);
-        s.setTextSize(10f);
-        s.setTextColor(0xFF8B949E);
+        s.setTextSize(12f);
+        s.setTextColor(0xFF9BA3AF);
         t.addView(l);
         t.addView(s);
         t.setOnClickListener(v -> {
             v.setAlpha(0.55f);
             v.animate().alpha(1f).setDuration(140).start();
             if (target != null) startActivity(new Intent(this, target));
-            else if (label.equals("Update")) onUpdateTile();
-            else status.setText("Dermes · Mac LLM monitor · updates via GitHub Releases");
+            else onUpdateTile();
         });
         return t;
+    }
+
+    private static int iconFor(String label) {
+        if (label.equals("Mac Pulse")) return IconView.PULSE;
+        if (label.equals("Digest"))    return IconView.FEED;
+        if (label.equals("History"))   return IconView.BARS;
+        return IconView.ARROW;   // Update
     }
 
     // ---------- updater ----------

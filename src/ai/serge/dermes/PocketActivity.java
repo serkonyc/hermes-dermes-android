@@ -98,7 +98,7 @@ public class PocketActivity extends Activity {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
         GradientDrawable g = new GradientDrawable();
-        g.setColor(0xFF161B22); g.setCornerRadius(dp(14)); g.setStroke(dp(1),
+        g.setColor(0xFF262A32); g.setCornerRadius(dp(14)); g.setStroke(dp(1),
                 m.bytes < free * 0.6 ? 0xFF238636 : 0xFFD29922);
         c.setBackground(g);
         c.setPadding(dp(14), dp(10), dp(14), dp(12));
