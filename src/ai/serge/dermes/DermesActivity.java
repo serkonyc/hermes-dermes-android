@@ -5,6 +5,7 @@ import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -22,10 +23,11 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 /**
- * Dermes update launcher — pure Java. Checks GitHub Releases for the latest tag; when it is
- * newer than the installed version, it shows the "Update vX" button, downloads the APK via
- * DownloadManager (system handles the proxy — important here), and hands the finished file to
- * the package installer. The dashboard is a second button.
+ * Dermes hub (v3.7.0) — pure Java. One screen, six tiles: Dashboard (live Mac monitor),
+ * Digest (Hermes feed), History (local usage chart), Chat (async via GitHub issues),
+ * Device intel (local LLM feasibility), Update (self-update). The update machinery is
+ * unchanged: GitHub Releases latest vs PackageInfo.versionName, DownloadManager (system
+ * proxy survives MyCom TUN), FileProvider installer handoff.
  *
  * Device notes (Samsung Fold, no adb — the phone is the only test bench):
  * - Kotlin is out: this device kills Kotlin activities before onCreate (v1.2.x diagnostics).
@@ -38,69 +40,106 @@ public class DermesActivity extends Activity {
     private final java.util.concurrent.ExecutorService pool =
             java.util.concurrent.Executors.newSingleThreadExecutor();
     private TextView status;
-    private android.widget.Button updateBtn;
-    private String latestTag;          // tag shown by the update button, e.g. "3.1.0"
+    private String latestTag;          // tag offered by the Update tile
+    private String downloadUrl;        // asset URL for latestTag
     private long expectedSize;         // asset size from GitHub; download-complete check
+    private long pendingDownload;      // 0 = none; lets a retry cancel the previous in-flight download
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF0D1117);
-        root.setGravity(Gravity.CENTER);
-
-        TextView title = new TextView(this);
-        title.setText("Dermes");
-        title.setTextSize(28f);
-        title.setTextColor(0xFFFFFFFF);
-        title.setGravity(Gravity.CENTER);
-
-        status = new TextView(this);
-        status.setTextSize(14f);
-        status.setTextColor(0xFFB0C4DE);
-        status.setPadding(48, 24, 48, 24);
-        status.setGravity(Gravity.CENTER);
-        status.setText("checking for updates…");
-
-        updateBtn = new android.widget.Button(this);
-        updateBtn.setVisibility(View.GONE);
-
-        android.widget.Button dash = new android.widget.Button(this);
-        dash.setText("Open dashboard");
-        dash.setOnClickListener(v ->
-                startActivity(new Intent(this, DashboardActivity.class)));
-
-        updateBtn.setOnClickListener(v -> startDownload());
-
-        android.widget.Button dev = new android.widget.Button(this);
-        dev.setText("Device intel · local LLM");
-        dev.setOnClickListener(v -> startActivity(new Intent(this, DeviceActivity.class)));
-
-        android.widget.Button chat = new android.widget.Button(this);
-        chat.setText("Chat with Hermes");
-        chat.setOnClickListener(v -> startActivity(new Intent(this, ChatActivity.class)));
-
-        android.widget.Button hist = new android.widget.Button(this);
-        hist.setText("Open history");
-        hist.setOnClickListener(v -> startActivity(new Intent(this, HistoryActivity.class)));
-
-        android.widget.Button digest = new android.widget.Button(this);
-        digest.setText("Open digest");
-        digest.setOnClickListener(v ->
-                startActivity(new Intent(this, DigestActivity.class)));
-
-        root.addView(title);
-        root.addView(status);
-        root.addView(updateBtn);
-        root.addView(dash);
-        root.addView(digest);
-        root.addView(hist);
-        root.addView(chat);
-        root.addView(dev);
-        setContentView(root);
+        setContentView(build());
         checkForUpdate();
     }
 
+    private View build() {
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(0xFF0D1117);
+        root.setFitsSystemWindows(true);
+        root.setPadding(dp(14), dp(6), dp(14), dp(10));
+
+        TextView title = new TextView(this);
+        title.setText("Dermes");
+        title.setTextSize(24f);
+        title.setTextColor(0xFFFFFFFF);
+        title.setGravity(Gravity.CENTER);
+
+        TextView ver = new TextView(this);
+        ver.setText("v" + installedVersion());
+        ver.setTextSize(11f);
+        ver.setTextColor(0xFF6E7681);
+        ver.setGravity(Gravity.CENTER);
+        ver.setPadding(0, 0, 0, dp(6));
+
+        status = new TextView(this);
+        status.setTextSize(11f);
+        status.setTextColor(0xFFB0C4DE);
+        status.setGravity(Gravity.CENTER);
+        status.setPadding(0, dp(6), 0, 0);
+        status.setText("checking for updates…");
+
+        LinearLayout grid = new LinearLayout(this);
+        grid.setOrientation(LinearLayout.VERTICAL);
+        grid.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1f));
+        grid.addView(row(tile("Dashboard", "live Mac pulse", 0xFF1F6FEB, DashboardActivity.class),
+                tile("Digest", "Hermes feed", 0xFF238636, DigestActivity.class)));
+        grid.addView(row(tile("History", "usage on this phone", 0xFF8957E5, HistoryActivity.class),
+                tile("Chat", "async w/ Hermes", 0xFFB6620A, ChatActivity.class)));
+        grid.addView(row(tile("Device", "local LLM intel", 0xFF1B7FA8, DeviceActivity.class),
+                tile("Update", "check & install", 0xFF6E40C9, null)));
+
+        root.addView(title);
+        root.addView(ver);
+        root.addView(grid);
+        root.addView(status);
+        return root;
+    }
+
+    private LinearLayout row(View a, View b2) {
+        LinearLayout r = new LinearLayout(this);
+        r.setOrientation(LinearLayout.HORIZONTAL);
+        r.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1f));
+        r.setPadding(0, dp(5), 0, dp(5));
+        LinearLayout.LayoutParams lap = new LinearLayout.LayoutParams(0, -1, 1f);
+        lap.rightMargin = dp(5);
+        LinearLayout.LayoutParams rap = new LinearLayout.LayoutParams(0, -1, 1f);
+        rap.leftMargin = dp(5);
+        r.addView(a, lap);
+        r.addView(b2, rap);
+        return r;
+    }
+
+    private View tile(String label, String sub, int accent, final Class<?> target) {
+        LinearLayout t = new LinearLayout(this);
+        t.setOrientation(LinearLayout.VERTICAL);
+        t.setGravity(Gravity.CENTER);
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(0xFF161B22);
+        g.setCornerRadius(dp(16));
+        g.setStroke(dp(1), accent);
+        t.setBackground(g);
+        t.setClickable(true);
+
+        TextView l = new TextView(this);
+        l.setText(label);
+        l.setTextSize(16f);
+        l.setTextColor(0xFFFFFFFF);
+        TextView s = new TextView(this);
+        s.setText(sub);
+        s.setTextSize(10f);
+        s.setTextColor(0xFF8B949E);
+        t.addView(l);
+        t.addView(s);
+        t.setOnClickListener(v -> {
+            v.setAlpha(0.55f);
+            v.animate().alpha(1f).setDuration(140).start();
+            if (target != null) startActivity(new Intent(this, target));
+            else onUpdateTile();
+        });
+        return t;
+    }
+
+    // ---------- updater ----------
     private String installedVersion() {
         try {
             PackageInfo pi = getPackageManager().getPackageInfo(getPackageName(), 0);
@@ -134,29 +173,41 @@ public class DermesActivity extends Activity {
                 if (isDestroyed()) return;
                 String cur = installedVersion();
                 if (fLatest == null) {
-                    status.setText("v" + cur + " installed\n" + (fNote != null ? fNote : "no releases yet"));
+                    status.setTextColor(0xFFD29922);
+                    status.setText("v" + cur + " installed · " + (fNote != null ? fNote : "no releases yet"));
                     return;
                 }
                 if (isNewer(fLatest, cur) && fDl != null) {
                     latestTag = fLatest;
-                    status.setText("v" + cur + " installed — v" + fLatest + " available");
-                    updateBtn.setText("Update to " + fLatest);
-                    updateBtn.setTag(fDl);
-                    updateBtn.setVisibility(View.VISIBLE);
+                    downloadUrl = fDl;
+                    status.setTextColor(0xFF3FB950);
+                    status.setText("v" + cur + " installed · v" + fLatest + " available — tap Update");
                     if (!getPackageManager().canRequestPackageInstalls()) {
                         status.setText(status.getText()
-                                + "\n\nGrant 'Install unknown apps' for Dermes in the dialog, then tap Update again.");
+                                + "\ngrant 'Install unknown apps' for Dermes, then tap Update again");
                     }
                 } else {
-                    status.setText("v" + cur + " installed — up to date");
-                    updateBtn.setVisibility(View.GONE); // stale button from a previous check must not linger
+                    latestTag = null;
+                    downloadUrl = null;
+                    status.setTextColor(0xFF6E7681);
+                    status.setText("v" + cur + " installed · up to date");
                 }
             });
         });
     }
 
+    private void onUpdateTile() {
+        if (latestTag == null || downloadUrl == null) {
+            status.setText("no pending update · rechecking…");
+            status.setTextColor(0xFFB0C4DE);
+            checkForUpdate();
+            return;
+        }
+        startDownload();
+    }
+
     private void startDownload() {
-        String url = (String) updateBtn.getTag();
+        String url = downloadUrl;
         if (url == null) return;
         if (!getPackageManager().canRequestPackageInstalls()) {
             try {
@@ -189,7 +240,6 @@ public class DermesActivity extends Activity {
     }
 
     private DownloadManager dm() { return (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE); }
-    private long pendingDownload;   // 0 = none; lets a retry cancel the previous in-flight download
 
     // Once DownloadManager lands the APK, launch the system installer for it.
     private void pollInstall(java.io.File apk) {
@@ -216,7 +266,7 @@ public class DermesActivity extends Activity {
         }, 1500);
     }
 
-    private static boolean isNewer(String latest, String current) {
+    static boolean isNewer(String latest, String current) {
         String[] a = latest.split("[.\\-]"), b = current.split("[.\\-]");
         for (int i = 0; i < Math.max(a.length, b.length); i++) {
             int x = i < a.length ? parseInt(a[i]) : 0;
@@ -226,6 +276,8 @@ public class DermesActivity extends Activity {
         return false;
     }
     private static int parseInt(String s) { try { return Integer.parseInt(s); } catch (Exception e) { return 0; } }
+
+    private int dp(float v) { return Math.round(v * getResources().getDisplayMetrics().density); }
 
     public static String httpGetPublic(String url) throws Exception {
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
@@ -263,7 +315,4 @@ public class DermesActivity extends Activity {
             r.close(); return sb.toString();
         } finally { conn.disconnect(); }
     }
-
-    private static class View { static final int GONE = android.view.View.GONE;
-                                static final int VISIBLE = android.view.View.VISIBLE; }
 }
