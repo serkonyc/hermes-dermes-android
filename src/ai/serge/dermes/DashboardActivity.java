@@ -73,25 +73,35 @@ public class DashboardActivity extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        // Header: title left, status below-left, Refresh right — one compact row instead
+        // of three stacked full-width rows (art review: too much chrome, too little data).
         titleView = new TextView(this);
         titleView.setTextSize(18f);
         titleView.setTextColor(0xFFFFFFFF);
         titleView.setText("Dermes");
-        titleView.setGravity(Gravity.CENTER_HORIZONTAL);
-        titleView.setPadding(0, dp(10), 0, 0);
 
         // One short status line instead of the old debug-log wall (art review v3.1.1:
         // raw monospace text = "looks like debug output, not UI").
         statusView = new TextView(this);
         statusView.setTextSize(11f);
         statusView.setTextColor(0xFF8B949E);
-        statusView.setGravity(Gravity.CENTER);
         statusView.setSingleLine(true);
-        statusView.setPadding(dp(16), dp(2), dp(16), dp(6));
 
         refreshButton = new Button(this);
         refreshButton.setText("Refresh");
         refreshButton.setOnClickListener(v -> doRefresh());
+
+        LinearLayout head = new LinearLayout(this);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.setPadding(dp(16), dp(10), dp(12), dp(4));
+        LinearLayout.LayoutParams txtcol = new LinearLayout.LayoutParams(0, -2, 1f);
+        LinearLayout inner = new LinearLayout(this);
+        inner.setOrientation(LinearLayout.VERTICAL);
+        inner.addView(titleView);
+        inner.addView(statusView);
+        head.addView(inner, txtcol);
+        head.addView(refreshButton, new LinearLayout.LayoutParams(-2, -2));
 
         dash = new DashboardView(this);
         tpsChart = new TpsChartView(this);
@@ -100,9 +110,7 @@ public class DashboardActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(0xFF0D1117);
         root.setFitsSystemWindows(true);   // keep clear of notch/status bar (review note)
-        root.addView(titleView);
-        root.addView(statusView);
-        root.addView(refreshButton, new LinearLayout.LayoutParams(-2, -2, 0f));
+        root.addView(head);
         root.addView(tpsChart, new LinearLayout.LayoutParams(-1, dp(130)));
         root.addView(dash, new LinearLayout.LayoutParams(-1, 0, 1f));
         setContentView(root);
