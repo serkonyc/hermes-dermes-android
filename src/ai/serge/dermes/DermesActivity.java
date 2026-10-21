@@ -82,8 +82,10 @@ public class DermesActivity extends Activity {
         grid.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1f));
         grid.addView(row(tile("Mac Pulse", "live mlx-serve", 0xFF6C8CC4, DashboardActivity.class),
                 tile("Digest", "Hermes morning feed", 0xFF5FA773, DigestActivity.class)));
-        grid.addView(row(tile("History", "7-day usage", 0xFF9B87C9, HistoryActivity.class),
-                tile("Update", "check now", 0xFF8A93A8, null)));
+        grid.addView(row(tile("Capsules", "letters from the future", 0xFF9B87C9, CapsuleActivity.class),
+                tile("History", "7-day usage", 0xFF6E8FA8, HistoryActivity.class)));
+        grid.addView(row(tile("Update", "check now", 0xFF8A93A8, null),
+                tile("Digest+", "more feeds later", 0xFF4A5262, DigestActivity.class)));
 
         status = new TextView(this);
         status.setTextSize(11.5f);
@@ -93,7 +95,7 @@ public class DermesActivity extends Activity {
         status.setText("checking for updates…");
 
         root.addView(head);
-        root.addView(hero, new LinearLayout.LayoutParams(-1, dp(150)));
+        root.addView(hero, new LinearLayout.LayoutParams(-1, dp(130)));
         root.addView(grid);
         root.addView(status);
         return root;
@@ -196,8 +198,9 @@ public class DermesActivity extends Activity {
 
     private static int iconFor(String label) {
         if (label.equals("Mac Pulse")) return IconView.PULSE;
-        if (label.equals("Digest"))    return IconView.FEED;
+        if (label.equals("Digest") || label.equals("Digest+")) return IconView.FEED;
         if (label.equals("History"))   return IconView.BARS;
+        if (label.equals("Capsules"))  return IconView.LOCK;
         return IconView.ARROW;   // Update
     }
 

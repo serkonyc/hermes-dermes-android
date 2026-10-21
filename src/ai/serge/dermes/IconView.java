@@ -7,7 +7,7 @@ import android.view.View;
 
 /** Tiny vector glyphs drawn with strokes — consistent weight, no icon deps. */
 final class IconView extends View {
-    static final int BRAIN = 0, PULSE = 1, FEED = 2, BARS = 3, ARROW = 4;
+    static final int BRAIN = 0, PULSE = 1, FEED = 2, BARS = 3, ARROW = 4, LOCK = 5;
     private final int kind, color, size;
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -61,6 +61,12 @@ final class IconView extends View {
                 cv.drawLine(cx - r * .5f, cy - r * .25f, cx, cy + r * .25f, p);
                 cv.drawLine(cx + r * .5f, cy - r * .25f, cx, cy + r * .25f, p);
                 cv.drawLine(cx - r * .8f, cy + r * .85f, cx + r * .8f, cy + r * .85f, p);
+                break;
+            }
+            case LOCK: {   // padlock: body + shackle
+                float w = r * 1.1f, h = r * .9f;
+                cv.drawRoundRect(cx - w / 2, cy - h * .1f, cx + w / 2, cy + h, r * .18f, r * .18f, p);
+                cv.drawArc(cx - w * .32f, cy - h * .95f, cx + w * .32f, cy + h * .25f, 180, 180, false, p);
                 break;
             }
         }
