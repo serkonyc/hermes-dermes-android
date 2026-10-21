@@ -2,10 +2,7 @@ package ai.serge.dermes;
 
 import android.app.Activity;
 import android.app.DownloadManager;
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -16,8 +13,6 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.io.File;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.Locale;
 
 /**
@@ -125,40 +120,26 @@ public class DeviceActivity extends Activity {
         root.addView(title, 0);
         setContentView(root);
 
-        registerReceiver(onDone, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
     }
 
-    private final BroadcastReceiver onDone = new BroadcastReceiver() {
-        @Override public void onReceive(Context c, Intent i) {
-            long id = i.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
-            if (id != dmId) return;
-            android.widget.Toast.makeText(DeviceActivity.this,
-                    "runtime apk downloaded — open Downloads and install",
-                    android.widget.Toast.LENGTH_LONG).show();
-        }
-    };
 
     private void startDownload(String url) {
         try {
             DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
             DownloadManager.Request r = new DownloadManager.Request(Uri.parse(url));
-            r.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,
-                    "llama-runtime-" + new SimpleDateFormat("HHmm", Locale.US)
-                            .format(new Date()) + ".apk");
+            java.io.File dir = new java.io.File(getExternalFilesDir(null), "runtimes");
+            dir.mkdirs();
+            r.setDestinationUri(Uri.fromFile(new java.io.File(dir, "llama-runtime.apk")));
             r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
             dmId = dm.enqueue(r);
         } catch (Exception e) {
-            android.widget.Toast.makeText(this, "download failed: " + e.getMessage(),
+            android.widget.Toast.makeText(DeviceActivity.this, "download failed: " + e.getMessage(),
                     android.widget.Toast.LENGTH_LONG).show();
         }
     }
 
     private void openUrl(String u) {
-        try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(u))); } catch (Exception ignored) {}
-    }
-    @Override protected void onDestroy() {
-        super.onDestroy();
-        try { unregisterReceiver(onDone); } catch (Exception ignored) {}
+        try { startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(u))); } catch (Exception ignored) {}
     }
     private static String mb(long v) { return String.format(Locale.US, "%,d", v); }
     private int dp(float v) { return Math.round(v * getResources().getDisplayMetrics().density); }
