@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Mac usage history: one bar per day for the last 7 days, fed by cumulative counters
+ * App activity: one bar per day for the last 7 days, fed by cumulative counters
  * (request_success_total / generation_tokens_total) snapshotted on every dashboard
  * refresh. A counter drop = server restart -> that day restarts its delta. Stored locally
  * (SharedPreferences, one line per day) so the phone works fully offline; the app is the
@@ -34,7 +34,7 @@ public class HistoryActivity extends Activity {
         root.setFitsSystemWindows(true);
 
         TextView title = new TextView(this);
-        title.setText("Mac activity · last 7 days");
+        title.setText("App activity · last 7 days");
         title.setTextSize(16f);
         title.setTextColor(0xFFFFFFFF);
         title.setGravity(Gravity.CENTER);

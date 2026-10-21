@@ -24,7 +24,7 @@ import java.util.Locale;
  *  1. report device capability (RAM, ABI, free storage);
  *  2. download a community llama.cpp Android runtime APK (ChatterUI, MIT, bundles
  *     llama.cpp .so + a model picker) and offer to install it side-by-side;
- *  3. Dermes stays the monitor: Mac serves big models, the phone runs its own 1B brain
+ *  3. the phone runs its own 1B brain
  *     through the bundled runtime.
  * No fake "in-app inference" claims.
  */
@@ -58,7 +58,7 @@ public class DeviceActivity extends Activity {
         sb.append(fits ? "FITS on this device.\n" : "does not fit; see numbers above.\n");
         sb.append("\nDermes itself cannot execute GGUF (no native llama.cpp in a pure-Java"
                 + " build). The supported route: grab the llama.cpp runtime below and run a"
-                + " 1B model next to this app. Mac stays the heavy lifting, phone gets a"
+                + " 1B model next to this app. The phone gets a"
                 + " private pocket brain.");
 
         TextView info = new TextView(this);
