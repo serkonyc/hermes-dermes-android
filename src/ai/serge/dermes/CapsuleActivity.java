@@ -1,6 +1,7 @@
 package ai.serge.dermes;
 
 import android.app.Activity;
+import android.content.Context;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.Gravity;
@@ -41,7 +42,7 @@ public class CapsuleActivity extends Activity {
 
         final TextView when = new TextView(this);
         when.setTextSize(13f);
-        when.setTextColor(0xFFA9B3C2);
+        when.setTextColor(UI.TEXT_1);
         when.setText(fmt(unlockAt));
         Button plus1h = chip("+1h", () -> { unlockAt += 3600_000L; when.setText(fmt(unlockAt)); });
         Button plus1d = chip("+1d", () -> { unlockAt += 86_400_000L; when.setText(fmt(unlockAt)); });
@@ -82,7 +83,8 @@ public class CapsuleActivity extends Activity {
 
     private TextView title(String t) {
         TextView v = new TextView(this);
-        v.setText(t); v.setTextSize(20f); v.setTextColor(0xFFF2F5FA);
+        v.setText(t); v.setTextSize(24f); v.setTextColor(UI.TEXT_0);
+        v.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
         v.setGravity(Gravity.CENTER); v.setPadding(0, dp(10), 0, dp(4));
         return v;
     }
@@ -94,7 +96,11 @@ public class CapsuleActivity extends Activity {
         e.setMaxLines(multiline ? 3 : 1);
         if (!multiline) e.setInputType(InputType.TYPE_CLASS_TEXT);
         else e.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        e.setPadding(dp(18), dp(10), dp(18), dp(10));
+        e.setPadding(dp(18), dp(12), dp(18), dp(12));
+        e.setBackground(UI.card(CapsuleActivity.this, 14));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.setMargins(dp(18), dp(6), dp(18), 0);
+        e.setLayoutParams(lp);
         return e;
     }
 
@@ -153,9 +159,7 @@ public class CapsuleActivity extends Activity {
                 boolean open = System.currentTimeMillis() >= at;
                 TextView t = new TextView(this);
                 t.setTextSize(13f);
-                android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
-                g.setColor(0xFF1C2029); g.setCornerRadius(dp(14)); g.setStroke(dp(1), 0xFF2E3644);
-                t.setBackground(g);
+                t.setBackground(UI.card(CapsuleActivity.this, 18));
                 t.setPadding(dp(16), dp(12), dp(16), dp(14));
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
                 lp.bottomMargin = dp(8);
@@ -172,6 +176,7 @@ public class CapsuleActivity extends Activity {
                     final int idx = i;
                     t.setOnLongClickListener(v -> { delete(idx); return true; });
                 }
+                UI.animateIn(t, i * 50L);
                 list.addView(t);
             } catch (Exception ignored) {}
         }

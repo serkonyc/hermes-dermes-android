@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.app.DownloadManager;
 import android.content.Context;
 import android.database.Cursor;
-import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -65,7 +64,7 @@ public class PocketActivity extends Activity {
 
         statusLine = new TextView(this);
         statusLine.setTextSize(11f);
-        statusLine.setTextColor(0xFF8B949E);
+        statusLine.setTextColor(UI.TEXT_1);
         statusLine.setPadding(dp(16), dp(6), dp(16), dp(6));
         statusLine.setText(String.format(Locale.US,
                 "free %.1f GB · RAM %.0f GB — models below the line in green fit with room.\n" +
@@ -76,19 +75,19 @@ public class PocketActivity extends Activity {
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
         list.setPadding(dp(14), 0, dp(14), dp(10));
-        for (Model m : CATALOG) list.addView(card(m, free));
+        int i = 0;
+        for (Model m : CATALOG) {
+            View card = card(m, free);
+            UI.animateIn(card, 60 + i++ * 70L);
+            list.addView(card);
+        }
         sc.addView(list);
 
-        TextView title = new TextView(this);
-        title.setText("Pocket Brain");
-        title.setTextSize(20f);
-        title.setTextColor(0xFFFFFFFF);
-        title.setGravity(Gravity.CENTER);
-        title.setPadding(0, dp(12), 0, dp(2));
+        View head = UI.headerRow(this, "Pocket Brain", "offline models for this phone");
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.addView(title);
+        root.addView(head);
         root.addView(statusLine);
         root.addView(sc, new LinearLayout.LayoutParams(-1, 0, 1f));
         setContentView(root);
@@ -97,10 +96,7 @@ public class PocketActivity extends Activity {
     private View card(final Model m, long free) {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
-        GradientDrawable g = new GradientDrawable();
-        g.setColor(0xFF1C2029); g.setCornerRadius(dp(14)); g.setStroke(dp(1),
-                m.bytes < free * 0.6 ? 0xFF238636 : 0xFFD29922);
-        c.setBackground(g);
+        c.setBackground(UI.card(this, 20));
         c.setPadding(dp(14), dp(10), dp(14), dp(12));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
         lp.bottomMargin = dp(10);
@@ -111,10 +107,13 @@ public class PocketActivity extends Activity {
         t.setTextSize(15f); t.setTextColor(0xFFFFFFFF);
         TextView s = new TextView(this);
         s.setText(String.format(Locale.US, "%.1f GB · %s", m.bytes / 1e9, m.blurb));
+        if (m.bytes >= free * 0.6) {
+            s.setTextColor(0xFFE0B341);   // warn token: tight fit
+        }
         s.setTextSize(11f); s.setTextColor(0xFF8B949E);
 
         final TextView prog = new TextView(this);
-        prog.setTextSize(11f); prog.setTextColor(0xFF58A6FF);
+        prog.setTextSize(11.5f); prog.setTextColor(UI.ACCENT);
         prog.setPadding(0, dp(6), 0, 0);
 
         android.widget.Button dl = new android.widget.Button(this);

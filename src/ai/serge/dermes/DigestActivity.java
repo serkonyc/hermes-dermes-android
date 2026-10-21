@@ -48,7 +48,7 @@ public class DigestActivity extends Activity {
         scroll.addView(list);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF12141A);
+        root.setBackgroundColor(UI.BG);
         root.setFitsSystemWindows(true);
         root.addView(header);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
@@ -99,10 +99,7 @@ public class DigestActivity extends Activity {
     private View card(String tag, String title, String summary, String url) {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
-        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-        bg.setColor(0xFF1C2029);
-        bg.setCornerRadius(dp(14));
-        bg.setStroke(dp(1), 0xFF2E3644);
+        android.graphics.drawable.GradientDrawable bg = UI.card(DigestActivity.this, 18);
         c.setBackground(bg);
         c.setPadding(dp(16), dp(12), dp(16), dp(14));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
