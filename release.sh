@@ -34,6 +34,10 @@ RE16=$HOME/.hermes/work/android-sdk/ndk/27.2.12479018/toolchains/llvm/prebuilt/d
 for so in build/lib/arm64-v8a/*.so; do
   A=$($RE16 -l "$so" | awk '/LOAD/{print $NF; exit}')
   [ "$A" = "0x4000" ] || { echo "FAIL: $(basename $so) LOAD align $A != 0x4000 (relink with -Wl,-z,max-page-size=16384)"; exit 1; }
+  # __android_log_* without liblog in NEEDED = dlopen dies on device (v4.13.4 incident)
+  if $RE16 --dyn-syms -u "$so" | grep -q __android_log && ! $RE16 -d "$so" | grep -q 'liblog.so'; then
+    echo "FAIL: $(basename $so) uses __android_log_* but does not link liblog (-llog)"; exit 1
+  fi
 done
 
 $BT/zipalign -f -p 16 build/base.apk build/aligned.apk
