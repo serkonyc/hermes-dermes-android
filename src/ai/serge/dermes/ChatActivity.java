@@ -29,9 +29,10 @@ import java.util.ArrayList;
 public class ChatActivity extends Activity {
 
     private static boolean nativeLoaded;
+    private static String nativeError = "";
     static {
         try { System.loadLibrary("dermesllm"); nativeLoaded = true; }
-        catch (Throwable t) { nativeLoaded = false; }
+        catch (Throwable t) { nativeLoaded = false; nativeError = String.valueOf(t.getMessage()); }
     }
 
     private static native long nativeLoad(String path, int nCtx, int nThreads);
@@ -60,7 +61,9 @@ public class ChatActivity extends Activity {
         HistoryActivity.accumulate(this, 1, 0);
 
         if (!nativeLoaded) {
-            setContentView(UI.footer(this, "native runtime failed to load — reinstall the app"));
+            TextView tv = (TextView) UI.footer(this, "runtime load failed:\n" + nativeError);
+            tv.setPadding(dp(24), dp(80), dp(24), 0);
+            setContentView(tv);
             return;
         }
 

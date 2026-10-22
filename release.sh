@@ -27,7 +27,16 @@ cp ~/.hermes/work/llama.cpp/build-arm64/bin/libllama.so ~/.hermes/work/llama.cpp
 cp jni/libdermesllm.so build/lib/arm64-v8a/
 $HOME/.hermes/work/android-sdk/ndk/27.2.12479018/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-strip build/lib/arm64-v8a/*.so
 ( cd build && zip -q -0 -r base.apk lib )
-$BT/zipalign -f -p 4 build/base.apk build/aligned.apk
+
+# Gate: every .so must be 16KB page-aligned (Fold-class Android 15+ devices run 16KB
+# pages; the loader rejects 4KB-aligned libraries -> "native runtime failed to load").
+RE16=$HOME/.hermes/work/android-sdk/ndk/27.2.12479018/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-readelf
+for so in build/lib/arm64-v8a/*.so; do
+  A=$($RE16 -l "$so" | awk '/LOAD/{print $NF; exit}')
+  [ "$A" = "0x4000" ] || { echo "FAIL: $(basename $so) LOAD align $A != 0x4000 (relink with -Wl,-z,max-page-size=16384)"; exit 1; }
+done
+
+$BT/zipalign -f -p 16 build/base.apk build/aligned.apk
 $BT/apksigner sign --ks monitor.keystore --ks-pass pass:dermes --ks-key-alias dermes --v1-signing-enabled true --v2-signing-enabled true --out dermes.apk build/aligned.apk
 
 # Gate 1: signature valid, signer key stable (key rotation on an installed app = uninstall).
