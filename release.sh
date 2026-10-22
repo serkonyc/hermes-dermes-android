@@ -21,7 +21,13 @@ $BT/aapt2 link -o build/base.apk -I "$AJ" --manifest AndroidManifest.xml build/r
 javac -nowarn --release 8 -cp "$AJ:ext-src/core.jar:ext-src/mpchart.jar" -d build/classes $(find build/gen -name '*.java') src/ai/serge/dermes/*.java
 $BT/d8 --release --lib "$AJ" --min-api 26 --output build/ $(find build/classes -name '*.class') ext-src/core.jar ext-src/mpchart.jar
 cd build && zip -q base.apk classes.dex && cd .. && zip -q -r build/base.apk assets   # WebView game ships in assets/web
-$BT/zipalign -f 4 build/base.apk build/aligned.apk
+# native LLM runtime: llama.cpp + JNI bridge, stored uncompressed + page-aligned for direct mmap
+mkdir -p build/lib/arm64-v8a
+cp ~/.hermes/work/llama.cpp/build-arm64/bin/libllama.so ~/.hermes/work/llama.cpp/build-arm64/bin/libggml*.so build/lib/arm64-v8a/
+cp jni/libdermesllm.so build/lib/arm64-v8a/
+$HOME/.hermes/work/android-sdk/ndk/27.2.12479018/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-strip build/lib/arm64-v8a/*.so
+( cd build && zip -q -0 -r base.apk lib )
+$BT/zipalign -f -p 4 build/base.apk build/aligned.apk
 $BT/apksigner sign --ks monitor.keystore --ks-pass pass:dermes --ks-key-alias dermes --v1-signing-enabled true --v2-signing-enabled true --out dermes.apk build/aligned.apk
 
 # Gate 1: signature valid, signer key stable (key rotation on an installed app = uninstall).

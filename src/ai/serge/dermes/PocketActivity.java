@@ -3,6 +3,7 @@ package ai.serge.dermes;
 import android.app.Activity;
 import android.app.DownloadManager;
 import android.content.Context;
+import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
@@ -33,24 +34,22 @@ public class PocketActivity extends Activity {
         }
     }
 
-    // Verified 2026-10-21 via HEAD (HTTP 200, content-length as listed).
+    // Verified 2026-10-22 via HEAD (HTTP 200, content-length as listed).
+    // Winner-first: LFM2.5-8B-A1B tops small-model benchmarks (stronger than 4B dense
+    // on MMLU/GPQA/IFEval, 2.4x faster on phones, only 1.5B active params).
     private static final Model[] CATALOG = {
+        new Model("LFM2.5-8B-A1B", "Q4_K_M", 5_155_564_768L,
+                "best on this phone — chat runs in-app, unloads when idle",
+                "https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF/resolve/main/LFM2.5-8B-A1B-Q4_K_M.gguf",
+                "LFM2.5-8B-A1B-Q4_K_M.gguf"),
+        new Model("Qwen3-4B-Instruct-2507", "Q4_K_M", 2_497_280_736L,
+                "lighter fallback; strong multilingual",
+                "https://huggingface.co/bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+                "Qwen3-4B-Instruct-Q4_K_M.gguf"),
         new Model("LFM2.5-1.2B-Instruct", "Q4_K_M", 730_895_168L,
-                "fastest on phones — snappy offline chat",
+                "instant answers, tiny footprint",
                 "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/resolve/main/LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
                 "LFM2.5-1.2B-Q4_K_M.gguf"),
-        new Model("Qwen3-1.7B", "Q4_K_M", 1_282_439_264L,
-                "best small reasoner; thinking mode on/off",
-                "https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf",
-                "Qwen3-1.7B-Q4_K_M.gguf"),
-        new Model("Llama-3.2-3B-Instruct", "Q4_0", 1_921_909_280L,
-                "strongest all-rounder if 3B fits",
-                "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_0.gguf",
-                "Llama-3.2-3B-Q4_0.gguf"),
-        new Model("Gemma-3n-E2B-it", "Q8_0", 4_788_112_064L,
-                "heavyweight; only if you have the storage",
-                "https://huggingface.co/ggml-org/gemma-3n-E2B-it-GGUF/resolve/main/gemma-3n-E2B-it-Q8_0.gguf",
-                "gemma-3n-E2B-Q8_0.gguf"),
     };
 
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -124,7 +123,13 @@ public class PocketActivity extends Activity {
         // resume/announce an existing partial or finished file right away
         File f = modelFile(m);
         if (f.exists() && f.length() == m.bytes) {
-            prog.setText("in storage ✓ — wave 2 adds one-tap run");
+            prog.setText("in storage ✓");
+            android.widget.Button chat = new android.widget.Button(this);
+            chat.setText("Chat now");
+            chat.setOnClickListener(v -> startActivity(
+                    new Intent(this, ChatActivity.class)));
+            c.addView(t); c.addView(s); c.addView(prog); c.addView(chat); c.addView(dl);
+            return c;
         } else if (f.exists()) {
             prog.setText(String.format(Locale.US, "partial %.0f%% — tap Download to resume",
                     f.length() * 100.0 / m.bytes));
