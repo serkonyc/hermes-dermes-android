@@ -37,8 +37,22 @@ public final class UI {
         GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{SURFACE_HI, SURFACE});
         g.setCornerRadius(dp(c, radiusDp));
-        g.setStroke(dp(c, 1), STROKE);
+        // no stroke — separation comes from the gradient + elevation shadow (v4.13 smooth look)
         return g;
+    }
+
+    /** Smooth pill button: filled accent or subtle surface, no system chrome (v4.13). */
+    public static void styleButton(android.widget.Button b, Context c, boolean filled) {
+        GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                filled ? new int[]{0xFF8FB2F7, 0xFF6E97E8} : new int[]{SURFACE_HI, SURFACE});
+        g.setCornerRadius(dp(c, 14));
+        b.setBackground(g);
+        b.setTextColor(filled ? 0xFF0B1220 : TEXT_1);
+        b.setAllCaps(false);
+        b.setTypeface(android.graphics.Typeface.create("sans-serif-medium",
+                android.graphics.Typeface.NORMAL));
+        b.setStateListAnimator(null);
+        b.setElevation(dp(c, filled ? 3 : 1));
     }
 
     public static View headerRow(Context c, String title, String tagline) {

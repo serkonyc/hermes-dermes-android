@@ -69,8 +69,10 @@ public class DeviceActivity extends Activity {
 
         Button fetch = new Button(this);
         fetch.setText("Fetch llama.cpp runtime");
+        UI.styleButton(fetch, this, true);
         Button open = new Button(this);
         open.setText("Open model catalog (Hugging Face)");
+        UI.styleButton(open, this, false);
         open.setOnClickListener(v -> openUrl("https://huggingface.co/models?pipeline_tag=text-generation&sort=downloads"));
 
         fetch.setOnClickListener(v -> {

@@ -90,12 +90,13 @@ public class DermesActivity extends Activity {
         t.setOrientation(LinearLayout.HORIZONTAL);
         t.setGravity(Gravity.CENTER_VERTICAL);
         t.setBackground(UI.card(this, 22));
+        t.setElevation(UI.dp(this, 3));
         t.setPadding(UI.dp(this, 18), 0, UI.dp(this, 18), 0);
         t.setClickable(true);
 
                 android.widget.ImageView heroIcon = new android.widget.ImageView(this);
         heroIcon.setImageResource(R.mipmap.t_brain_icon);
-        heroIcon.setBackground(UI.card(this, 12));
+        heroIcon.setElevation(UI.dp(this, 4));
         t.addView(heroIcon, new LinearLayout.LayoutParams(UI.dp(this, 54), UI.dp(this, 54)));
         LinearLayout txt = new LinearLayout(this);
         txt.setOrientation(LinearLayout.VERTICAL);
@@ -156,6 +157,7 @@ public class DermesActivity extends Activity {
         t.setOrientation(LinearLayout.VERTICAL);
         t.setGravity(Gravity.BOTTOM);
         t.setBackground(UI.card(this, 22));
+        t.setElevation(UI.dp(this, 3));
         t.setPadding(UI.dp(this, 16), 0, UI.dp(this, 16), UI.dp(this, 14));
         t.setClickable(true);
 

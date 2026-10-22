@@ -50,6 +50,7 @@ public class CapsuleActivity extends Activity {
 
         Button seal = new Button(this);
         seal.setText("Seal capsule");
+        UI.styleButton(seal, this, true);
         seal.setOnClickListener(v -> seal(when));
 
         list = new LinearLayout(this);
@@ -109,6 +110,7 @@ public class CapsuleActivity extends Activity {
         b.setText(t); b.setMinWidth(0); b.setMinHeight(0);
         b.setPadding(dp(14), dp(6), dp(14), dp(6));
         b.setTextSize(12f);
+        UI.styleButton(b, this, false);
         b.setOnClickListener(v -> r.run());
         return b;
     }

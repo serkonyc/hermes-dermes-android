@@ -82,6 +82,7 @@ public class ChatActivity extends Activity {
 
         send = new Button(this);
         send.setText("Send");
+        UI.styleButton(send, this, true);
         send.setOnClickListener(v -> onSend());
 
         LinearLayout row = new LinearLayout(this);
