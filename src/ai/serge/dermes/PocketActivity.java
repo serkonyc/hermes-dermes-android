@@ -44,6 +44,7 @@ public class PocketActivity extends Activity {
 
     private final Handler ui = new Handler(Looper.getMainLooper());
     private TextView prog;
+    private android.widget.ProgressBar bar;
     private android.widget.Button actionBtn, dlBtn;
     private boolean autoStarted;
 
@@ -52,8 +53,13 @@ public class PocketActivity extends Activity {
         HistoryActivity.accumulate(this, 1, 0); // one visit = one history unit
 
         prog = new TextView(this);
-        prog.setTextSize(11.5f); prog.setTextColor(UI.ACCENT);
-        prog.setPadding(dp(16), dp(6), dp(16), dp(6));
+        prog.setTextSize(12.5f); prog.setTextColor(UI.TEXT_1);
+
+        bar = new android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        bar.setMax(1000);
+        bar.setProgressTintList(android.content.res.ColorStateList.valueOf(UI.ACCENT));
+        bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(UI.SURFACE_HI));
+        bar.setVisibility(View.GONE);
 
         actionBtn = new android.widget.Button(this);
         UI.styleButton(actionBtn, this, true);
@@ -63,13 +69,14 @@ public class PocketActivity extends Activity {
         dlBtn.setVisibility(View.GONE);
         dlBtn.setOnClickListener(v -> startDownload(dlBtn));
 
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(16), 0, dp(16), dp(12));
+        LinearLayout root = UI.screen(this);
         root.addView(UI.headerRow(this, "Neuro Chat", "one model · on-device · nothing leaves the phone"));
         root.addView(prog);
-        root.addView(actionBtn);
-        root.addView(dlBtn);
+        root.addView(bar, UI.block(this, 12));
+        root.addView(actionBtn, UI.block(this, 16));
+        root.addView(dlBtn, UI.block(this, 8));
+        root.addView(UI.footer(this, "v" + UI.version(this) + " · model lives in app storage and survives updates"),
+                UI.block(this, 24));
         setContentView(root);
     }
 
@@ -94,6 +101,7 @@ public class PocketActivity extends Activity {
             actionBtn.setText("Chat");
             actionBtn.setOnClickListener(v -> startActivity(new Intent(this, ChatActivity.class)));
             prog.setText("model in storage ✓ — offline chat, unloads from RAM when idle");
+            bar.setVisibility(View.GONE);
             dlBtn.setVisibility(View.VISIBLE);
         } else {
             actionBtn.setText("Download model");
@@ -101,6 +109,9 @@ public class PocketActivity extends Activity {
             if (f.exists()) {
                 prog.setText(String.format(Locale.US, "paused at %.0f%% — tap to resume",
                         f.length() * 100.0 / MODEL.bytes));
+                bar.setVisibility(View.VISIBLE);
+                bar.setIndeterminate(false);
+                bar.setProgress((int) (f.length() * 1000 / MODEL.bytes));
             } else {
                 prog.setText(String.format(Locale.US,
                         "one-time download, %.1f GB. Works under your VPN, resumes if interrupted; "
@@ -138,8 +149,11 @@ public class PocketActivity extends Activity {
             final long id = dm.enqueue(r);
             btn.setText("downloading…");
             btn.setEnabled(false);
+            bar.setVisibility(View.VISIBLE);
+            bar.setIndeterminate(true);
             pollProgress(dm, id, out, btn);
         } catch (Exception e) {
+            bar.setVisibility(View.GONE);
             prog.setText("download failed: " + e.getMessage());
         }
     }
@@ -162,9 +176,12 @@ public class PocketActivity extends Activity {
                             int st = cur.getInt(cur.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
                             if (st == DownloadManager.STATUS_RUNNING) {
                                 long got = cur.getLong(cur.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+                                bar.setIndeterminate(false);
+                                bar.setProgress((int) (got * 1000 / MODEL.bytes));
                                 prog.setText(String.format(Locale.US, "%.0f%% of %.1f GB",
                                         got * 100.0 / MODEL.bytes, MODEL.bytes / 1e9));
                             } else if (st == DownloadManager.STATUS_FAILED) {
+                                bar.setVisibility(View.GONE);
                                 prog.setText("failed — tap to retry");
                                 btn.setText("Download model");
                                 btn.setEnabled(true);

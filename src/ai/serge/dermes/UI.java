@@ -84,6 +84,29 @@ public final class UI {
         return root;
     }
 
+    public static String version(Context c) {
+        try { return c.getPackageManager().getPackageInfo(c.getPackageName(), 0).versionName; }
+        catch (Exception e) { return "?"; }
+    }
+
+    /** Thin centered footer line, pinned at the bottom of every screen (v4.13.1). */
+    public static View footer(Context c, String text) {
+        TextView t = new TextView(c);
+        t.setText(text);
+        t.setTextSize(11f);
+        t.setTextColor(TEXT_2);
+        t.setGravity(android.view.Gravity.CENTER);
+        t.setPadding(0, dp(c, 10), 0, dp(c, 4));
+        return t;
+    }
+
+    /** Full-width block with a top gap on the 8dp grid — standard addView spacing. */
+    public static LinearLayout.LayoutParams block(Context c, float topDp) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.topMargin = dp(c, topDp);
+        return lp;
+    }
+
     /** Icon inside a tinted soft square — the tile signature look. */
     public static View iconChip(Context c, int iconRes, int tint, int boxDp, int iconDp) {
         android.widget.ImageView iv = new android.widget.ImageView(c);

@@ -108,18 +108,14 @@ public class DeviceActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(0xFF12141A);
         root.setFitsSystemWindows(true);
+        root.setPadding(dp(20), dp(8), dp(20), dp(10));
         ScrollView sc = new ScrollView(this);
         sc.addView(info);
         root.addView(sc, new LinearLayout.LayoutParams(-1, 0, 1f));
-        root.addView(fetch);
-        root.addView(open);
-        TextView title = new TextView(this);
-        title.setText("Device intel");
-        title.setTextSize(16f);
-        title.setTextColor(0xFFFFFFFF);
-        title.setGravity(Gravity.CENTER);
-        title.setPadding(0, dp(12), 0, dp(4));
-        root.addView(title, 0);
+        root.addView(fetch, UI.block(this, 12));
+        root.addView(open, UI.block(this, 8));
+        root.addView(UI.footer(this, "v" + UI.version(this)), UI.block(this, 16));
+        root.addView(UI.headerRow(this, "Device", "RAM, storage and runtime"), 0);
         setContentView(root);
 
     }

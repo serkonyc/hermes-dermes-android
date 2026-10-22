@@ -5,6 +5,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -28,17 +29,9 @@ public class HistoryActivity extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF12141A);
-        root.setFitsSystemWindows(true);
+        LinearLayout root = UI.screen(this);
 
-        TextView title = new TextView(this);
-        title.setText("App activity · last 7 days");
-        title.setTextSize(16f);
-        title.setTextColor(0xFFFFFFFF);
-        title.setGravity(Gravity.CENTER);
-        title.setPadding(0, dp(12), 0, dp(4));
+        View title = UI.headerRow(this, "History", "requests and tokens · last 7 days");
 
         BarsView reqBars = new BarsView(this, "requests", false);
         BarsView tokBars = new BarsView(this, "tokens", true);
@@ -59,6 +52,7 @@ public class HistoryActivity extends Activity {
         root.addView(reqBars, new LinearLayout.LayoutParams(-1, 0, 1f));
         root.addView(tokBars, new LinearLayout.LayoutParams(-1, 0, 1f));
         root.addView(note);
+        root.addView(UI.footer(this, "v" + UI.version(this)));
         setContentView(root);
     }
 

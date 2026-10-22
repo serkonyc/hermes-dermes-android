@@ -50,8 +50,11 @@ public class DigestActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(UI.BG);
         root.setFitsSystemWindows(true);
+        root.setPadding(dp(20), dp(8), dp(20), dp(10));
         root.addView(header);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
+        root.addView(UI.footer(this, "v" + UI.version(this)));
+        root.addView(UI.headerRow(this, "Digest", "morning brief · on-device"), 0);
         setContentView(root);
 
         render(getCache(), true);

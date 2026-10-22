@@ -94,6 +94,9 @@ public class ChatActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(UI.BG);
+        root.setFitsSystemWindows(true);
+        root.setPadding(dp(16), dp(6), dp(16), 0);
         root.addView(UI.headerRow(this, "Neuro Chat", "on-device · nothing leaves the phone"));
         root.addView(banner);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));

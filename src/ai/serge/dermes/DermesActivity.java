@@ -82,6 +82,7 @@ public class DermesActivity extends Activity {
         status.setPadding(0, UI.dp(this, 12), 0, 0);
         status.setText("checking for updates…");
         root.addView(status);
+        root.addView(UI.footer(this, "v" + UI.version(this)));
         return root;
     }
 

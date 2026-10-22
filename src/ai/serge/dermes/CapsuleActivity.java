@@ -61,7 +61,7 @@ public class CapsuleActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.addView(title("Time Capsules"));
+        root.addView(UI.headerRow(this, "Time Capsules", "sealed notes that unlock later"));
         root.addView(sc, new LinearLayout.LayoutParams(-1, 0, 1f));
         root.addView(labelIn);
         root.addView(bodyIn);
@@ -75,19 +75,13 @@ public class CapsuleActivity extends Activity {
         row.addView(plus1h); row.addView(plus1d); row.addView(reset);
         root.addView(row);
         root.addView(seal);
-        root.setPadding(0, dp(6), 0, 0);
+        root.addView(UI.footer(this, "v" + UI.version(this)), UI.block(this, 16));
+        root.setBackgroundColor(UI.BG);
+        root.setPadding(dp(20), dp(8), dp(20), dp(10));
         root.setFitsSystemWindows(true);
         setContentView(root);
 
         render();
-    }
-
-    private TextView title(String t) {
-        TextView v = new TextView(this);
-        v.setText(t); v.setTextSize(24f); v.setTextColor(UI.TEXT_0);
-        v.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
-        v.setGravity(Gravity.CENTER); v.setPadding(0, dp(10), 0, dp(4));
-        return v;
     }
 
     private EditText field(String hint, boolean multiline) {
