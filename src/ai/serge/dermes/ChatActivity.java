@@ -170,8 +170,8 @@ public class ChatActivity extends Activity {
             ui.post(() -> {
                 state = h != 0 ? 2 : 0; // if a trim/pause unload slipped in, stay unloaded
                 send.setText("Send");
-                if (pending != null) pending.setText(r == null ? "⚠ generate failed" : r);
-                hist.add(new String[]{"assistant", r == null ? "" : r});
+                if (pending != null) pending.setText(r == null ? "⚠ generate failed" : stripThink(r));
+                hist.add(new String[]{"assistant", r == null ? "" : stripThink(r)});
                 pending = null;
                 scheduleUnload(UNLOAD_IDLE_MS);
                 scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
@@ -183,9 +183,28 @@ public class ChatActivity extends Activity {
     @SuppressWarnings("unused")
     private void onToken(String partial) {
         ui.post(() -> {
-            if (pending != null) { pending.setText(partial);
+            if (pending != null) { pending.setText(showStreaming(partial));
                 scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN)); }
         });
+    }
+
+    /** LFM2.5 emits its chain of thought in <think>/<|im_start|> blocks - never shown raw. */
+    static String stripThink(String s) {
+        if (s == null) return "";
+        String r = s.replaceAll("(?is)<[^>/]*think[^>/]*>.*?<[^>]*?/[^>]*think[^>]*>", "");
+        r = r.replaceAll("(?is)</?[^>]*think[^>]*>", "");
+        return r.trim();
+    }
+
+    /** Live stream view: while the open think block is unfinished, show a status line. */
+    static String showStreaming(String partial) {
+        String done = stripThink(partial);
+        int open = partial.toLowerCase().lastIndexOf("think");
+        boolean insideThink = open >= 0
+                && partial.lastIndexOf('>', open) >= 0
+                && partial.toLowerCase().indexOf("/think", open) < 0;
+        if (insideThink && done.isEmpty()) return "…thinking";
+        return done;
     }
 
     // ---------- memory lifecycle ----------
