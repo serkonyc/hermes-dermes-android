@@ -12,7 +12,6 @@ import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.io.File;
@@ -34,143 +33,123 @@ public class PocketActivity extends Activity {
         }
     }
 
-    // Verified 2026-10-22 via HEAD (HTTP 200, content-length as listed).
-    // Winner-first: LFM2.5-8B-A1B tops small-model benchmarks (stronger than 4B dense
-    // on MMLU/GPQA/IFEval, 2.4x faster on phones, only 1.5B active params).
-    private static final Model[] CATALOG = {
+    // Verified 2026-10-22 via HEAD (HTTP 200 + content-length).
+    // Single model chosen by benchmarks (MMLU/GPQA/IFEval winner vs 4B dense; 1.5B active
+    // params, 2.4x faster on phones). The whole screen revolves around this one file.
+    private static final Model MODEL =
         new Model("LFM2.5-8B-A1B", "Q4_K_M", 5_155_564_768L,
-                "best on this phone — chat runs in-app, unloads when idle",
+                "the on-device brain — downloads once, then chats offline",
                 "https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF/resolve/main/LFM2.5-8B-A1B-Q4_K_M.gguf",
-                "LFM2.5-8B-A1B-Q4_K_M.gguf"),
-        new Model("Qwen3-4B-Instruct-2507", "Q4_K_M", 2_497_280_736L,
-                "lighter fallback; strong multilingual",
-                "https://huggingface.co/bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
-                "Qwen3-4B-Instruct-Q4_K_M.gguf"),
-        new Model("LFM2.5-1.2B-Instruct", "Q4_K_M", 730_895_168L,
-                "instant answers, tiny footprint",
-                "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/resolve/main/LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
-                "LFM2.5-1.2B-Q4_K_M.gguf"),
-    };
+                "LFM2.5-8B-A1B-Q4_K_M.gguf");
 
     private final Handler ui = new Handler(Looper.getMainLooper());
-    private TextView statusLine;
+    private TextView prog;
+    private android.widget.Button actionBtn, dlBtn;
+    private boolean autoStarted;
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         HistoryActivity.accumulate(this, 1, 0); // one visit = one history unit
 
-        long free = getExternalFilesDir(null).getUsableSpace();
-        long ram = ramBytes();
+        prog = new TextView(this);
+        prog.setTextSize(11.5f); prog.setTextColor(UI.ACCENT);
+        prog.setPadding(dp(16), dp(6), dp(16), dp(6));
 
-        statusLine = new TextView(this);
-        statusLine.setTextSize(11f);
-        statusLine.setTextColor(UI.TEXT_1);
-        statusLine.setPadding(dp(16), dp(6), dp(16), dp(6));
-        statusLine.setText(String.format(Locale.US,
-                "free %.1f GB · RAM %.0f GB — models below the line in green fit with room.\n" +
-                "Tap Download; the system handles the transfer (works under your VPN).",
-                free / 1e9, ram / 1e9));
-
-        ScrollView sc = new ScrollView(this);
-        LinearLayout list = new LinearLayout(this);
-        list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(dp(14), 0, dp(14), dp(10));
-        int i = 0;
-        for (Model m : CATALOG) {
-            View card = card(m, free);
-            UI.animateIn(card, 60 + i++ * 70L);
-            list.addView(card);
-        }
-        sc.addView(list);
-
-        View head = UI.headerRow(this, "Pocket Brain", "offline models for this phone");
+        actionBtn = new android.widget.Button(this);
+        dlBtn = new android.widget.Button(this);
+        dlBtn.setText("Re-download");
+        dlBtn.setVisibility(View.GONE);
+        dlBtn.setOnClickListener(v -> startDownload(dlBtn));
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.addView(head);
-        root.addView(statusLine);
-        root.addView(sc, new LinearLayout.LayoutParams(-1, 0, 1f));
+        root.setPadding(dp(16), 0, dp(16), dp(12));
+        root.addView(UI.headerRow(this, "Neuro Chat", "one model · on-device · nothing leaves the phone"));
+        root.addView(prog);
+        root.addView(actionBtn);
+        root.addView(dlBtn);
         setContentView(root);
     }
 
-    private View card(final Model m, long free) {
-        LinearLayout c = new LinearLayout(this);
-        c.setOrientation(LinearLayout.VERTICAL);
-        c.setBackground(UI.card(this, 20));
-        c.setPadding(dp(14), dp(10), dp(14), dp(12));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-        lp.bottomMargin = dp(10);
-        c.setLayoutParams(lp);
-
-        TextView t = new TextView(this);
-        t.setText(m.name + " · " + m.quant);
-        t.setTextSize(15f); t.setTextColor(0xFFFFFFFF);
-        TextView s = new TextView(this);
-        s.setText(String.format(Locale.US, "%.1f GB · %s", m.bytes / 1e9, m.blurb));
-        if (m.bytes >= free * 0.6) {
-            s.setTextColor(0xFFE0B341);   // warn token: tight fit
+    @Override protected void onResume() {
+        super.onResume();
+        refreshState();
+        // auto-start the one-time download on first visit (only if nothing runs yet)
+        if (!autoStarted) {
+            autoStarted = true;
+            File f = modelFile();
+            if (!f.exists() && !downloadActive() &&
+                    getExternalFilesDir(null).getUsableSpace() > MODEL.bytes + 2_000_000_000L) {
+                startDownload(actionBtn);
+            }
         }
-        s.setTextSize(11f); s.setTextColor(0xFF8B949E);
-
-        final TextView prog = new TextView(this);
-        prog.setTextSize(11.5f); prog.setTextColor(UI.ACCENT);
-        prog.setPadding(0, dp(6), 0, 0);
-
-        android.widget.Button dl = new android.widget.Button(this);
-        dl.setText("Download");
-        dl.setOnClickListener(v -> startDownload(m, prog, dl));
-
-        // resume/announce an existing partial or finished file right away
-        File f = modelFile(m);
-        if (f.exists() && f.length() == m.bytes) {
-            prog.setText("in storage ✓");
-            android.widget.Button chat = new android.widget.Button(this);
-            chat.setText("Chat now");
-            chat.setOnClickListener(v -> startActivity(
-                    new Intent(this, ChatActivity.class)));
-            c.addView(t); c.addView(s); c.addView(prog); c.addView(chat); c.addView(dl);
-            return c;
-        } else if (f.exists()) {
-            prog.setText(String.format(Locale.US, "partial %.0f%% — tap Download to resume",
-                    f.length() * 100.0 / m.bytes));
-        }
-
-        c.addView(t); c.addView(s); c.addView(prog); c.addView(dl);
-        return c;
     }
 
-    private File modelFile(Model m) {
+    /** Single source of truth for the screen: not-ready -> Download; ready -> Chat. */
+    private void refreshState() {
+        File f = modelFile();
+        if (f.exists() && f.length() == MODEL.bytes) {
+            actionBtn.setText("Chat");
+            actionBtn.setOnClickListener(v -> startActivity(new Intent(this, ChatActivity.class)));
+            prog.setText("model in storage ✓ — offline chat, unloads from RAM when idle");
+            dlBtn.setVisibility(View.VISIBLE);
+        } else {
+            actionBtn.setText("Download model");
+            actionBtn.setOnClickListener(v -> startDownload(actionBtn));
+            if (f.exists()) {
+                prog.setText(String.format(Locale.US, "paused at %.0f%% — tap to resume",
+                        f.length() * 100.0 / MODEL.bytes));
+            } else {
+                prog.setText(String.format(Locale.US,
+                        "one-time download, %.1f GB. Works under your VPN, resumes if interrupted; "
+                        + "afterwards the chat is fully offline.", MODEL.bytes / 1e9));
+            }
+            dlBtn.setVisibility(View.GONE);
+        }
+    }
+
+    private boolean downloadActive() {
+        DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+        DownloadManager.Query q = new DownloadManager.Query()
+                .setFilterByStatus(DownloadManager.STATUS_RUNNING | DownloadManager.STATUS_PENDING);
+        Cursor cur = dm.query(q);
+        try { return cur != null && cur.moveToFirst()
+                && cur.getString(cur.getColumnIndexOrThrow(DownloadManager.COLUMN_URI)).contains("LFM2.5"); }
+        finally { if (cur != null) cur.close(); }
+    }
+
+    private File modelFile() {
         File dir = new File(getExternalFilesDir(null), "models");
         dir.mkdirs();
-        return new File(dir, m.file);
+        return new File(dir, MODEL.file);
     }
 
-    private void startDownload(final Model m, final TextView prog, android.widget.Button btn) {
-        File out = modelFile(m);
+    private void startDownload(android.widget.Button btn) {
+        File out = modelFile();
         try {
             DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
-            DownloadManager.Request r = new DownloadManager.Request(Uri.parse(m.url));
+            DownloadManager.Request r = new DownloadManager.Request(Uri.parse(MODEL.url));
             r.setDestinationUri(Uri.fromFile(out));
-            r.setTitle(m.name);
-            r.setDescription(m.quant);
+            r.setTitle(MODEL.name);
+            r.setDescription(MODEL.quant);
             r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION);
             final long id = dm.enqueue(r);
             btn.setText("downloading…");
-            pollProgress(dm, id, out, m, prog, btn);
+            btn.setEnabled(false);
+            pollProgress(dm, id, out, btn);
         } catch (Exception e) {
             prog.setText("download failed: " + e.getMessage());
         }
     }
 
     private void pollProgress(final DownloadManager dm, final long id, final File out,
-                              final Model m, final TextView prog, final android.widget.Button btn) {
+                              final android.widget.Button btn) {
         ui.postDelayed(new Runnable() {
             @Override public void run() {
                 if (isDestroyed()) return;
-                if (out.exists() && out.length() == m.bytes) {
-                    prog.setText("downloaded ✓ (sha checked on first run) — one-tap run in wave 2");
-                    btn.setText("installed");
-                    btn.setEnabled(false);
+                if (out.exists() && out.length() == MODEL.bytes) {
+                    btn.setEnabled(true);
+                    refreshState();
                     return;
                 }
                 DownloadManager.Query q = new DownloadManager.Query().setFilterById(id);
@@ -182,10 +161,11 @@ public class PocketActivity extends Activity {
                             if (st == DownloadManager.STATUS_RUNNING) {
                                 long got = cur.getLong(cur.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
                                 prog.setText(String.format(Locale.US, "%.0f%% of %.1f GB",
-                                        got * 100.0 / m.bytes, m.bytes / 1e9));
+                                        got * 100.0 / MODEL.bytes, MODEL.bytes / 1e9));
                             } else if (st == DownloadManager.STATUS_FAILED) {
-                                prog.setText("failed — tap Download to retry");
-                                btn.setText("Download");
+                                prog.setText("failed — tap to retry");
+                                btn.setText("Download model");
+                                btn.setEnabled(true);
                                 return;
                             }
                         }
@@ -194,13 +174,6 @@ public class PocketActivity extends Activity {
                 ui.postDelayed(this, 1500);
             }
         }, 800);
-    }
-
-    private long ramBytes() {
-        android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
-        android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo();
-        am.getMemoryInfo(mi);
-        return mi.totalMem;
     }
 
     private int dp(float v) { return Math.round(v * getResources().getDisplayMetrics().density); }
