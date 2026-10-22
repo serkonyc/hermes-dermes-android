@@ -65,7 +65,7 @@ public class DeviceActivity extends Activity {
         info.setText(sb);
         info.setTextSize(13f);
         info.setTextColor(0xFFC9D1D9);
-        info.setPadding(dp(18), dp(14), dp(18), dp(8));
+        info.setPadding(UI.space18(this), UI.space14(this), UI.space18(this), UI.space8(this));
 
         Button fetch = new Button(this);
         fetch.setText("Fetch llama.cpp runtime");
@@ -108,7 +108,7 @@ public class DeviceActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(0xFF12141A);
         root.setFitsSystemWindows(true);
-        root.setPadding(dp(20), dp(8), dp(20), dp(10));
+        root.setPadding(UI.space20(this), UI.space8(this), UI.space20(this), UI.space10(this));
         ScrollView sc = new ScrollView(this);
         sc.addView(info);
         root.addView(sc, new LinearLayout.LayoutParams(-1, 0, 1f));

@@ -56,9 +56,13 @@ public final class UI {
     // ========== Spacing tokens (8dp grid) ==========
     // MD3 spacing: space4, space8, space12, space16, space20, space24, space32
     public static int space4(Context c)  { return dp(c, 4); }
+    public static int space6(Context c)  { return dp(c, 6); }
     public static int space8(Context c)  { return dp(c, 8); }
+    public static int space10(Context c) { return dp(c, 10); }
     public static int space12(Context c) { return dp(c, 12); }
+    public static int space14(Context c) { return dp(c, 14); }
     public static int space16(Context c) { return dp(c, 16); }
+    public static int space18(Context c) { return dp(c, 18); }
     public static int space20(Context c) { return dp(c, 20); }
     public static int space24(Context c) { return dp(c, 24); }
     public static int space32(Context c) { return dp(c, 32); }

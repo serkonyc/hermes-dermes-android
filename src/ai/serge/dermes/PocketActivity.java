@@ -58,7 +58,7 @@ public class PocketActivity extends Activity {
         bar = new android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         bar.setMax(1000);
         bar.setProgressTintList(android.content.res.ColorStateList.valueOf(UI.ACCENT));
-        bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(UI.SURFACE_HI));
+        bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(UI.SURFACE_CONTAINER));
         bar.setVisibility(View.GONE);
 
         actionBtn = new android.widget.Button(this);

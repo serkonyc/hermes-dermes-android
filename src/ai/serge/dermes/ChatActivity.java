@@ -28,7 +28,11 @@ import java.util.ArrayList;
  */
 public class ChatActivity extends Activity {
 
-    static { System.loadLibrary("dermesllm"); }
+    private static boolean nativeLoaded;
+    static {
+        try { System.loadLibrary("dermesllm"); nativeLoaded = true; }
+        catch (Throwable t) { nativeLoaded = false; }
+    }
 
     private static native long nativeLoad(String path, int nCtx, int nThreads);
     private static native void nativeFree(long h);
@@ -55,17 +59,22 @@ public class ChatActivity extends Activity {
         super.onCreate(b);
         HistoryActivity.accumulate(this, 1, 0);
 
+        if (!nativeLoaded) {
+            setContentView(UI.footer(this, "native runtime failed to load — reinstall the app"));
+            return;
+        }
+
         banner = new TextView(this);
         banner.setTextSize(11f);
         banner.setTextColor(UI.TEXT_2);
-        banner.setPadding(dp(16), dp(6), dp(16), dp(6));
+        banner.setPadding(UI.space16(this), UI.space6(this), UI.space16(this), UI.space6(this));
         banner.setText(modelFile() == null
                 ? "no model in storage — download one in Pocket Brain"
                 : "model unloads after 90s idle · CPU only · memory freed on close");
 
         msgs = new LinearLayout(this);
         msgs.setOrientation(LinearLayout.VERTICAL);
-        msgs.setPadding(dp(14), dp(4), dp(14), dp(4));
+        msgs.setPadding(UI.space14(this), UI.space4(this), UI.space14(this), UI.space4(this));
         scroll = new ScrollView(this);
         scroll.addView(msgs);
 
@@ -78,7 +87,7 @@ public class ChatActivity extends Activity {
         input.setSingleLine(false);
         input.setMaxLines(4);
         input.setBackground(UI.card(this, 14));
-        input.setPadding(dp(12), dp(10), dp(12), dp(10));
+        input.setPadding(UI.space12(this), UI.space10(this), UI.space12(this), UI.space10(this));
 
         send = new Button(this);
         send.setText("Send");

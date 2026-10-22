@@ -77,7 +77,7 @@ public class CapsuleActivity extends Activity {
         root.addView(seal);
         root.addView(UI.footer(this, "v" + UI.version(this)), UI.block(this, 16));
         root.setBackgroundColor(UI.BG);
-        root.setPadding(dp(20), dp(8), dp(20), dp(10));
+        root.setPadding(UI.space20(this), UI.space8(this), UI.space20(this), UI.space10(this));
         root.setFitsSystemWindows(true);
         setContentView(root);
 
@@ -156,7 +156,7 @@ public class CapsuleActivity extends Activity {
                 TextView t = new TextView(this);
                 t.setTextSize(13f);
                 t.setBackground(UI.card(CapsuleActivity.this, 18));
-                t.setPadding(dp(16), dp(12), dp(16), dp(14));
+                t.setPadding(UI.space16(this), UI.space12(this), UI.space16(this), UI.space14(this));
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
                 lp.bottomMargin = dp(8);
                 t.setLayoutParams(lp);
