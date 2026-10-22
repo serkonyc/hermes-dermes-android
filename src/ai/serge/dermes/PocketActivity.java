@@ -62,9 +62,9 @@ public class PocketActivity extends Activity {
         bar.setVisibility(View.GONE);
 
         actionBtn = new android.widget.Button(this);
-        UI.styleButton(actionBtn, this, true);
+        UI.buttonFilled(actionBtn, this);
         dlBtn = new android.widget.Button(this);
-        UI.styleButton(dlBtn, this, false);
+        UI.buttonTonal(dlBtn, this);
         dlBtn.setText("Re-download");
         dlBtn.setVisibility(View.GONE);
         dlBtn.setOnClickListener(v -> startDownload(dlBtn));
