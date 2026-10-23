@@ -158,7 +158,7 @@ public class DigestActivity extends Activity {
                     int kept = 0;
                     for (Item it : got) {
                         if (kept >= MAX_PER_SOURCE) break;
-                        if (relevant(it)) { merged.add(it); kept++; }
+                        if (relevant(it)) { it.cat = topicOf(it); merged.add(it); kept++; }
                     }
                 } catch (Exception ignored) {}
             }
