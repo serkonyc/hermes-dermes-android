@@ -49,7 +49,7 @@ scene.add(city); // instanceColor works WITHOUT vertexColors (missing attr -> bl
 // sidewalk curbs
 for(const s of[-1,1]){const c=box(.5,.3,320,M(0xCFC4AE));c.position.set(s*(LANE*1.5+.6),.15,-110);scene.add(c);}
 // ---------- player: running plunger (recognizable tool, not human) ----------
-const plungerHandle=M(0xB47734,.92), plungerKnob=M(0x8D5A28,.9), plungerCup=M(0x25252A,.72), plungerLip=M(0x111114,.85), plungerWood=M(0xD6A86A,.85);
+const plungerHandle=M(0xB47734,.92), plungerKnob=M(0x25252A,.72), plungerCup=M(0x25252A,.72), plungerLip=M(0x111114,.85), plungerWood=M(0xD6A86A,.85);
 const player=new THREE.Group(), rig=new THREE.Group(); player.add(rig); scene.add(player);
 function limb(w,h,m,pivotY){const p=new THREE.Group();const b=box(w,h,w,m);b.position.y=-h/2;p.add(b);p.position.y=pivotY;return p;}
 var armL,armR,legL,legR, plungerBody;
@@ -60,9 +60,9 @@ var armL,armR,legL,legR, plungerBody;
  const eyeR=eyeL.clone(); eyeR.position.x=.12; plungerBody.add(eyeR);
  const smile=new THREE.Mesh(new THREE.TorusGeometry(.1,.02,8,12,Math.PI),new THREE.MeshBasicMaterial({color:0xffffff})); smile.position.set(0,.28,.4); smile.rotation.z=Math.PI; plungerBody.add(smile);
  const cupInner=new THREE.Mesh(new THREE.CylinderGeometry(.27,.18,.12,22),plungerWood); cupInner.position.y=.5; plungerBody.add(cupInner);
- const stick=new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,1.15,16),plungerHandle); stick.position.y=1.16; plungerBody.add(stick);
- const knob=new THREE.Mesh(new THREE.SphereGeometry(.15,16,12),plungerKnob); knob.position.y=1.76; plungerBody.add(knob);
- const band=box(.24,.06,.08,plungerLip); band.position.set(0,1.2,.03); plungerBody.add(band);
+ const stick=new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,.62,16),plungerHandle); stick.position.y=.9; plungerBody.add(stick);
+ const knob=new THREE.Mesh(new THREE.SphereGeometry(.12,16,12),plungerKnob); knob.position.y=1.24; plungerBody.add(knob);
+ const band=box(.24,.06,.08,plungerLip); band.position.set(0,1.05,.03); plungerBody.add(band);
  armL=limb(.09,.28,plungerHandle,.72); armR=limb(.09,.28,plungerHandle,.72); armL.position.set(-.21,.42,.04); armR.position.set(.21,.42,.04);
  legL=limb(.13,.32,plungerHandle,.26); legR=limb(.13,.32,plungerHandle,.26); legL.position.set(-.13,.1,.04); legR.position.set(.13,.1,.04);
  rig.add(armL,armR,legL,legR);}

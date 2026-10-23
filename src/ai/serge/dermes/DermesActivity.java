@@ -53,7 +53,7 @@ public class DermesActivity extends Activity {
         list.addView(UI.row(this, R.drawable.ic_capsule, UI.VIOLET, "Капсулы", "from the future",
                 () -> startActivity(new android.content.Intent(this, CapsuleActivity.class))));
         list.addView(divider());
-        list.addView(UI.row(this, R.drawable.ic_runner, UI.TEAL, "Neon Runner", "tap. jump. repeat",
+        list.addView(UI.row(this, R.drawable.ic_runner, UI.TEAL, "Плунжер Ран", "tap. jump. repeat",
                 () -> startActivity(new android.content.Intent(this, RunnerActivity.class))));
         root.addView(list);
         UI.animateIn(list, 200);

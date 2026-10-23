@@ -100,7 +100,7 @@ public class PocketActivity extends Activity {
         list.addView(UI.row(this, R.drawable.ic_pulse, UI.TEAL, "Состояние устройства", "RAM, температура, runtime",
                 () -> startActivity(new Intent(this, DeviceActivity.class))));
         list.addView(toolsDivider());
-        list.addView(UI.row(this, R.drawable.ic_runner, UI.OK, "Neon Runner", "игра на движке чата",
+        list.addView(UI.row(this, R.drawable.ic_runner, UI.OK, "Плунжер Ран", "игра на движке чата",
                 () -> startActivity(new Intent(this, RunnerActivity.class))));
         content.addView(list, UI.block(this, 4));
         content.addView(UI.footer(this, "v" + UI.version(this) + " · model lives in app storage and survives updates"),
