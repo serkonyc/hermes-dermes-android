@@ -43,8 +43,19 @@ public class DigestActivity extends Activity {
         {"anthropic","https://www.anthropic.com/rss.xml"},
         {"google",   "https://blog.google/technology/ai/rss/"},
         {"mistral",  "https://mistral.ai/news/rss.xml"},
+        {"hf",       "https://huggingface.co/blog/feed.xml"},
+        {"deepmind", "https://deepmind.google/blog/rss.xml"},
+        {"salesforce","https://engineering.salesforce.com/feed"},
         {"hn",       "https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=8"},
     };
+    private static final int MAX_PER_SOURCE = 12;
+    /** Relevance gate: at least one keyword must appear in title+description, else dropped. */
+    private static final String[] KEYWORDS = {
+        "ai", "llm", "model", "gpt", "claude", "gemini", "agent", "salesforce", "crm",
+        "machine learning", "neural", "inference", "gpu", "open source model", "fine-tun",
+        "rag", "embedding", "copilot", "chatgpt", "transformer", "apex", "lwc", "flow",
+    };
+    private static final String[] BLOCKED = { "tax", "visa", "immigration", "recipe", "sports", "election" };
     private static final String PREFS = "digest";
     private final java.util.concurrent.ExecutorService pool =
             java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -56,7 +67,7 @@ public class DigestActivity extends Activity {
     private boolean showAll = true;
 
     private LinearLayout list, chipsRow;
-    private TextView header, summaryBox, countLabel;
+    private TextView header, countLabel;
     private EditText search;
 
     static final class Item { String tag, cat, title, summary, url; boolean expanded;
@@ -72,13 +83,6 @@ public class DigestActivity extends Activity {
         header.setGravity(Gravity.CENTER);
         header.setPadding(0, dp(6), 0, dp(6));
         header.setText("digest · updating…");
-
-        summaryBox = new TextView(this);
-        UI.bodyMedium(summaryBox);
-        summaryBox.setTextColor(UI.TEXT_1);
-        summaryBox.setPadding(UI.space16(this), UI.space12(this), UI.space16(this), UI.space12(this));
-        summaryBox.setBackground(UI.card(this, 18));
-        summaryBox.setVisibility(View.GONE);
 
         search = new EditText(this);
         search.setHint("поиск по заголовкам и описаниям…");
@@ -113,7 +117,6 @@ public class DigestActivity extends Activity {
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         col.setPadding(UI.space16(this), 0, UI.space16(this), UI.space16(this));
-        col.addView(summaryBox);
         col.addView(search);
         col.addView(chipsScroll);
         col.addView(countLabel);
@@ -128,9 +131,6 @@ public class DigestActivity extends Activity {
         content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
         content.addView(UI.footer(this, "v" + UI.version(this)));
         setContentView(Shell.wrap(this, -1, "Digest", "новости по категориям · поиск · фильтры", content, false, this::finish));
-
-        String cachedSummary = getPrefs().getString("summary", "");
-        if (!cachedSummary.isEmpty()) showSummary(cachedSummary + " (cached)");
 
         // cached items first (persisted merged list), then live refresh
         try {
@@ -154,19 +154,14 @@ public class DigestActivity extends Activity {
             for (String[] src : RSS) {
                 try {
                     String b = DermesActivity.httpGetPublic(src[1]);
-                    merged.addAll(src[0].equals("hn") ? parseHn(b) : parseRss(src[0], b));
+                    List<Item> got = src[0].equals("hn") ? parseHn(b) : parseRss(src[0], b);
+                    int kept = 0;
+                    for (Item it : got) {
+                        if (kept >= MAX_PER_SOURCE) break;
+                        if (relevant(it)) { merged.add(it); kept++; }
+                    }
                 } catch (Exception ignored) {}
             }
-            String summary = null;
-            try {
-                StringBuilder lines = new StringBuilder();
-                for (int i = 0; i < merged.size() && i < 20; i++)
-                    lines.append("- ").append(merged.get(i).title).append('\n');
-                if (lines.length() > 0)
-                    summary = ChatActivity.summarize(this,
-                            "Только список, без вступлений и заключений. Сожми до 4 пунктов по-русски: что важного сегодня в мире LLM для CTO. Формат: дефис, текст. Первый символ ответа — дефис:\\n" + lines);
-            } catch (Throwable ignored) {}
-            final String fSummary = cleanSummary(summary);
             runOnUiThread(() -> {
                 if (isDestroyed()) return;
                 if (!merged.isEmpty()) {
@@ -176,10 +171,6 @@ public class DigestActivity extends Activity {
                             + " · " + merged.size() + " новостей");
                 } else {
                     header.setText("digest · offline · " + all.size() + " новостей из кэша");
-                }
-                if (fSummary != null) {
-                    getPrefs().edit().putString("summary", fSummary).apply();
-                    showSummary(fSummary);
                 }
                 rebuild();
             });
@@ -197,39 +188,40 @@ public class DigestActivity extends Activity {
         return out;
     }
 
-    /** Model sometimes prefixes "Вот ваши пункты:" - cut everything before the first dash line. */
-    static String cleanSummary(String raw) {
-        if (raw == null) return null;
-        String s = ChatActivity.stripThink(raw).trim();
-        if (s.isEmpty()) return null;
-        String[] lines = s.split("\n");
-        int first = -1;
-        for (int i = 0; i < lines.length; i++) {
-            String l = lines[i].trim();
-            if (l.startsWith("- ") || l.startsWith("– ")) { first = i; break; }
-        }
-        if (first < 0) return s;
-        StringBuilder sb = new StringBuilder();
-        for (int i = first; i < lines.length; i++) sb.append(lines[i]).append('\n');
-        return sb.toString().trim();
-    }
-
-    private void showSummary(String s) {
-        summaryBox.setText("Итог (локальная нейросеть)\n\n" + s);
-        summaryBox.setVisibility(View.VISIBLE);
-    }
+    private void showSummary(String s) { }
 
     // ---------- filtering & rendering ----------
     private String catOf(String tag) {
         String t = tag.toLowerCase(Locale.US);
         switch (t) {
-            case "openai": case "anthropic": case "google": case "mistral": return "вендоры";
+            case "openai": case "anthropic": case "google": case "mistral":
+            case "hf": case "deepmind": return "вендоры";
             case "hn": return "HN";
+            case "salesforce": return "Salesforce";
             case "llm": return "модели";
             case "local": return "локальные LLM";
-            case "sf": case "salesforce": return "Salesforce";
+            case "sf": return "Salesforce";
             default: return "другое";
         }
+    }
+
+    /** Topic within a source group, by keywords in title+summary. */
+    private String topicOf(Item it) {
+        String s = (it.title + " " + it.summary).toLowerCase(Locale.US);
+        if (s.contains("open source") || s.contains("open-source") || s.contains("hugging face") || s.contains("fine-tun") || s.contains("local")) return "open source / local";
+        if (s.contains("agent") || s.contains("copilot") || s.contains("chatgpt")) return "агенты";
+        if (s.contains("release") || s.contains("model") || s.contains("gpt") || s.contains("gemini") || s.contains("claude")) return "релизы моделей";
+        if (s.contains("gpu") || s.contains("inference") || s.contains("hardware") || s.contains("chip")) return "инфраструктура";
+        if (s.contains("apex") || s.contains("lwc") || s.contains("flow") || s.contains("crm")) return "Salesforce";
+        return "разное";
+    }
+
+    /** Off-topic filter: drop items with no AI/SF keyword or on the blocklist. */
+    private boolean relevant(Item it) {
+        String s = (it.title + " " + it.summary).toLowerCase(Locale.US);
+        for (String b : BLOCKED) if (s.contains(b)) return false;
+        for (String k : KEYWORDS) if (s.contains(k)) return true;
+        return false;
     }
 
     private void rebuild() {
@@ -260,20 +252,30 @@ public class DigestActivity extends Activity {
         }
 
         int shown = 0;
-        for (Map.Entry<String, int[]> e : counts.entrySet()) {
+        // two-level grouping: category -> topic
+        java.util.LinkedHashMap<String, java.util.LinkedHashMap<String, List<Item>>> groups = new java.util.LinkedHashMap<>();
+        for (Item it : all) {
+            if (!activeTags.isEmpty() && !activeTags.contains(it.cat)) continue;
+            if (!query.isEmpty() && !((it.title + " " + it.summary).toLowerCase(Locale.US).contains(query))) continue;
+            java.util.LinkedHashMap<String, List<Item>> byTopic = groups.get(it.cat);
+            if (byTopic == null) groups.put(it.cat, byTopic = new java.util.LinkedHashMap<>());
+            String topic = topicOf(it);
+            List<Item> bucket = byTopic.get(topic);
+            if (bucket == null) byTopic.put(topic, bucket = new ArrayList<>());
+            bucket.add(it);
+        }
+        for (Map.Entry<String, java.util.LinkedHashMap<String, List<Item>>> e : groups.entrySet()) {
             String cat = e.getKey();
-            List<Item> items = new ArrayList<>();
-            for (Item it : all) {
-                if (!it.cat.equals(cat)) continue;
-                if (!activeTags.isEmpty() && !activeTags.contains(cat)) continue;
-                if (!query.isEmpty() && !((it.title + " " + it.summary).toLowerCase(Locale.US).contains(query))) continue;
-                items.add(it);
-            }
-            if (items.isEmpty()) continue;
-            shown += items.size();
+            int catN = 0; for (List<Item> b : e.getValue().values()) catN += b.size();
+            shown += catN;
             boolean col = Boolean.TRUE.equals(collapsed.get(cat)) && query.isEmpty() && activeTags.isEmpty();
-            list.addView(sectionHead(cat, items.size(), col));
-            if (!col) for (Item it : items) list.addView(card(it));
+            list.addView(sectionHead(cat, catN, col));
+            if (!col) for (Map.Entry<String, List<Item>> t : e.getValue().entrySet()) {
+                String tk = cat + "/" + t.getKey();
+                boolean tcol = Boolean.TRUE.equals(collapsed.get(tk)) && query.isEmpty() && activeTags.isEmpty();
+                list.addView(subHead(tk, t.getKey(), t.getValue().size(), tcol));
+                if (!tcol) for (Item it : t.getValue()) list.addView(card(it));
+            }
         }
         countLabel.setText(shown + " из " + all.size() + (query.isEmpty() ? "" : " · поиск: «" + query + "»"));
         if (shown == 0) {
@@ -285,6 +287,16 @@ public class DigestActivity extends Activity {
             t.setPadding(0, UI.space32(this), 0, 0);
             list.addView(t);
         }
+    }
+
+    private View subHead(String key, String topic, int n, boolean isCollapsed) {
+        TextView h = new TextView(this);
+        h.setText((isCollapsed ? "▸ " : "▾ ") + topic + " · " + n);
+        UI.bodySmall(h);
+        h.setTextColor(UI.TEXT_2);
+        h.setPadding(UI.space32(this), UI.space10(this), 0, UI.space6(this));
+        h.setOnClickListener(v -> { collapsed.put(key, !isCollapsed); rebuild(); });
+        return h;
     }
 
     private TextView chip(String text, boolean on) {
