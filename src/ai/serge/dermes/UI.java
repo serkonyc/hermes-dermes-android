@@ -49,6 +49,7 @@ public final class UI {
     
     // Accent & status
     public static final int ACCENT = 0xFF7EA6F5;  // primary action, interactive
+    public static final int ACCENT_SOFT = 0xFF2E3D5C;  // user-message surface (accent at low chroma)
     public static final int OK     = 0xFF6BBF7B;
     public static final int VIOLET = 0xFFA78BDB;
     public static final int TEAL   = 0xFF5FB3C9;
@@ -112,6 +113,12 @@ public final class UI {
         t.setTextColor(TEXT_0);
         t.setTypeface(android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.NORMAL);
     }
+    /** Chat body: slightly larger than bodyLarge for long-form reading. */
+    public static void bodyChat(TextView t) {
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+        t.setTextColor(TEXT_0);
+        t.setTypeface(android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.NORMAL);
+    }
     public static void bodyMedium(TextView t) {
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         t.setTextColor(TEXT_0);
@@ -150,6 +157,14 @@ public final class UI {
         return g;
     }
     
+    /** Card with explicit fill (user bubbles etc). */
+    public static GradientDrawable card(Context c, int radiusDp, int color) {
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(color);
+        g.setCornerRadius(dp(c, radiusDp));
+        return g;
+    }
+
     /** Elevated card (Surface Container for more prominence). */
     public static GradientDrawable cardElevated(Context c, int radiusDp) {
         GradientDrawable g = new GradientDrawable();
@@ -233,7 +248,7 @@ public final class UI {
         root.setBackgroundColor(BACKGROUND);
         root.setFitsSystemWindows(true);
         // 20dp side margins, 16dp top, 24dp bottom
-        root.setPadding(space20(act), dp(act, 16), space20(act), space24(act));
+        root.setPadding(space24(act), space24(act), space24(act), space24(act));
         return root;
     }
     

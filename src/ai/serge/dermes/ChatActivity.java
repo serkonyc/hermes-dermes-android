@@ -77,13 +77,15 @@ public class ChatActivity extends Activity {
         }
 
         LinearLayout root = UI.screen(this);
-        root.setPadding(UI.space20(this), UI.dp(this, 12), UI.space20(this), UI.space8(this));
+        root.setPadding(UI.space24(this), UI.space16(this), UI.space24(this), UI.space8(this));
 
         root.addView(UI.headerRow(this, "Neuro Chat", "on-device · nothing leaves the phone"));
 
         status = new TextView(this);
         UI.bodySmall(status);
         status.setTextColor(UI.TEXT_2);
+        status.setBackground(UI.card(this, 16));
+        status.setPadding(UI.space16(this), UI.space10(this), UI.space16(this), UI.space10(this));
         status.setText(modelFile() == null
                 ? "no model in storage — download it in Pocket Brain"
                 : "unloads after 90s idle · CPU only");
@@ -108,7 +110,7 @@ public class ChatActivity extends Activity {
         input.setSingleLine(false);
         input.setMaxLines(5);
         input.setBackground(UI.card(this, 24));
-        input.setPadding(UI.space20(this), UI.space14(this), UI.space20(this), UI.space14(this));
+        input.setPadding(UI.space20(this), UI.space16(this), UI.space20(this), UI.space16(this));
 
         send = new Button(this);
         send.setText("Send");
@@ -312,7 +314,7 @@ public class ChatActivity extends Activity {
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-1, -2);
-        clp.bottomMargin = UI.space20(this);
+        clp.bottomMargin = UI.space24(this);
         col.setLayoutParams(clp);
 
         TextView label = new TextView(this);
@@ -323,7 +325,7 @@ public class ChatActivity extends Activity {
         col.addView(label);
 
         TextView body = new TextView(this);
-        UI.bodyLarge(body);
+        UI.bodyChat(body);
         body.setText(text);
         body.setLineSpacing(0, 1.35f);
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(-2, -2);
@@ -331,7 +333,7 @@ public class ChatActivity extends Activity {
         if (user) {
             blp.gravity = Gravity.END;
             body.setMaxEms(24);
-            body.setBackground(UI.cardElevated(this, 22));
+            body.setBackground(UI.card(this, 22, UI.ACCENT_SOFT));
             body.setPadding(UI.space16(this), UI.space12(this), UI.space16(this), UI.space12(this));
             body.setTextColor(UI.TEXT_0);
         } else {

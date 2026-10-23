@@ -26,7 +26,7 @@ import java.net.URL;
  * vector icon chips from res/drawable, staggered entrance, press-scale feedback).
  * Hero = Pocket Brain, five feature tiles, live update line. Update machinery unchanged:
  * GitHub Releases latest vs PackageInfo.versionName, DownloadManager (survives MyCom TUN),
- * FileProvider installer handoff.
+ * PackageInstaller session install (no APK left on disk).
  */
 public class DermesActivity extends Activity {
 
@@ -35,11 +35,12 @@ public class DermesActivity extends Activity {
             java.util.concurrent.Executors.newSingleThreadExecutor();
     private TextView status;
     private String latestTag, downloadUrl;
-    private long expectedSize, pendingDownload;
+    private long expectedSize;
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         setContentView(build());
+        sweepOldApks();
         checkForUpdate();
     }
 
@@ -245,18 +246,20 @@ public class DermesActivity extends Activity {
             }
             return;
         }
-        if (pendingDownload > 0) { try { dm().remove(pendingDownload); } catch (Exception ignored) {} }
         java.io.File dir = new java.io.File(getExternalFilesDir(null), "updates");
         dir.mkdirs();
         java.io.File out = new java.io.File(dir, "dermes-" + latestTag + ".apk");
         if (out.exists()) out.delete();
         try {
+            // DownloadManager survives the phone's TUN proxy where raw sockets don't;
+            // install itself goes through PackageInstaller (ACTION_VIEW handoff gets
+            // rejected on One UI 15 as "can't install app").
             DownloadManager.Request r = new DownloadManager.Request(Uri.parse(downloadUrl));
             r.setDestinationUri(Uri.fromFile(out));
             r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
             r.setTitle("Dermes update");
-            pendingDownload = dm().enqueue(r);
-            status.setText("downloading… install prompt appears when done");
+            dm().enqueue(r);
+            status.setText("downloading… install sheet opens when done");
             pollInstall(out);
         } catch (Exception e) {
             status.setText("download failed: " + e);
@@ -265,29 +268,62 @@ public class DermesActivity extends Activity {
 
     private DownloadManager dm() { return (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE); }
 
+    /** Delete APK leftovers (incl. files from the old ACTION-view flow). */
+    private void sweepOldApks() {
+        java.io.File[] fs = new java.io.File(getExternalFilesDir(null), "updates").listFiles();
+        if (fs != null) for (java.io.File f : fs) if (f.getName().endsWith(".apk")) f.delete();
+    }
+
     private void pollInstall(java.io.File apk) {
         final android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
         h.postDelayed(new Runnable() {
             int misses = 0;
             @Override public void run() {
-                if (apk.exists() && apk.length() == expectedSize) {
-                    Uri uri = androidx.core.content.FileProvider.getUriForFile(
-                            DermesActivity.this, "ai.serge.dermes.fileprovider", apk);
-                    Intent i = new Intent(Intent.ACTION_VIEW);
-                    i.setDataAndType(uri, "application/vnd.android.package-archive");
-                    i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    try { startActivity(i); } catch (Exception e) {
-                        status.setText("installer failed: " + e);
-                    }
-                } else if (!isDestroyed() && ++misses < 80) { // ~2 min cap
-                    h.postDelayed(this, 1500);
-                } else if (!isDestroyed()) {
-                    status.setText("download did not finish; open the release page manually");
-                }
+                if (isDestroyed()) return;
+                if (apk.exists() && apk.length() == expectedSize) stageAndInstall(apk);
+                else if (++misses < 80) h.postDelayed(this, 1500); // ~2 min cap
+                else status.setText("download did not finish; retry the update tile");
             }
         }, 1500);
     }
+
+    /** Stream the APK into an installer session, drop the file, show the system sheet. */
+    private void stageAndInstall(java.io.File apk) {
+        status.setText("preparing install…");
+        new Thread(() -> {
+            int sessionId = -1;
+            try {
+                android.content.pm.PackageInstaller pi = getPackageManager().getPackageInstaller();
+                android.content.pm.PackageInstaller.SessionParams sp =
+                    new android.content.pm.PackageInstaller.SessionParams(
+                        android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+                sessionId = pi.createSession(sp);
+                Intent result = new Intent(this, InstallResult.class);
+                int flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT
+                        | android.app.PendingIntent.FLAG_MUTABLE;
+                final android.app.PendingIntent piIntent = android.app.PendingIntent.getBroadcast(
+                        this, sessionId, result, flags);
+                try (android.content.pm.PackageInstaller.Session sess = pi.openSession(sessionId);
+                     java.io.InputStream in = new java.io.FileInputStream(apk)) {
+                    java.io.OutputStream out = sess.openWrite("base.apk", 0, apk.length());
+                    byte[] buf = new byte[128 * 1024];
+                    int n;
+                    while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                    sess.fsync(out);
+                    out.close();
+                    sess.commit(piIntent.getIntentSender()); // opens the system install sheet
+                }
+                apk.delete(); // bytes live in the session now - no apk junk in storage
+                uiPost("confirm the update in the system sheet");
+            } catch (Exception e) {
+                if (sessionId >= 0) try { getPackageManager().getPackageInstaller().abandonSession(sessionId); } catch (Exception ignored) {}
+                apk.delete();
+                uiPost("stage failed: " + e);
+            }
+        }).start();
+    }
+
+    private void uiPost(String s) { runOnUiThread(() -> { if (status != null) status.setText(s); }); }
 
     static boolean isNewer(String latest, String current) {
         String[] a = latest.split("[.\\-]"), b = current.split("[.\\-]");
