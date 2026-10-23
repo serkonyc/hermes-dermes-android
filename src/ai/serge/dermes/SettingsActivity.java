@@ -207,20 +207,19 @@ public class SettingsActivity extends Activity {
             @Override public void run() {
                 if (isDestroyed()) return;
                 android.database.Cursor cur = null;
-                String state = "";
+                int state = -1;
                 try {
                     cur = dm().query(new DownloadManager.Query().setFilterById(dlId));
                     if (cur != null && cur.moveToFirst())
-                        state = cur.getString(cur.getColumnIndex(DownloadManager.COLUMN_STATUS));
+                        state = cur.getInt(cur.getColumnIndex(DownloadManager.COLUMN_STATUS));
                 } catch (Exception ignored) {}
                 finally { if (cur != null) cur.close(); }
-                if (state == null || state.isEmpty()) state = "?";
-                if (String.valueOf(DownloadManager.STATUS_SUCCESSFUL).equals(state)) {
+                if (state == DownloadManager.STATUS_SUCCESSFUL) {
                     // a torn APK handed to PackageInstaller fails as INSTALL_PARSE_FAILED_NOT_APK
                     if (apk.exists() && apk.length() == expectedSize && zipSane(apk)) stageAndInstall(apk);
                     else { staging = false; action.setEnabled(true);
                            status.setText("файл пришёл битым; повтори обновление"); }
-                } else if (String.valueOf(DownloadManager.STATUS_FAILED).equals(state)) {
+                } else if (state == DownloadManager.STATUS_FAILED) {
                     staging = false; action.setEnabled(true);
                     status.setText("скачивание не завершилось; повтори обновление");
                 } else if (++ticks < 400) {                 // ~10 min cap, 1.5 s tick
