@@ -141,7 +141,7 @@ function collide(){const h=S.roll>0?.8:1.62,feet=S.y,top=S.y+h;
   if(o.type==='low'&&feet<.8)return die();
   if(o.type==='bar'&&top>1.05)return die();
   if(o.type==='wall')return die();}
- for(const c of S.coinsArr){if(!c.taken&&!c.missed&&Math.abs(c.z)<.9&&c.lane===S.lane&&Math.abs(S.y+.6-c.y)<.9){
+ for(const c of S.coinsArr){if(!c.taken&&Math.abs(c.z)<.9&&c.lane===S.lane&&Math.abs(S.y+.6-c.y)<.9){
   c.taken=true;scene.remove(c.m);S.coins++;burst((c.lane-1)*LANE,c.y,c.z,0x8B5E34,10);}}}
 function die(){S.mode='over';S.dead=.001;S.shake=1;S.flash=.4;S.ts=.32;
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
@@ -199,11 +199,9 @@ function update(dt){
  if(S.roll>0)S.roll-=dt;
  S.anim+=dt*(S.air||S.roll>0?4:S.speed*.32);
  for(const o of S.obs)o.z+=dz,o.m.position.z=o.z;
- for(const c of S.coinsArr){if(!c.missed){c.z+=dz;c.m.position.z=c.z;} c.m.rotation.y+=dt*4;}
+ for(const c of S.coinsArr){c.z+=dz;c.m.position.z=c.z;c.m.rotation.y+=dt*4;}
  S.obs=S.obs.filter(o=>o.z<DESPAWN_Z||(scene.remove(o.m),false));
- // missed poops stop moving forward once they pass the player (z>0.9) and are removed far behind
- for(const c of S.coinsArr){if(!c.taken&&!c.missed&&c.z>0.9){c.missed=true;}}
- S.coinsArr=S.coinsArr.filter(c=>c.z<25&&!c.taken||(scene.remove(c.m),false));
+ S.coinsArr=S.coinsArr.filter(c=>c.z<DESPAWN_Z&&!c.taken||(scene.remove(c.m),false));
  if(S.dist>=nextSpawn)spawn();
  collide();}
 // ---------- rig + camera ----------
