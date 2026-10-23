@@ -62,7 +62,9 @@ function sfx(k){if(!audioOn)return;try{AU[k].currentTime=0;AU[k].play().catch(()
 // unlock must ride the same gesture as game start, not a separate first touch
 const _act=act; act=function(a){unlockAudio();return _act(a);};
 addEventListener('touchstart',unlockAudio,{passive:true});
-addEventListener('keydown',unlockAudio);
+addEventListener('mousedown',unlockAudio);
+// file:// WebView sometimes reports NotAllowedError even inside the gesture; retry on any later gesture too
+addEventListener('touchend',()=>{if(!audioOn)unlockAudio();},{passive:true});
 
 // ---------- player: running plunger (recognizable tool, not human) ----------
 const plungerHandle=M(0xB47734,.92), plungerKnob=M(0x25252A,.72), plungerCup=M(0x25252A,.72), plungerLip=M(0x111114,.85), plungerWood=M(0xD6A86A,.85);

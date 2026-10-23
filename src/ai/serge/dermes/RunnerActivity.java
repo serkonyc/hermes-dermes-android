@@ -25,6 +25,7 @@ public final class RunnerActivity extends Activity {
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);              // best score lives in localStorage
+        s.setMediaPlaybackRequiresUserGesture(false); // game music autoplay; SFX unlock still gated in JS
         web.setBackgroundColor(UI.BACKGROUND);
         web.setWebViewClient(new WebViewClient());
         web.addJavascriptInterface(new Object() {
