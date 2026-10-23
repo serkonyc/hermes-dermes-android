@@ -48,25 +48,27 @@ for(let i=0;i<NCity;i++){const s=Math.random()<.5?-1:1;
 scene.add(city); // instanceColor works WITHOUT vertexColors (missing attr -> black)
 // sidewalk curbs
 for(const s of[-1,1]){const c=box(.5,.3,320,M(0xCFC4AE));c.position.set(s*(LANE*1.5+.6),.15,-110);scene.add(c);}
-// ---------- player: running vantus ----------
-const vanM=M(0x17161B,.38,.12), vanD=M(0x333038,.45,.16), vanW=M(0xF5F5F5,.35,.4), redM=M(0xE63946,.45,.25);
+// ---------- player: running vantus (cargo van with cab, hood, wheels, lights) ----------
+const vanM=M(0x17161B,.38,.12), vanD=M(0x2A2A30,.45,.16), vanW=M(0xD6EFFF,.35,.4), redM=M(0xE63946,.45,.25), whtM=M(0xF5F5F5,.7), blkM=M(0x0b0b0d,.95), chromeM=M(0xBFC7CF,.35,.6);
 const player=new THREE.Group(), rig=new THREE.Group(); player.add(rig); scene.add(player);
 function limb(w,h,m,pivotY){const p=new THREE.Group();const b=box(w,h,w,m);b.position.y=-h/2;p.add(b);p.position.y=pivotY;return p;}
-var armL,armR,legL,legR, exhaust;
-{const body=box(.62,.58,.48,vanM); body.position.y=1.02; rig.add(body);
- const cab=box(.42,.3,.4,vanD); cab.position.set(0,1.42,.02); rig.add(cab);
- const glass=box(.34,.17,.08,vanW); glass.position.set(0,1.43,.2); rig.add(glass);
- const bumper=box(.56,.13,.18,vanD); bumper.position.set(0,.82,.22); rig.add(bumper);
- const grille=box(.28,.09,.07,redM); grille.position.set(0,.97,.27); rig.add(grille);
- const light1=box(.11,.08,.06,redM), light2=light1.clone(); light1.position.set(-.19,.78,.23); light2.position.set(.19,.78,.23); rig.add(light1,light2);
- const spoiler=box(.62,.06,.14,vanD); spoiler.position.set(0,1.26,-.26); rig.add(spoiler);
- const pipe=box(.08,.13,.08,vanD); pipe.position.set(.23,1.28,-.17); rig.add(pipe);
- exhaust=new THREE.Group(); exhaust.position.copy(pipe.position); exhaust.position.y+=.12; rig.add(exhaust);
- for(let i=0;i<4;i++){const p=new THREE.Mesh(new THREE.SphereGeometry(.055,8,6),new THREE.MeshBasicMaterial({color:0x4a4a4a,transparent:true,opacity:.5})); p.position.set(0,.07*i,-.12*i); exhaust.add(p);}
- armL=limb(.1,.35,vanM,1.23); armR=limb(.1,.35,vanM,1.23); armL.position.x=-.36; armR.position.x=.36;
- legL=limb(.15,.44,vanD,.72); legR=limb(.15,.44,vanD,.72); legL.position.x=-.17; legR.position.x=.17;
- const footL=box(.16,.07,.23,redM), footR=footL.clone(); footL.position.set(-.17,.04,-.02); footR.position.set(.17,.04,-.02); rig.add(footL,footR);
- rig.add(armL,armR,legL,legR);}
+var armL,armR,legL,legR, wheelL, wheelR, exhaust;
+{const body=box(.6,.52,.46,vanM); body.position.y=1.04; rig.add(body);
+ const cab=box(.58,.26,.32,vanD); cab.position.set(0,1.36,.02); rig.add(cab);
+ const hood=box(.52,.1,.36,vanD); hood.position.set(0,1.22,.18); rig.add(hood);
+ const glass=box(.46,.15,.06,vanW); glass.position.set(0,1.4,.19); rig.add(glass);
+ const grille=box(.36,.08,.04,chromeM); grille.position.set(0,1.1,.23); rig.add(grille);
+ const hl1=box(.1,.07,.04,whtM), hl2=hl1.clone(); hl1.position.set(-.2,1.0,.24); hl2.position.set(.2,1.0,.24); rig.add(hl1,hl2);
+ const tl1=box(.08,.07,.04,redM), tl2=tl1.clone(); tl1.position.set(-.2,1.0,-.24); tl2.position.set(.2,1.0,-.24); rig.add(tl1,tl2);
+ const bumper=box(.52,.07,.06,vanD); bumper.position.set(0,.98,.25); rig.add(bumper);
+ const roofrack=box(.5,.04,.4,vanD); roofrack.position.set(0,1.32,-.04); rig.add(roofrack);
+ const pipe=box(.06,.12,.06,vanD); pipe.position.set(.24,1.36,-.17); rig.add(pipe);
+ exhaust=new THREE.Group(); exhaust.position.copy(pipe.position); exhaust.position.y+=.11; rig.add(exhaust);
+ for(let i=0;i<3;i++){const p=new THREE.Mesh(new THREE.SphereGeometry(.045,8,6),new THREE.MeshBasicMaterial({color:0x4a4a4a,transparent:true,opacity:.45})); p.position.set(.04,.11*i,-.09*i); exhaust.add(p);}
+ armL=limb(.09,.3,vanM,1.2); armR=limb(.09,.3,vanM,1.2); armL.position.x=-.35; armR.position.x=.35;
+ legL=limb(.14,.36,vanD,.68); legR=limb(.14,.36,vanD,.68); legL.position.x=-.14; legR.position.x=.14;
+ wheelL=limb(.11,.38,blkM,.38); wheelR=limb(.11,.38,blkM,.38); wheelL.position.x=-.3; wheelR.position.x=.3; wheelL.rotation.x=Math.PI/2; wheelR.rotation.x=Math.PI/2;
+ rig.add(armL,armR,legL,legR,wheelL,wheelR);}
 const shCv=document.createElement('canvas');shCv.width=shCv.height=64;{const g=shCv.getContext('2d');
  const rg=g.createRadialGradient(32,32,4,32,32,30);rg.addColorStop(0,'rgba(30,22,12,.55)');rg.addColorStop(1,'rgba(30,22,12,0)');
  g.fillStyle=rg;g.fillRect(0,0,64,64);}
@@ -92,10 +94,13 @@ function tWall(){ // train car: colored body, windows, roof, dark nose
  const rf=box(.94,.12,4.2,M(0x555F68,.8));rf.position.y=2.62;
  const nose=box(1.0,.5,.25,M(0x2b2b2b,.6));nose.position.set(0,.5,-2.12);
  g.add(b,w1,w2,st,rf,nose);return g;}
-function tCoin(){const g=new THREE.Group();const base=new THREE.Mesh(new THREE.SphereGeometry(.28,16,12),M(0x6F4A25,.95));
- const top=new THREE.Mesh(new THREE.SphereGeometry(.2,16,12),M(0x8B5E34,.9)); top.scale.set(1,.45,1); top.position.y=.15;
- const drip=new THREE.Mesh(new THREE.SphereGeometry(.08,10,8),M(0x5A3A1F,.95)); drip.position.set(.06,-.2,.02); drip.scale.set(1,1.35,1);
- base.scale.set(1,.72,1); g.add(base,top,drip); return g;}
+function tCoin(){const g=new THREE.Group();
+ const base=new THREE.Mesh(new THREE.SphereGeometry(.3,16,10),M(0x5A3A1F,.95)); base.scale.set(1,.42,1); base.position.y=0;
+ const mid=new THREE.Mesh(new THREE.SphereGeometry(.22,14,10),M(0x6F4A25,.95)); mid.scale.set(1,.5,1); mid.position.y=.12;
+ const top=new THREE.Mesh(new THREE.SphereGeometry(.13,12,8),M(0x7A5230,.95)); top.scale.set(1,.6,1); top.position.y=.24;
+ const tip=new THREE.Mesh(new THREE.SphereGeometry(.06,10,6),M(0x7A5230,.95)); tip.position.set(.03,.32,.02); tip.rotation.z=-.4;
+ const shine=new THREE.Mesh(new THREE.SphereGeometry(.045,8,6),new THREE.MeshBasicMaterial({color:0xFFF0C0})); shine.position.set(.1,.26,.12);
+ g.add(base,mid,top,tip,shine); g.position.y=.02; return g;}
 const TPL={low:tLow,bar:tBar,wall:tWall};
 // ---------- state ----------
 const S={mode:'menu',t:0,dist:0,speed:26,coins:0,score:0,
@@ -148,7 +153,7 @@ function die(){S.mode='over';S.dead=.001;S.shake=1;S.flash=.4;S.ts=.32;
 // ---------- input ----------
 function move(d){S.lane=Math.max(0,Math.min(2,S.lane+d));}
 function jump(){if(!S.air&&S.roll<=0){S.vy=JUMP_V;S.air=true;}}
-function doRoll(){S.roll=.5;if(S.air)S.vy=-14;}
+function doRoll(){S.roll=.45;if(S.air)S.vy=Math.min(S.vy,-2);}
 function act(a){if(S.mode==='menu'){reset();showRun();return;}
  if(S.mode==='over'){if(S.dead>.8)reset(),showRun();return;}
  if(a==='L')move(-1);else if(a==='R')move(1);else if(a==='U')jump();else if(a==='D')doRoll();}
@@ -171,12 +176,12 @@ showMenu();
 // ---------- update ----------
 const M4=new THREE.Matrix4(),Q0=new THREE.Quaternion(),V1=new THREE.Vector3(),V0=new THREE.Vector3(1,1,1);
 function updInst(){
- for(let i=0;i<30;i++){V1.set(0,.05,-((S.dist%4)+i*4));M4.compose(V1,Q0,V0);ties.setMatrixAt(i,M4);}
+ for(let i=0;i<30;i++){V1.set(0,.05,((S.dist*10)%4)-i*4+4);M4.compose(V1,Q0,V0);ties.setMatrixAt(i,M4);}
  ties.instanceMatrix.needsUpdate=true;
  for(let i=0;i<10;i++){const c=cloudPos[i];V1.set(c.x,c.y,c.z);V0.set(c.s,c.s*.35,c.s*.6);
   M4.compose(V1,Q0,V0);clouds.setMatrixAt(i,M4);}
  clouds.instanceMatrix.needsUpdate=true;V0.set(1,1,1);
- for(let i=0;i<NCity;i++){const b=cityPos[i],z=60-(((b.z+S.dist*.85)%300)+300)%300;
+ for(let i=0;i<NCity;i++){const b=cityPos[i],z=60-(((b.z+S.dist*.55)%300)+300)%300;
   V1.set(b.x,b.h/2,z);V0.set(b.w,b.h,b.w);
   M4.compose(V1,Q0,V0);city.setMatrixAt(i,M4);}
  city.instanceMatrix.needsUpdate=true;V0.set(1,1,1);}
