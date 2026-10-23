@@ -51,7 +51,7 @@ for(const s of[-1,1]){const c=box(.5,.3,320,M(0xCFC4AE));c.position.set(s*(LANE*
 // ---------- audio ----------
 const AU={m:new Audio('audio/music.m4a'),pick:new Audio('audio/pickup.m4a'),
  bump:new Audio('audio/bump.m4a'),jump:new Audio('audio/jump.m4a')};
-AU.m.loop=true; AU.m.volume=.5; AU.pick.volume=.6; AU.bump.volume=.9; AU.jump.volume=.45;
+AU.m.loop=true; AU.m.volume=.35; AU.pick.volume=.55; AU.bump.volume=.7; AU.jump.volume=.35;
 let audioOn=false;
 function unlockAudio(){if(audioOn)return;audioOn=true;AU.m.play().catch(()=>{});}
 function sfx(k){if(!audioOn)return;try{AU[k].currentTime=0;AU[k].play().catch(()=>{});}catch(e){}}
