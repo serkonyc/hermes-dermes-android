@@ -53,10 +53,15 @@ const AU={m:new Audio('audio/music.m4a'),pick:new Audio('audio/pickup.m4a'),
  bump:new Audio('audio/bump.m4a'),jump:new Audio('audio/jump.m4a')};
 AU.m.loop=true; AU.m.volume=.35; AU.pick.volume=.55; AU.bump.volume=.7; AU.jump.volume=.35;
 let audioOn=false;
-function unlockAudio(){if(audioOn)return;audioOn=true;AU.m.play().catch(()=>{});}
+function unlockAudio(){
+ if(audioOn)return;
+ AU.m.play().then(()=>{audioOn=true;}).catch(()=>{}); // retry until a real gesture lands (audioOn stays false until playing succeeds)
+}
 function sfx(k){if(!audioOn)return;try{AU[k].currentTime=0;AU[k].play().catch(()=>{});}catch(e){}}
-addEventListener('touchstart',unlockAudio,{passive:true,once:true});
-addEventListener('keydown',unlockAudio,{once:true});
+// unlock must ride the same gesture as game start, not a separate first touch
+const _act=act; act=function(a){unlockAudio();return _act(a);};
+addEventListener('touchstart',unlockAudio,{passive:true});
+addEventListener('keydown',unlockAudio);
 
 // ---------- player: running plunger (recognizable tool, not human) ----------
 const plungerHandle=M(0xB47734,.92), plungerKnob=M(0x25252A,.72), plungerCup=M(0x25252A,.72), plungerLip=M(0x111114,.85), plungerWood=M(0xD6A86A,.85);
