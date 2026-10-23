@@ -182,9 +182,7 @@ public class SettingsActivity extends Activity {
             r.setDestinationUri(Uri.fromFile(out));
             r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
             r.setTitle("Dermes update");
-            dm().enqueue(r);
-            status.setText("скачиваем… системное окно откроется по завершении");
-            pollInstall(out);
+            pollInstall(out, dm().enqueue(r));
         } catch (Exception e) {
             staging = false; action.setEnabled(true); action.setText("Обновить до v" + latestTag);
             status.setText("download failed: " + e);
@@ -199,22 +197,40 @@ public class SettingsActivity extends Activity {
         if (fs != null) for (java.io.File f : fs) if (f.getName().endsWith(".apk")) f.delete();
     }
 
-    private void pollInstall(java.io.File apk) {
+    /** Poll DownloadManager's own status (file size alone can't tell a complete
+        download from one still being written), then stage exactly once. */
+    private void pollInstall(java.io.File apk, final long dlId) {
+        status.setText("скачиваем… окно установки откроется само");
         final android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
         h.postDelayed(new Runnable() {
-            int misses = 0; long last = -1;
+            int ticks = 0;
             @Override public void run() {
                 if (isDestroyed()) return;
-                long len = apk.exists() ? apk.length() : -1;
-                // size must equal the release asset AND be stable for one tick: a torn
-                // APK handed to PackageInstaller fails as INSTALL_PARSE_FAILED_NOT_APK
-                if (len == expectedSize && len == last && zipSane(apk)) stageAndInstall(apk);
-                else if (++misses < 80) h.postDelayed(this, 1500); // ~2 min cap
-                else { staging = false; action.setEnabled(true);
-                       status.setText("скачивание не завершилось; повтори обновление"); }
-                last = len;
+                android.database.Cursor cur = null;
+                String state = "";
+                try {
+                    cur = dm().query(new DownloadManager.Query().setFilterById(dlId));
+                    if (cur != null && cur.moveToFirst())
+                        state = cur.getString(cur.getColumnIndex(DownloadManager.COLUMN_STATUS));
+                } catch (Exception ignored) {}
+                finally { if (cur != null) cur.close(); }
+                if (state == null || state.isEmpty()) state = "?";
+                if (String.valueOf(DownloadManager.STATUS_SUCCESSFUL).equals(state)) {
+                    // a torn APK handed to PackageInstaller fails as INSTALL_PARSE_FAILED_NOT_APK
+                    if (apk.exists() && apk.length() == expectedSize && zipSane(apk)) stageAndInstall(apk);
+                    else { staging = false; action.setEnabled(true);
+                           status.setText("файл пришёл битым; повтори обновление"); }
+                } else if (String.valueOf(DownloadManager.STATUS_FAILED).equals(state)) {
+                    staging = false; action.setEnabled(true);
+                    status.setText("скачивание не завершилось; повтори обновление");
+                } else if (++ticks < 400) {                 // ~10 min cap, 1.5 s tick
+                    h.postDelayed(this, 1500);
+                } else {
+                    staging = false; action.setEnabled(true);
+                    status.setText("скачивание не завершилось; повтори обновление");
+                }
             }
-        }, 1500);
+        }, 1000);
     }
 
     /** Cheap zip integrity: local header up front, EOCD record at the tail. */
