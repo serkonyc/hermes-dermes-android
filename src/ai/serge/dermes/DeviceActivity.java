@@ -63,8 +63,7 @@ public class DeviceActivity extends Activity {
 
         TextView info = new TextView(this);
         info.setText(sb);
-        info.setTextSize(13f);
-        info.setTextColor(0xFFC9D1D9);
+        UI.bodyMedium(info);
         info.setPadding(UI.space18(this), UI.space14(this), UI.space18(this), UI.space8(this));
 
         Button fetch = new Button(this);
@@ -106,7 +105,7 @@ public class DeviceActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF12141A);
+        root.setBackgroundColor(UI.BACKGROUND);
         root.setFitsSystemWindows(true);
         root.setPadding(UI.space20(this), UI.space8(this), UI.space20(this), UI.space10(this));
         ScrollView sc = new ScrollView(this);

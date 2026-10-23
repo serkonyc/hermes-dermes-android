@@ -41,7 +41,7 @@ public class CapsuleActivity extends Activity {
         bodyIn = field("message to your future self…", true);
 
         final TextView when = new TextView(this);
-        when.setTextSize(13f);
+        UI.bodyMedium(when);
         when.setTextColor(UI.TEXT_1);
         when.setText(fmt(unlockAt));
         Button plus1h = chip("+1h", () -> { unlockAt += 3600_000L; when.setText(fmt(unlockAt)); });
@@ -55,7 +55,7 @@ public class CapsuleActivity extends Activity {
 
         list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(dp(18), dp(8), dp(18), dp(8));
+        list.setPadding(UI.space18(this), UI.space8(this), UI.space18(this), UI.space8(this));
         ScrollView sc = new ScrollView(this);
         sc.addView(list);
 
@@ -66,12 +66,12 @@ public class CapsuleActivity extends Activity {
         root.addView(labelIn);
         root.addView(bodyIn);
         LinearLayout chips = new LinearLayout(this);
-        chips.setPadding(dp(18), dp(6), dp(18), 0);
-        chips.addView(new TextView(this) {{ setText("unlocks: "); setTextColor(0xFF69748A); }});
+        chips.setPadding(UI.space18(this), UI.space6(this), UI.space18(this), 0);
+        chips.addView(new TextView(this) {{ setText("unlocks: "); setTextColor(UI.TEXT_2); }});
         chips.addView(when);
         root.addView(chips);
         LinearLayout row = new LinearLayout(this);
-        row.setPadding(dp(14), 0, dp(14), dp(6));
+        row.setPadding(UI.space14(this), 0, UI.space14(this), UI.space6(this));
         row.addView(plus1h); row.addView(plus1d); row.addView(reset);
         root.addView(row);
         root.addView(seal);
@@ -86,15 +86,16 @@ public class CapsuleActivity extends Activity {
 
     private EditText field(String hint, boolean multiline) {
         EditText e = new EditText(this);
-        e.setHint(hint); e.setTextColor(0xFFF2F5FA); e.setHintTextColor(0xFF69748A);
-        e.setTextSize(14f);
+        e.setHint(hint);
+        UI.bodyMedium(e);
+        e.setHintTextColor(UI.TEXT_2);
         e.setMaxLines(multiline ? 3 : 1);
         if (!multiline) e.setInputType(InputType.TYPE_CLASS_TEXT);
         else e.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        e.setPadding(dp(18), dp(12), dp(18), dp(12));
+        e.setPadding(UI.space18(this), UI.space12(this), UI.space18(this), UI.space12(this));
         e.setBackground(UI.card(CapsuleActivity.this, 14));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-        lp.setMargins(dp(18), dp(6), dp(18), 0);
+        lp.setMargins(UI.space18(this), UI.space6(this), UI.space18(this), 0);
         e.setLayoutParams(lp);
         return e;
     }
@@ -102,9 +103,7 @@ public class CapsuleActivity extends Activity {
     private Button chip(String t, Runnable r) {
         Button b = new Button(this);
         b.setText(t); b.setMinWidth(0); b.setMinHeight(0);
-        b.setPadding(dp(14), dp(6), dp(14), dp(6));
-        b.setTextSize(12f);
-        UI.buttonTonal(b, this);
+        UI.buttonTonal(b, this); // buttonTonal owns padding+type; chip adds nothing
         b.setOnClickListener(v -> r.run());
         return b;
     }
@@ -154,21 +153,21 @@ public class CapsuleActivity extends Activity {
                 long at = o.getLong("at");
                 boolean open = System.currentTimeMillis() >= at;
                 TextView t = new TextView(this);
-                t.setTextSize(13f);
+                UI.bodyMedium(t);
                 t.setBackground(UI.card(CapsuleActivity.this, 18));
                 t.setPadding(UI.space16(this), UI.space12(this), UI.space16(this), UI.space14(this));
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-                lp.bottomMargin = dp(8);
+                lp.bottomMargin = UI.space8(this);
                 t.setLayoutParams(lp);
                 if (!open) {
                     t.setText("🔒 " + o.getString("label") + "\nsealed · " + countdown(at));
-                    t.setTextColor(0xFF69748A);
+                    t.setTextColor(UI.TEXT_2);
                 } else {
                     String body;
                     try { body = dec(o.getString("cipher"), at); }
                     catch (Exception e) { body = "(corrupted)"; }
                     t.setText("✉ " + o.getString("label") + " · opened\n\n" + body);
-                    t.setTextColor(0xFFF2F5FA);
+                    t.setTextColor(UI.TEXT_0);
                     final int idx = i;
                     t.setOnLongClickListener(v -> { delete(idx); return true; });
                 }
@@ -203,5 +202,5 @@ public class CapsuleActivity extends Activity {
     private static String fmt(long t) {
         return java.text.DateFormat.getDateTimeInstance().format(t);
     }
-    private int dp(float v) { return Math.round(v * getResources().getDisplayMetrics().density); }
+
 }

@@ -7,6 +7,8 @@ import android.os.Looper;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -18,6 +20,9 @@ import java.util.ArrayList;
 
 /**
  * In-app chat with the downloaded GGUF via llama.cpp (libdermesllm.so).
+ * Design: flat Claude-style message blocks (no bubbles for the assistant),
+ * role labels, animated "Thinking…" while the model has not answered yet,
+ * docked pill composer. All spacing/type via UI tokens.
  * Phone-safety contract: the model lives in native memory, NOT java heap.
  *  - loaded lazily on first message, on a background thread;
  *  - unloaded 90s after idle, 20s after onPause, IMMEDIATELY on onDestroy
@@ -53,7 +58,10 @@ public class ChatActivity extends Activity {
     private ScrollView scroll;
     private EditText input;
     private Button send;
-    private TextView banner, pending;
+    private TextView status;        // thin status line under the header
+    private TextView pending;       // assistant body being streamed
+    private Animation pulse;        // "Thinking…" breathing
+    private boolean pendingThinking; // true until first real text arrives
     private final Runnable unloadTask = this::unloadNow;
 
     @Override protected void onCreate(Bundle b) {
@@ -62,57 +70,62 @@ public class ChatActivity extends Activity {
 
         if (!nativeLoaded) {
             TextView tv = (TextView) UI.footer(this, "runtime load failed:\n" + nativeError);
-            tv.setPadding(dp(24), dp(80), dp(24), 0);
+            tv.setPadding(UI.space24(this), UI.space32(this), UI.space24(this), 0);
+            tv.setGravity(Gravity.NO_GRAVITY);
             setContentView(tv);
             return;
         }
 
-        banner = new TextView(this);
-        banner.setTextSize(11f);
-        banner.setTextColor(UI.TEXT_2);
-        banner.setPadding(UI.space16(this), UI.space6(this), UI.space16(this), UI.space6(this));
-        banner.setText(modelFile() == null
-                ? "no model in storage — download one in Pocket Brain"
-                : "model unloads after 90s idle · CPU only · memory freed on close");
+        LinearLayout root = UI.screen(this);
+        root.setPadding(UI.space20(this), UI.dp(this, 12), UI.space20(this), UI.space8(this));
+
+        root.addView(UI.headerRow(this, "Neuro Chat", "on-device · nothing leaves the phone"));
+
+        status = new TextView(this);
+        UI.bodySmall(status);
+        status.setTextColor(UI.TEXT_2);
+        status.setText(modelFile() == null
+                ? "no model in storage — download it in Pocket Brain"
+                : "unloads after 90s idle · CPU only");
+        root.addView(status, UI.block(this, 0));
 
         msgs = new LinearLayout(this);
         msgs.setOrientation(LinearLayout.VERTICAL);
-        msgs.setPadding(UI.space14(this), UI.space4(this), UI.space14(this), UI.space4(this));
         scroll = new ScrollView(this);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.setClipToPadding(false);
+        scroll.setPadding(0, UI.space16(this), 0, UI.space8(this));
         scroll.addView(msgs);
+        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
 
+        // ---- docked composer: pill input + filled send, on a tonal bar ----
         input = new EditText(this);
         input.setHint("Message…");
-        input.setTextSize(14f);
-        input.setTextColor(0xFFFFFFFF);
+        UI.bodyLarge(input);
+        input.setTextColor(UI.TEXT_0);
         input.setHintTextColor(UI.TEXT_2);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         input.setSingleLine(false);
-        input.setMaxLines(4);
-        input.setBackground(UI.card(this, 14));
-        input.setPadding(UI.space12(this), UI.space10(this), UI.space12(this), UI.space10(this));
+        input.setMaxLines(5);
+        input.setBackground(UI.card(this, 24));
+        input.setPadding(UI.space20(this), UI.space14(this), UI.space20(this), UI.space14(this));
 
         send = new Button(this);
         send.setText("Send");
         UI.buttonFilled(send, this);
+        send.setMinWidth(UI.dp(this, 96)); // Send / Stop / Load… swap without layout jumps
         send.setOnClickListener(v -> onSend());
 
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(14), dp(6), dp(14), dp(10));
-        row.addView(input, new LinearLayout.LayoutParams(0, -2, 1f));
-        row.addView(send);
+        LinearLayout composer = new LinearLayout(this);
+        composer.setOrientation(LinearLayout.HORIZONTAL);
+        composer.setGravity(Gravity.CENTER_VERTICAL);
+        composer.setPadding(0, UI.space12(this), 0, UI.space12(this));
+        composer.addView(input, new LinearLayout.LayoutParams(0, -2, 1f));
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(-2, -2);
+        slp.leftMargin = UI.space12(this);
+        composer.addView(send, slp);
+        root.addView(composer);
 
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(UI.BG);
-        root.setFitsSystemWindows(true);
-        root.setPadding(dp(16), dp(6), dp(16), 0);
-        root.addView(UI.headerRow(this, "Neuro Chat", "on-device · nothing leaves the phone"));
-        root.addView(banner);
-        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
-        root.addView(row);
         setContentView(root);
     }
 
@@ -127,23 +140,24 @@ public class ChatActivity extends Activity {
         if (text.isEmpty()) return;
         input.setText("");
         hist.add(new String[]{"user", text});
-        bubble("user", text);
+        addMessage("user", text);
         trimHistory();
         if (h == 0) { loadThenGenerate(); } else { generate(); }
     }
 
     private void loadThenGenerate() {
         File f = modelFile();
-        if (f == null) { banner.setText("no model file — download it in Pocket Brain first"); return; }
+        if (f == null) { status.setText("no model file — download it in Pocket Brain first"); return; }
         state = 1;
         send.setText("Load…");
-        banner.setText("loading " + f.getName() + " into RAM…");
+        status.setText("loading " + f.getName() + " into RAM… first reply takes a bit");
+        startThinking(); // the user must see the request was accepted
         new Thread(() -> {
             long nh;
             try { nh = nativeLoad(f.getPath(), N_CTX, N_THREADS); }
             catch (Throwable t) {
-                ui.post(() -> { state = 0; send.setText("Send");
-                    banner.setText("load failed: " + t.getMessage()); });
+                ui.post(() -> { state = 0; send.setText("Send"); stopThinking();
+                    status.setText("load failed: " + t.getMessage()); });
                 return;
             }
             ui.post(() -> {
@@ -157,7 +171,8 @@ public class ChatActivity extends Activity {
         state = 3;
         send.setText("Stop");
         scheduleUnload(UNLOAD_IDLE_MS); // safety net if generation hangs
-        pending = bubble("assistant", "");
+        pending = addMessage("assistant", "");
+        startThinking();
         final String prompt = buildPrompt();
         new Thread(() -> {
             String reply;
@@ -170,8 +185,13 @@ public class ChatActivity extends Activity {
             ui.post(() -> {
                 state = h != 0 ? 2 : 0; // if a trim/pause unload slipped in, stay unloaded
                 send.setText("Send");
-                if (pending != null) pending.setText(r == null ? "⚠ generate failed" : stripThink(r));
-                hist.add(new String[]{"assistant", r == null ? "" : stripThink(r)});
+                stopThinking();
+                String clean = r == null ? "" : stripThink(r);
+                if (pending != null) {
+                    pending.setText(clean.isEmpty() ? (r == null ? "⚠ generate failed" : "(empty reply)") : clean);
+                    pending.setTextColor(UI.TEXT_0);
+                }
+                hist.add(new String[]{"assistant", clean});
                 pending = null;
                 scheduleUnload(UNLOAD_IDLE_MS);
                 scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
@@ -183,12 +203,18 @@ public class ChatActivity extends Activity {
     @SuppressWarnings("unused")
     private void onToken(String partial) {
         ui.post(() -> {
-            if (pending != null) { pending.setText(showStreaming(partial));
-                scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN)); }
+            if (pending != null) {
+                String shown = showStreaming(partial);
+                if (!shown.isEmpty()) {
+                    if (pendingThinking) { stopThinking(); pending.setTextColor(UI.TEXT_0); }
+                    pending.setText(shown);
+                    scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
+                }
+            }
         });
     }
 
-    /** LFM2.5 emits its chain of thought in <think>/<|im_start|> blocks - never shown raw. */
+    /** LFM2.5 emits its chain of thought in think tags - never shown raw. */
     static String stripThink(String s) {
         if (s == null) return "";
         String r = s.replaceAll("(?is)<[^>/]*think[^>/]*>.*?<[^>]*?/[^>]*think[^>]*>", "");
@@ -196,15 +222,30 @@ public class ChatActivity extends Activity {
         return r.trim();
     }
 
-    /** Live stream view: while the open think block is unfinished, show a status line. */
+    /** Live stream view: while the open think block is unfinished, show nothing raw. */
     static String showStreaming(String partial) {
         String done = stripThink(partial);
-        int open = partial.toLowerCase().lastIndexOf("think");
-        boolean insideThink = open >= 0
-                && partial.lastIndexOf('>', open) >= 0
-                && partial.toLowerCase().indexOf("/think", open) < 0;
-        if (insideThink && done.isEmpty()) return "…thinking";
-        return done;
+        return done; // thinking state is conveyed by the pulsing "Thinking…" label
+    }
+
+    // ---------- "Thinking…" indicator ----------
+
+    private void startThinking() {
+        if (pending == null || pendingThinking) return;
+        pendingThinking = true;
+        pending.setText("Thinking…");
+        pending.setTextColor(UI.ACCENT);
+        pulse = new AlphaAnimation(1f, 0.35f);
+        pulse.setDuration(900);
+        pulse.setRepeatMode(Animation.REVERSE);
+        pulse.setRepeatCount(Animation.INFINITE);
+        pending.startAnimation(pulse);
+    }
+
+    private void stopThinking() {
+        pendingThinking = false;
+        if (pending != null && pulse != null) pending.clearAnimation();
+        pulse = null;
     }
 
     // ---------- memory lifecycle ----------
@@ -224,8 +265,9 @@ public class ChatActivity extends Activity {
             long old = h; h = 0; state = 0;
             ui.removeCallbacks(unloadTask);
             send.setText("Send");
+            stopThinking();
             new Thread(() -> nativeFree(old)).start(); // free off the UI thread
-            banner.setText("model unloaded — RAM freed");
+            status.setText("model unloaded — RAM freed");
         } else state = 0;
     }
 
@@ -256,25 +298,51 @@ public class ChatActivity extends Activity {
         if (h != 0) { long old = h; h = 0; new Thread(() -> nativeFree(old)).start(); }
     }
 
-    // ---------- chat plumbing ----------
+    // ---------- message blocks (flat, Claude-style) ----------
 
-    private TextView bubble(String role, String text) {
-        TextView tv = new TextView(this);
-        tv.setTextSize(14f);
-        tv.setText(text);
-        tv.setBackground(UI.card(this, 14));
-        tv.setPadding(dp(12), dp(8), dp(12), dp(10));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
-        lp.bottomMargin = dp(6);
-        if ("user".equals(role)) {
-            tv.setTextColor(0xFF0B0E14); tv.setBackgroundColor(UI.ACCENT);
-            lp.gravity = Gravity.END;
+    /**
+     * Flat message block: tiny role label + body.
+     * user  – right-aligned tonal container (max ~24em), body text
+     * assistant – plain full-width text on background, no container
+     * Returns the body TextView (used as the streaming target).
+     */
+    private TextView addMessage(String role, String text) {
+        boolean user = "user".equals(role);
+
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-1, -2);
+        clp.bottomMargin = UI.space20(this);
+        col.setLayoutParams(clp);
+
+        TextView label = new TextView(this);
+        UI.labelSmall(label);
+        label.setText(user ? "You" : "Dermes");
+        label.setTextColor(user ? UI.TEXT_2 : UI.ACCENT);
+        if (user) label.setGravity(Gravity.END);
+        col.addView(label);
+
+        TextView body = new TextView(this);
+        UI.bodyLarge(body);
+        body.setText(text);
+        body.setLineSpacing(0, 1.35f);
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(-2, -2);
+        blp.topMargin = UI.space6(this);
+        if (user) {
+            blp.gravity = Gravity.END;
+            body.setMaxEms(24);
+            body.setBackground(UI.cardElevated(this, 22));
+            body.setPadding(UI.space16(this), UI.space12(this), UI.space16(this), UI.space12(this));
+            body.setTextColor(UI.TEXT_0);
         } else {
-            tv.setTextColor(UI.TEXT_1); lp.gravity = Gravity.START;
+            body.setTextColor(UI.TEXT_0);
+            body.setPadding(UI.space4(this), 0, 0, 0);
         }
-        msgs.addView(tv, lp);
+        col.addView(body, blp);
+
+        msgs.addView(col);
         scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
-        return tv;
+        return body;
     }
 
     private void trimHistory() {
@@ -301,6 +369,4 @@ public class ChatActivity extends Activity {
         for (File f : fs) if (f.getName().startsWith("LFM2.5-8B")) return f;
         return fs[0]; // ponytail: prefer the winner; else newest-first would need sort
     }
-
-    private int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
 }

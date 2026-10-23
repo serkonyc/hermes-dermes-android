@@ -36,8 +36,8 @@ public class HistoryActivity extends Activity {
         BarsView reqBars = new BarsView(this, "requests", false);
         BarsView tokBars = new BarsView(this, "tokens", true);
         TextView note = new TextView(this);
-        note.setTextSize(11f);
-        note.setTextColor(0xFF6E7681);
+        UI.labelSmall(note);
+        note.setTextColor(UI.TEXT_2);
         note.setGravity(Gravity.CENTER);
         note.setPadding(0, dp(8), 0, dp(4));
 
@@ -110,8 +110,8 @@ public class HistoryActivity extends Activity {
         BarsView(android.content.Context c, String label, boolean human) {
             super(c);
             this.label = label; this.human = human;
-            txt.setTextSize(9 * c.getResources().getDisplayMetrics().density);
-            txt.setColor(0xFF9DA7B3);
+            txt.setTextSize(9 * c.getResources().getDisplayMetrics().density); // canvas Paint, not TextView
+            txt.setColor(UI.TEXT_1);
         }
         void setData(List<Day> d) {
             int n = d.size();
@@ -126,14 +126,14 @@ public class HistoryActivity extends Activity {
             float pad = 16 * d, top = 18 * d;
             float bw = (w - pad * 2) / days.size();
             float title = 11 * d;
-            txt.setTextSize(title); txt.setColor(0xFF6E7681);
+            txt.setTextSize(title); txt.setColor(UI.TEXT_2);
             canvas.drawText(label.toUpperCase(Locale.US), pad, title, txt);
             for (int i = 0; i < days.size(); i++) {
                 Day x = days.get(i);
                 long v = human ? x.tokens : x.requests;
                 float bh = (h - top - 16 * d) * (v / (float) max);
                 float x0 = pad + i * bw + bw * 0.18f, x1 = pad + (i + 1) * bw - bw * 0.18f;
-                bar.setColor(0xFF58A6FF);
+                bar.setColor(UI.ACCENT);
                 canvas.drawRoundRect(x0, h - 14 * d - bh, x1, h - 14 * d, 4 * d, 4 * d, bar);
                 canvas.drawText(x.date.substring(5), x0, h - 3 * d, txt);   // MM-dd
                 if (v > 0) {

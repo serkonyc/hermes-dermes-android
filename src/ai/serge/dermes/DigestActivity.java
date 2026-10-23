@@ -34,15 +34,15 @@ public class DigestActivity extends Activity {
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         header = new TextView(this);
-        header.setTextSize(11f);
-        header.setTextColor(0xFF6E7681);
+        UI.labelSmall(header);
+        header.setTextColor(UI.TEXT_2);
         header.setGravity(Gravity.CENTER);
         header.setPadding(0, dp(10), 0, dp(6));
         header.setText("digest · updating…");
 
         list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(dp(16), 0, dp(16), dp(16));
+        list.setPadding(UI.space16(this), 0, UI.space16(this), UI.space16(this));
 
         ScrollView scroll = new ScrollView(this);
         scroll.addView(list);
@@ -94,7 +94,7 @@ public class DigestActivity extends Activity {
         } catch (Exception e) {
             TextView t = new TextView(this);
             t.setText("digest unreadable: " + e);
-            t.setTextColor(0xFFD29922);
+            t.setTextColor(UI.TEXT_1);
             list.addView(t);
         }
     }
@@ -106,22 +106,20 @@ public class DigestActivity extends Activity {
         c.setBackground(bg);
         c.setPadding(UI.space16(this), UI.space12(this), UI.space16(this), UI.space14(this));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-        lp.bottomMargin = dp(10);
+        lp.bottomMargin = UI.space10(this);
         c.setLayoutParams(lp);
 
         TextView tg = new TextView(this);
         tg.setText(tag.toUpperCase(java.util.Locale.US));
-        tg.setTextSize(9f);
+        UI.labelSmall(tg);
         tg.setTextColor(accent(tag));
         TextView ti = new TextView(this);
         ti.setText(title);
-        ti.setTextSize(15f);
-        ti.setTextColor(0xFFFFFFFF);
-        ti.setPadding(0, dp(2), 0, dp(4));
+        UI.titleMedium(ti);
+        ti.setPadding(0, UI.space4(this), 0, UI.space4(this));
         TextView su = new TextView(this);
         su.setText(summary);
-        su.setTextSize(12f);
-        su.setTextColor(0xFF9DA7B3);
+        UI.bodySmall(su);
 
         c.addView(tg); c.addView(ti); c.addView(su);
         if (url != null && url.startsWith("http")) {
@@ -135,10 +133,10 @@ public class DigestActivity extends Activity {
 
     private int accent(String tag) {
         switch (tag == null ? "" : tag.toLowerCase(java.util.Locale.US)) {
-            case "llm": return 0xFF58A6FF;
-            case "local": return 0xFF3FB950;
-            case "sf": case "salesforce": return 0xFFBC8CFF;
-            default: return 0xFFD29922;
+            case "llm": return UI.ACCENT;
+            case "local": return UI.OK;
+            case "sf": case "salesforce": return UI.VIOLET;
+            default: return UI.TEAL;
         }
     }
 

@@ -24,7 +24,7 @@ public final class RunnerActivity extends Activity {
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);              // best score lives in localStorage
-        web.setBackgroundColor(0xFF0B0E14);
+        web.setBackgroundColor(UI.BACKGROUND);
         web.setWebViewClient(new WebViewClient());
         web.setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN
