@@ -15,11 +15,11 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-/** Shared Telegram-inspired app shell. */
+/** Shared flagship app shell: obsidian canvas, top title, floating bottom nav. */
 public final class Shell {
     Shell() {}
 
-    public static final int HOME = 0, CHAT = 1, MODELS = 2, DETAIL = -1;
+    public static final int HOME = 0, CHAT = 1, TOOLS = 2, SETTINGS = 3, DETAIL = -1;
     private static final int NAV_HEIGHT_DP = 76;
 
     public static void prepare(Activity a) {
@@ -44,14 +44,20 @@ public final class Shell {
     }
 
     public static View wrap(final Activity a, int selected, String title, String subtitle,
+                            View content, boolean scrollable, View menu) {
+        return wrap(a, selected, title, subtitle, content, scrollable, null, menu);
+    }
+
+    public static View wrap(final Activity a, int selected, String title, String subtitle,
                             View content, boolean scrollable, Runnable back, View menu) {
         FrameLayout frame = new FrameLayout(a);
         frame.setBackgroundColor(UI.BACKGROUND);
+        frame.addView(atmosphere(a), new FrameLayout.LayoutParams(-1, UI.dp(a, 260)));
 
         LinearLayout column = new LinearLayout(a);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(UI.space24(a), UI.space24(a), UI.space24(a), UI.dp(a, NAV_HEIGHT_DP + 24));
-        column.addView(title(a, title, subtitle, back, menu));
+        if (title != null && !title.isEmpty()) column.addView(title(a, title, subtitle, back, menu));
 
         if (scrollable) {
             ScrollView scroll = new ScrollView(a);
@@ -62,9 +68,22 @@ public final class Shell {
             column.addView(content, new LinearLayout.LayoutParams(-1, 0, 1f));
         }
         frame.addView(column, new FrameLayout.LayoutParams(-1, -1));
-        frame.addView(nav(a, selected), new FrameLayout.LayoutParams(-1, UI.dp(a, NAV_HEIGHT_DP), Gravity.BOTTOM));
+        FrameLayout.LayoutParams nlp = new FrameLayout.LayoutParams(-1, UI.dp(a, NAV_HEIGHT_DP), Gravity.BOTTOM);
+        int m = UI.dp(a, 12);
+        nlp.setMargins(m, 0, m, m);
+        View nav = nav(a, selected);
+        frame.addView(nav, nlp);
         applyBottomInset(frame, column);
         return frame;
+    }
+
+    /** Cool cyan wash below the status bar; the app's ambient identity. */
+    private static View atmosphere(Activity a) {
+        View v = new View(a);
+        GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0x1A2DE2E6, 0x0D7A5CFF, 0x00000000});
+        v.setBackground(g);
+        return v;
     }
 
     private static View title(final Activity a, String title, String subtitle, final Runnable back, View menu) {
@@ -75,7 +94,7 @@ public final class Shell {
         if (back != null) {
             ImageView arrow = new ImageView(a);
             arrow.setImageResource(R.drawable.ic_back);
-            arrow.setImageTintList(android.content.res.ColorStateList.valueOf(UI.ACCENT));
+            arrow.setImageTintList(android.content.res.ColorStateList.valueOf(UI.TEXT_0));
             arrow.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
             arrow.setPadding(0, 0, UI.space8(a), 0);
             row.addView(arrow, new LinearLayout.LayoutParams(UI.dp(a, 32), UI.dp(a, 40)));
@@ -100,11 +119,16 @@ public final class Shell {
     private static View nav(Activity a, int selected) {
         LinearLayout bar = new LinearLayout(a);
         bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setBackgroundColor(UI.SURFACE_CONTAINER_LOW);
-        bar.setElevation(UI.dp(a, 12));
-        bar.addView(item(a, selected, HOME, "Home", R.drawable.ic_home, DermesActivity.class));
-        bar.addView(item(a, selected, CHAT, "Chat", R.drawable.ic_chat, ChatActivity.class));
-        bar.addView(item(a, selected, MODELS, "Models", R.drawable.ic_models, PocketActivity.class));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(UI.SURFACE_CONTAINER_LOW);
+        bg.setCornerRadius(UI.dp(a, 30));
+        bg.setStroke(UI.dp(a, 1), 0x12FFFFFF);
+        bar.setBackground(bg);
+        bar.setElevation(UI.dp(a, 14));
+        bar.addView(item(a, selected, HOME, "Hub", R.drawable.ic_home, DermesActivity.class));
+        bar.addView(item(a, selected, CHAT, "Чат", R.drawable.ic_chat, ChatActivity.class));
+        bar.addView(item(a, selected, TOOLS, "Инструменты", R.drawable.ic_tools, PocketActivity.class));
+        bar.addView(item(a, selected, SETTINGS, "Настройки", R.drawable.ic_settings, SettingsActivity.class));
         return bar;
     }
 
@@ -115,20 +139,20 @@ public final class Shell {
         boolean active = id == selected;
 
         ImageView image = new ImageView(a);
-        Drawable d = a.getDrawable(icon); d.setTint(active ? UI.ACCENT : UI.TEXT_2); image.setImageDrawable(d);
+        Drawable d = a.getDrawable(icon);
+        d.setTint(active ? UI.ON_ACCENT : UI.TEXT_2);
+        image.setImageDrawable(d);
         image.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        if (active) {
-            GradientDrawable pill = new GradientDrawable(); pill.setColor(UI.ACCENT_SOFT); pill.setCornerRadius(UI.dp(a, 16));
-            image.setBackground(pill);
-        }
-        image.setPadding(UI.dp(a, 18), UI.dp(a, 5), UI.dp(a, 18), UI.dp(a, 5));
+        if (active) image.setBackground(UI.grad(a, 16));
+        image.setPadding(UI.dp(a, 15), UI.dp(a, 5), UI.dp(a, 15), UI.dp(a, 5));
         box.addView(image, new LinearLayout.LayoutParams(UI.dp(a, 62), UI.dp(a, 32)));
 
         TextView text = new TextView(a);
         text.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         text.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
-        text.setTextColor(active ? UI.ACCENT : UI.TEXT_2);
+        text.setTextColor(active ? UI.TEXT_0 : UI.TEXT_2);
         text.setText(label); text.setGravity(Gravity.CENTER);
+        text.setSingleLine(true);
         LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(-2, -2);
         tlp.topMargin = UI.space4(a);
         box.addView(text, tlp);
@@ -156,7 +180,7 @@ public final class Shell {
             else bottom = insets.getSystemWindowInsetBottom();
             column.setPadding(column.getPaddingLeft(), column.getPaddingTop(), column.getPaddingRight(),
                     UI.dp(v.getContext(), NAV_HEIGHT_DP + 24) + bottom);
-            View nav = ((FrameLayout) v).getChildAt(1);
+            View nav = ((FrameLayout) v).getChildAt(2); // atmosphere(0), column(1), nav(2)
             FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) nav.getLayoutParams();
             lp.height = UI.dp(v.getContext(), NAV_HEIGHT_DP) + bottom;
             nav.setLayoutParams(lp);
@@ -164,5 +188,4 @@ public final class Shell {
             return insets;
         });
     }
-
 }

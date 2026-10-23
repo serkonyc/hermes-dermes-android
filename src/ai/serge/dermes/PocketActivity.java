@@ -78,9 +78,34 @@ public class PocketActivity extends Activity {
         content.addView(bar, UI.block(this, 12));
         content.addView(actionBtn, UI.block(this, 16));
         content.addView(dlBtn, UI.block(this, 8));
+
+        // capabilities: everything reachable from Tools, not a tile mosaic
+        TextView sec = new TextView(this);
+        UI.labelMedium(sec);
+        sec.setTextColor(UI.TEXT_1);
+        sec.setText("ВОЗМОЖНОСТИ");
+        sec.setLetterSpacing(0.06f);
+        sec.setPadding(0, UI.space32(this), 0, UI.space8(this));
+        content.addView(sec);
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setBackground(UI.card(this, 24));
+        list.setPadding(UI.space16(this), 0, UI.space16(this), 0);
+        list.addView(UI.row(this, R.drawable.ic_feed, UI.ACCENT, "Дайджест", "LLM-вендоры, benchmarks · 9:00",
+                () -> startActivity(new Intent(this, DigestActivity.class))));
+        list.addView(toolsDivider());
+        list.addView(UI.row(this, R.drawable.ic_capsule, UI.VIOLET, "Капсулы", "заметки, которые помнит модель",
+                () -> startActivity(new Intent(this, CapsuleActivity.class))));
+        list.addView(toolsDivider());
+        list.addView(UI.row(this, R.drawable.ic_pulse, UI.TEAL, "Состояние устройства", "RAM, температура, runtime",
+                () -> startActivity(new Intent(this, DeviceActivity.class))));
+        list.addView(toolsDivider());
+        list.addView(UI.row(this, R.drawable.ic_runner, UI.OK, "Neon Runner", "игра на движке чата",
+                () -> startActivity(new Intent(this, RunnerActivity.class))));
+        content.addView(list, UI.block(this, 4));
         content.addView(UI.footer(this, "v" + UI.version(this) + " · model lives in app storage and survives updates"),
                 UI.block(this, 24));
-        setContentView(Shell.wrap(this, Shell.MODELS, "Models", "Download once · chat offline", content, true));
+        setContentView(Shell.wrap(this, Shell.TOOLS, "Инструменты", "Локальная модель · офлайн-чат", content, true));
     }
 
     @Override protected void onResume() {
@@ -199,4 +224,11 @@ public class PocketActivity extends Activity {
     }
 
     private int dp(float v) { return Math.round(v * getResources().getDisplayMetrics().density); }
+
+    private View toolsDivider() {
+        View v = new View(this);
+        v.setBackgroundColor(0x0FFFFFFF);
+        v.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(1)));
+        return v;
+    }
 }

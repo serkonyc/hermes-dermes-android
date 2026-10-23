@@ -27,32 +27,37 @@ public final class UI {
     public static float d(Context c) { return c.getResources().getDisplayMetrics().density; }
     public static int dp(Context c, float v) { return Math.round(v * d(c)); }
 
-    // ========== MD3 Color tokens (tonal dark surfaces) ==========
-    // Background = the lowest layer; surface containers step up in lightness for elevation
-    public static final int BACKGROUND       = 0xFF12141A;  // page background
-    public static final int SURFACE          = 0xFF12141A;  // MD3 "surface" = same as bg
-    public static final int SURFACE_CONTAINER_LOWEST = 0xFF12141A;
-    public static final int SURFACE_CONTAINER_LOW    = 0xFF1C2029;  // cards, sheets
-    public static final int SURFACE_CONTAINER        = 0xFF242A36;  // elevated cards
-    public static final int SURFACE_CONTAINER_HIGH   = 0xFF2C323F;  // modals
-    public static final int SURFACE_CONTAINER_HIGHEST= 0xFF353B49;  // tooltips
+    // ========== "Quiet Neural Flagship" tokens (docs/DESIGN_TOKENS.md) ==========
+    // Obsidian canvas; surfaces step up one warm tonal level each.
+    public static final int BACKGROUND       = 0xFF05070C;  // page background, never pure black
+    public static final int SURFACE          = 0xFF05070C;
+    public static final int SURFACE_CONTAINER_LOWEST = 0xFF05070C;
+    public static final int SURFACE_CONTAINER_LOW    = 0xFF0B0F17;  // cards, sheets, nav
+    public static final int SURFACE_CONTAINER        = 0xFF121826;  // elevated cards, composer
+    public static final int SURFACE_CONTAINER_HIGH   = 0xFF1A2234;  // modals
+    public static final int SURFACE_CONTAINER_HIGHEST= 0xFF232C40;  // tooltips
 
     // Legacy aliases for existing code
     public static final int BG       = BACKGROUND;
     public static final int SURFACE_HI = SURFACE_CONTAINER;
 
-    // Text colors (high-emphasis for body, medium for secondary info)
-    public static final int TEXT_0 = 0xFFF2F5FA;  // high-emphasis (body text)
-    public static final int TEXT_1 = 0xFFA9B3C2;  // medium-emphasis (captions, labels)
-    public static final int TEXT_2 = 0xFF69748A;  // disabled, hints
+    // Text colors (warm white, never pure white)
+    public static final int TEXT_0 = 0xFFEAE7F2;
+    public static final int TEXT_1 = 0xFF9AA0B4;
+    public static final int TEXT_2 = 0xFF5A6072;
     public static final int STROKE = 0x00000000;  // deprecated, tonal surfaces only
 
-    // Accent & status
-    public static final int ACCENT = 0xFF7EA6F5;  // primary action, interactive
-    public static final int ACCENT_SOFT = 0xFF2E3D5C;  // user-message surface (accent at low chroma)
-    public static final int OK     = 0xFF6BBF7B;
-    public static final int VIOLET = 0xFFA78BDB;
-    public static final int TEAL   = 0xFF5FB3C9;
+    // Accent & status: cyan = intelligence, violet = assistant identity,
+    // gradient accent->assistant only on: active nav pill, CTA, send button.
+    public static final int ACCENT = 0xFF2DE2E6;
+    public static final int ACCENT_DEEP = 0xFF12A9C4;
+    public static final int ON_ACCENT = 0xFF04121A;   // text/icon on bright fills
+    public static final int ACCENT_SOFT = 0xFF123043;  // user-message surface
+    public static final int OK     = 0xFF3ED89A;
+    public static final int VIOLET = 0xFF7A5CFF;
+    public static final int VIOLET_DEEP = 0xFF4A2FD6;
+    public static final int WARN   = 0xFFF5B94D;
+    public static final int TEAL   = 0xFF12A9C4;
 
     // ========== Spacing tokens (8dp grid) ==========
     // MD3 spacing: space4, space8, space12, space16, space20, space24, space32
@@ -173,13 +178,19 @@ public final class UI {
         return g;
     }
 
-    /** Filled button (primary action, filled tonal container style). */
+    /** Signature 135deg cyan->violet gradient pill (CTA, send, active nav icon). */
+    public static GradientDrawable grad(Context c, int radiusDp) {
+        GradientDrawable g = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR, new int[]{ACCENT, VIOLET});
+        g.setCornerRadius(dp(c, radiusDp));
+        return g;
+    }
+
+    /** Filled button (primary action, flagship gradient pill). */
     public static void buttonFilled(android.widget.Button b, Context c) {
-        GradientDrawable g = new GradientDrawable();
-        g.setColor(ACCENT);
-        g.setCornerRadius(dp(c, 20));  // pill
+        GradientDrawable g = grad(c, 20);
         b.setBackground(g);
-        b.setTextColor(0xFF0B1220);
+        b.setTextColor(ON_ACCENT);
         b.setAllCaps(false);
         labelLarge(b);
         b.setPadding(space16(c), space12(c), space16(c), space12(c));
@@ -291,6 +302,36 @@ public final class UI {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(c, boxDp), dp(c, boxDp));
         iv.setLayoutParams(lp);
         return iv;
+    }
+
+    /** Standard list row: icon chip + title/sub + chevron; used by Tools and Settings. */
+    public static View row(Context c, int iconRes, int tint, String title, String sub, Runnable onClick) {
+        LinearLayout r = new LinearLayout(c);
+        r.setOrientation(LinearLayout.HORIZONTAL);
+        r.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        r.setPadding(0, space12(c), 0, space12(c));
+        r.addView(iconChip(c, iconRes, tint, 44, 24));
+        LinearLayout col = new LinearLayout(c);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setPadding(space16(c), 0, space16(c), 0);
+        TextView h = new TextView(c); titleMedium(h); h.setText(title);
+        col.addView(h);
+        if (sub != null && !sub.isEmpty()) {
+            TextView s = new TextView(c); bodySmall(s); s.setText(sub); s.setTextColor(TEXT_1);
+            s.setSingleLine(true); s.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            s.setPadding(0, space4(c), 0, 0);
+            col.addView(s);
+        }
+        r.addView(col, new LinearLayout.LayoutParams(0, -2, 1f));
+        android.widget.ImageView chevron = new android.widget.ImageView(c);
+        chevron.setImageResource(R.drawable.ic_chevron);
+        chevron.setImageTintList(android.content.res.ColorStateList.valueOf(TEXT_2));
+        r.addView(chevron, new LinearLayout.LayoutParams(dp(c, 20), dp(c, 20)));
+        if (onClick != null) {
+            r.setClickable(true);
+            r.setOnClickListener(v -> { Shell.press(v); onClick.run(); });
+        }
+        return r;
     }
 
     /** Staggered entrance (rise + fade, ease-out curve). */

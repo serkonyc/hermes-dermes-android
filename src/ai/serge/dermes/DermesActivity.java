@@ -1,350 +1,139 @@
 package ai.serge.dermes;
 
 import android.app.Activity;
-import android.app.DownloadManager;
-import android.content.Context;
-import android.content.Intent;
-import android.content.pm.PackageInfo;
-import android.net.Uri;
 import android.os.Bundle;
-import android.provider.Settings;
-import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-
 /**
- * Dermes hub v4.1.0 — composed from the UI design system (token palette, 8dp grid,
- * vector icon chips from res/drawable, staggered entrance, press-scale feedback).
- * Hero = Pocket Brain, five feature tiles, live update line. Update machinery unchanged:
- * GitHub Releases latest vs PackageInfo.versionName, DownloadManager (survives MyCom TUN),
- * PackageInstaller session install (no APK left on disk).
+ * Hub v4.16 — focused entry: greeting, model-state hero with one CTA, quick list.
+ * Update machinery lives in SettingsActivity; only the shared HTTP helper stays here.
  */
 public class DermesActivity extends Activity {
-
-    private static final String REPO = "serkonyc/hermes-dermes-android";
-    private final java.util.concurrent.ExecutorService pool =
-            java.util.concurrent.Executors.newSingleThreadExecutor();
-    private TextView status;
-    private String latestTag, downloadUrl;
-    private long expectedSize;
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         Shell.prepare(this);
         build();
-        sweepOldApks();
-        checkForUpdate();
-    }
-
-    private static final class Tile {
-        final String label, sub; final int icon, accent; final Class<?> target;
-        Tile(String l, String s, int i, int a, Class<?> t) { label = l; sub = s; icon = i; accent = a; target = t; }
     }
 
     private void build() {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
 
-        View hero = hero();
-        UI.animateIn(hero, 40);
-        root.addView(hero, new LinearLayout.LayoutParams(-1, UI.dp(this, 128)));
+        View chip = UI.iconChip(this, R.drawable.ic_spark, UI.ON_ACCENT, 44, 22);
+        chip.setBackground(UI.grad(this, 14));
+        root.addView(chip);
 
-        Tile[] tiles = {
-            new Tile("Digest", "Hermes morning feed", R.mipmap.t_feed_icon, UI.ACCENT, DigestActivity.class),
-            new Tile("Capsules", "from the future", R.mipmap.t_capsule_icon, UI.VIOLET, CapsuleActivity.class),
-            new Tile("Neon Runner", "tap. jump. repeat", R.mipmap.t_runner_icon, UI.TEAL, RunnerActivity.class),
-            new Tile("History", "7-day usage", R.mipmap.t_bars_icon, UI.OK, HistoryActivity.class),
-            new Tile("Update", "check now", R.mipmap.t_update_icon, UI.TEXT_2, null),
-        };
-        LinearLayout grid = new LinearLayout(this);
-        grid.setOrientation(LinearLayout.VERTICAL);
-        grid.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1f));
-        for (int t = 0; t < tiles.length; t += 2) {
-            View a = tile(tiles[t]);
-            View b = t + 1 < tiles.length ? tile(tiles[t + 1]) : new View(this);
-            LinearLayout r = row(a, b);
-            UI.animateIn(r, 120 + t * 80L);
-            grid.addView(r);
-        }
-        root.addView(grid);
+        TextView greet = new TextView(this);
+        UI.displayMedium(greet);
+        greet.setText(greeting());
+        greet.setPadding(0, UI.space24(this), 0, 0);
+        root.addView(greet);
+        UI.animateIn(greet, 40);
 
-        status = new TextView(this);
-        status.setTextSize(11.5f);
-        status.setTextColor(UI.TEXT_2);
-        status.setGravity(Gravity.CENTER);
-        status.setPadding(0, UI.dp(this, 12), 0, 0);
-        status.setText("checking for updates…");
-        root.addView(status);
-        root.addView(UI.footer(this, "v" + UI.version(this)));
-        setContentView(Shell.wrap(this, Shell.HOME, "Dermes", "Local AI on your phone", root, true));
+        root.addView(hero(), UI.block(this, 24));
+
+        TextView sec = new TextView(this);
+        UI.labelMedium(sec);
+        sec.setTextColor(UI.TEXT_1);
+        sec.setText("БЫСТРЫЙ ДОСТУП");
+        sec.setLetterSpacing(0.06f);
+        sec.setPadding(0, UI.space32(this), 0, UI.space8(this));
+        root.addView(sec);
+
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setBackground(UI.card(this, 24));
+        list.setPadding(UI.space16(this), 0, UI.space16(this), 0);
+        list.addView(UI.row(this, R.drawable.ic_feed, UI.ACCENT, "Дайджест", "Hermes morning feed",
+                () -> startActivity(new android.content.Intent(this, DigestActivity.class))));
+        list.addView(divider());
+        list.addView(UI.row(this, R.drawable.ic_capsule, UI.VIOLET, "Капсулы", "from the future",
+                () -> startActivity(new android.content.Intent(this, CapsuleActivity.class))));
+        list.addView(divider());
+        list.addView(UI.row(this, R.drawable.ic_runner, UI.TEAL, "Neon Runner", "tap. jump. repeat",
+                () -> startActivity(new android.content.Intent(this, RunnerActivity.class))));
+        root.addView(list);
+        UI.animateIn(list, 200);
+
+        root.addView(UI.footer(this, "v" + UI.version(this)), UI.block(this, 24));
+        setContentView(Shell.wrap(this, Shell.HOME, "", "", root, true));
     }
 
+    /** Model-state card + the single primary action of the whole app. */
     private View hero() {
-        LinearLayout t = new LinearLayout(this);
-        t.setOrientation(LinearLayout.HORIZONTAL);
-        t.setGravity(Gravity.CENTER_VERTICAL);
-        t.setBackground(UI.card(this, 22));
-        t.setElevation(UI.dp(this, 3));
-        t.setPadding(UI.dp(this, 18), 0, UI.dp(this, 18), 0);
-        t.setClickable(true);
+        boolean ready = modelFile() != null;
 
-                android.widget.ImageView heroIcon = new android.widget.ImageView(this);
-        heroIcon.setImageResource(R.mipmap.t_brain_icon);
-        heroIcon.setElevation(UI.dp(this, 4));
-        t.addView(heroIcon, new LinearLayout.LayoutParams(UI.dp(this, 54), UI.dp(this, 54)));
-        LinearLayout txt = new LinearLayout(this);
-        txt.setOrientation(LinearLayout.VERTICAL);
-        txt.setPadding(UI.dp(this, 16), 0, 0, 0);
-        txt.addView(bold("Pocket Brain", 20));
-        TextView s = sub("download & run local LLM models");
-        s.setTextSize(13f);
-        s.setPadding(0, UI.dp(this, 3), 0, 0);
-        txt.addView(s);
-        TextView meta = sub("0.7–4.8 GB · offline in the metro");
-        meta.setTextColor(UI.TEXT_2);
-        meta.setPadding(0, UI.dp(this, 3), 0, 0);
-        txt.addView(meta);
-        t.addView(txt, new LinearLayout.LayoutParams(0, -2, 1f));
+        LinearLayout hero = new LinearLayout(this);
+        hero.setOrientation(LinearLayout.VERTICAL);
+        hero.setBackground(UI.cardElevated(this, 28));
+        hero.setElevation(UI.dp(this, 6));
+        hero.setPadding(UI.space20(this), UI.space20(this), UI.space20(this), UI.space20(this));
 
-        t.setOnClickListener(v -> {
-            press(v);
-            startActivity(new Intent(this, PocketActivity.class));
+        TextView state = new TextView(this);
+        UI.labelLarge(state);
+        state.setTextColor(ready ? UI.OK : UI.WARN);
+        state.setText((ready ? "●  " : "○  ") + (ready ? "Модель готова · всё локально" : "Модель не загружена"));
+        hero.addView(state);
+
+        TextView desc = new TextView(this);
+        UI.bodyMedium(desc);
+        desc.setTextColor(UI.TEXT_1);
+        desc.setLineSpacing(0, 1.3f);
+        desc.setText(ready
+                ? "Ни одного сетевого запроса. Разговоры остаются на телефоне."
+                : "Один раз скачай ~5 ГБ — дальше чат полностью офлайн, даже в метро.");
+        desc.setPadding(0, UI.space12(this), 0, 0);
+        hero.addView(desc);
+
+        android.widget.Button cta = new android.widget.Button(this);
+        UI.buttonFilled(cta, this);
+        cta.setText(ready ? "Продолжить чат" : "Скачать модель");
+        cta.setPadding(0, UI.space12(this), 0, UI.space12(this));
+        cta.setOnClickListener(v -> {
+            Shell.press(v);
+            startActivity(new android.content.Intent(this,
+                    ready ? ChatActivity.class : PocketActivity.class));
         });
-        return t;
+        hero.addView(cta, UI.block(this, 20));
+        UI.animateIn(hero, 120);
+        return hero;
     }
 
-    private void press(View v) {
-        v.animate().scaleX(0.95f).scaleY(0.95f).setDuration(70)
-         .withEndAction(() -> v.animate().scaleX(1f).scaleY(1f).setDuration(130).start())
-         .start();
+    private java.io.File modelFile() {
+        java.io.File d = new java.io.File(getExternalFilesDir(null), "models");
+        java.io.File[] fs = d.listFiles((x, n) -> n.endsWith(".gguf"));
+        if (fs == null || fs.length == 0) return null;
+        for (java.io.File f : fs) if (f.getName().startsWith("LFM2.5-8B")) return f;
+        return fs[0];
     }
 
-    private TextView bold(String s, float sp) {
-        TextView l = new TextView(this);
-        l.setText(s); l.setTextSize(sp); l.setTextColor(UI.TEXT_0);
-        l.setTypeface(android.graphics.Typeface.create("sans-serif-medium",
-                android.graphics.Typeface.NORMAL));
-        return l;
-    }
-    private TextView sub(String s) {
-        TextView l = new TextView(this);
-        l.setText(s); l.setTextSize(11.5f); l.setTextColor(UI.TEXT_1);
-        return l;
+    private View divider() {
+        View v = new View(this);
+        v.setBackgroundColor(0x0FFFFFFF);
+        v.setLayoutParams(new LinearLayout.LayoutParams(-1, UI.dp(this, 1)));
+        return v;
     }
 
-    private LinearLayout row(View a, View b2) {
-        LinearLayout r = new LinearLayout(this);
-        r.setOrientation(LinearLayout.HORIZONTAL);
-        r.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1f));
-        r.setPadding(0, UI.dp(this, 6), 0, 0);
-        LinearLayout.LayoutParams lap = new LinearLayout.LayoutParams(0, -1, 1f);
-        lap.rightMargin = UI.dp(this, 6);
-        LinearLayout.LayoutParams rap = new LinearLayout.LayoutParams(0, -1, 1f);
-        rap.leftMargin = UI.dp(this, 6);
-        r.addView(a, lap);
-        r.addView(b2, rap);
-        return r;
+    private String greeting() {
+        int h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
+        String g = h < 6 ? "Доброй ночи" : h < 12 ? "Доброе утро" : h < 18 ? "Добрый день" : "Добрый вечер";
+        return g + ", Сергей";
     }
 
-    private View tile(final Tile spec) {
-        LinearLayout t = new LinearLayout(this);
-        t.setOrientation(LinearLayout.VERTICAL);
-        t.setGravity(Gravity.BOTTOM);
-        t.setBackground(UI.card(this, 22));
-        t.setElevation(UI.dp(this, 3));
-        t.setPadding(UI.dp(this, 16), 0, UI.dp(this, 16), UI.dp(this, 14));
-        t.setClickable(true);
-
-        android.widget.ImageView chip = new android.widget.ImageView(this);
-        chip.setImageResource(spec.icon);
-        chip.setElevation(UI.dp(this, 2));
-        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(UI.dp(this, 42), UI.dp(this, 42));
-        clp.bottomMargin = UI.dp(this, 10);
-        t.addView(chip, clp);
-        t.addView(bold(spec.label, 15));
-        t.addView(sub(spec.sub));
-        t.setOnClickListener(v -> {
-            press(v);
-            if (spec.target != null) startActivity(new Intent(this, spec.target));
-            else onUpdateTile();
-        });
-        return t;
-    }
-
-    // ---------- updater ----------
-    private String installedVersion() {
-        try {
-            PackageInfo pi = getPackageManager().getPackageInfo(getPackageName(), 0);
-            return pi.versionName;   // single source of truth: the manifest
-        } catch (Exception e) { return "0"; }
-    }
-
-    private void checkForUpdate() {
-        pool.execute(() -> {
-            String latest = null, dl = null, note = null;
-            try {
-                JSONObject rel = new JSONObject(httpGetPublic(
-                        "https://api.github.com/repos/" + REPO + "/releases/latest"));
-                latest = rel.optString("tag_name").replaceFirst("^v", "");
-                JSONArray assets = rel.optJSONArray("assets");
-                if (assets != null) {
-                    for (int i = 0; i < assets.length(); i++) {
-                        JSONObject a = assets.getJSONObject(i);
-                        if (a.optString("name").endsWith(".apk")) {
-                            dl = a.optString("browser_download_url");
-                            expectedSize = a.optLong("size");
-                            break;
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                note = "update check failed: " + e;
-            }
-            final String fLatest = latest, fDl = dl, fNote = note;
-            runOnUiThread(() -> {
-                if (isDestroyed()) return;
-                String cur = installedVersion();
-                if (fLatest == null) {
-                    status.setText("v" + cur + " installed · " + (fNote != null ? fNote : "no releases yet"));
-                    return;
-                }
-                if (isNewer(fLatest, cur) && fDl != null) {
-                    latestTag = fLatest;
-                    downloadUrl = fDl;
-                    status.setTextColor(UI.OK);
-                    status.setText("v" + fLatest + " available · tap Update");
-                    if (!getPackageManager().canRequestPackageInstalls()) {
-                        status.setText(status.getText()
-                                + " · grant 'install unknown apps' first");
-                    }
-                } else {
-                    latestTag = null;
-                    downloadUrl = null;
-                    status.setTextColor(UI.TEXT_2);
-                    status.setText("v" + cur + " · up to date");
-                }
-            });
-        });
-    }
-
-    private void onUpdateTile() {
-        if (latestTag == null || downloadUrl == null) { checkForUpdate(); return; }
-        if (!getPackageManager().canRequestPackageInstalls()) {
-            try {
-                startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                        Uri.parse("package:" + getPackageName())));
-            } catch (Exception e) {
-                status.setText("Open Settings → Apps → Dermes → Install unknown apps, then retry.");
-            }
-            return;
-        }
-        java.io.File dir = new java.io.File(getExternalFilesDir(null), "updates");
-        dir.mkdirs();
-        java.io.File out = new java.io.File(dir, "dermes-" + latestTag + ".apk");
-        if (out.exists()) out.delete();
-        try {
-            // DownloadManager survives the phone's TUN proxy where raw sockets don't;
-            // install itself goes through PackageInstaller (ACTION_VIEW handoff gets
-            // rejected on One UI 15 as "can't install app").
-            DownloadManager.Request r = new DownloadManager.Request(Uri.parse(downloadUrl));
-            r.setDestinationUri(Uri.fromFile(out));
-            r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            r.setTitle("Dermes update");
-            dm().enqueue(r);
-            status.setText("downloading… install sheet opens when done");
-            pollInstall(out);
-        } catch (Exception e) {
-            status.setText("download failed: " + e);
-        }
-    }
-
-    private DownloadManager dm() { return (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE); }
-
-    /** Delete APK leftovers (incl. files from the old ACTION-view flow). */
-    private void sweepOldApks() {
-        java.io.File[] fs = new java.io.File(getExternalFilesDir(null), "updates").listFiles();
-        if (fs != null) for (java.io.File f : fs) if (f.getName().endsWith(".apk")) f.delete();
-    }
-
-    private void pollInstall(java.io.File apk) {
-        final android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
-        h.postDelayed(new Runnable() {
-            int misses = 0;
-            @Override public void run() {
-                if (isDestroyed()) return;
-                if (apk.exists() && apk.length() == expectedSize) stageAndInstall(apk);
-                else if (++misses < 80) h.postDelayed(this, 1500); // ~2 min cap
-                else status.setText("download did not finish; retry the update tile");
-            }
-        }, 1500);
-    }
-
-    /** Stream the APK into an installer session, drop the file, show the system sheet. */
-    private void stageAndInstall(java.io.File apk) {
-        status.setText("preparing install…");
-        new Thread(() -> {
-            int sessionId = -1;
-            try {
-                android.content.pm.PackageInstaller pi = getPackageManager().getPackageInstaller();
-                android.content.pm.PackageInstaller.SessionParams sp =
-                    new android.content.pm.PackageInstaller.SessionParams(
-                        android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL);
-                sessionId = pi.createSession(sp);
-                Intent result = new Intent(this, InstallResult.class);
-                int flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT
-                        | android.app.PendingIntent.FLAG_MUTABLE;
-                final android.app.PendingIntent piIntent = android.app.PendingIntent.getBroadcast(
-                        this, sessionId, result, flags);
-                try (android.content.pm.PackageInstaller.Session sess = pi.openSession(sessionId);
-                     java.io.InputStream in = new java.io.FileInputStream(apk)) {
-                    java.io.OutputStream out = sess.openWrite("base.apk", 0, apk.length());
-                    byte[] buf = new byte[128 * 1024];
-                    int n;
-                    while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
-                    sess.fsync(out);
-                    out.close();
-                    sess.commit(piIntent.getIntentSender()); // opens the system install sheet
-                }
-                apk.delete(); // bytes live in the session now - no apk junk in storage
-                uiPost("confirm the update in the system sheet");
-            } catch (Exception e) {
-                if (sessionId >= 0) try { getPackageManager().getPackageInstaller().abandonSession(sessionId); } catch (Exception ignored) {}
-                apk.delete();
-                uiPost("stage failed: " + e);
-            }
-        }).start();
-    }
-
-    private void uiPost(String s) { runOnUiThread(() -> { if (status != null) status.setText(s); }); }
-
-    static boolean isNewer(String latest, String current) {
-        String[] a = latest.split("[.\\-]"), b = current.split("[.\\-]");
-        for (int i = 0; i < Math.max(a.length, b.length); i++) {
-            int x = i < a.length ? parseInt(a[i]) : 0;
-            int y = i < b.length ? parseInt(b[i]) : 0;
-            if (x != y) return x > y;
-        }
-        return false;
-    }
-    private static int parseInt(String s) { try { return Integer.parseInt(s); } catch (Exception e) { return 0; } }
-
+    /** Shared public GET (Digest + Device read through this). */
     public static String httpGetPublic(String url) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+        java.net.HttpURLConnection conn =
+                (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
         conn.setConnectTimeout(4000);
         conn.setReadTimeout(4000);
         conn.setRequestProperty("User-Agent", "dermes-updater");
         try {
             if (conn.getResponseCode() != 200) throw new Exception("http " + conn.getResponseCode());
-            BufferedReader r = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+            java.io.BufferedReader r = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(conn.getInputStream(), "UTF-8"));
             StringBuilder sb = new StringBuilder();
             String line;
             while ((line = r.readLine()) != null) sb.append(line).append('\n');

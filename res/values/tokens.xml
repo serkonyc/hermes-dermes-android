@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#12141A</color>
-    <color name="surface">#1C2029</color>
-    <color name="surface_hi">#242A36</color>
-    <color name="stroke">#2E3644</color>
-    <color name="text_0">#F2F5FA</color>
-    <color name="text_1">#A9B3C2</color>
-    <color name="text_2">#69748A</color>
-    <color name="accent">#7EA6F5</color>
-    <color name="ok">#6BBF7B</color>
-    <color name="warn">#E0B341</color>
-    <color name="violet">#A78BDB</color>
-    <color name="teal">#5FB3C9</color>
+    <color name="bg">#05070C</color>
+    <color name="surface">#0B0F17</color>
+    <color name="surface_hi">#121826</color>
+    <color name="stroke">#1A2234</color>
+    <color name="text_0">#EAE7F2</color>
+    <color name="text_1">#9AA0B4</color>
+    <color name="text_2">#5A6072</color>
+    <color name="accent">#2DE2E6</color>
+    <color name="ok">#3ED89A</color>
+    <color name="warn">#F5B94D</color>
+    <color name="violet">#7A5CFF</color>
+    <color name="teal">#12A9C4</color>
 </resources>
