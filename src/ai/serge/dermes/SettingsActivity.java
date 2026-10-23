@@ -153,7 +153,10 @@ public class SettingsActivity extends Activity {
         });
     }
 
+    private boolean staging = false;
+
     private void onUpdate() {
+        if (staging) return;                       // second tap would race the installer
         if (latestTag == null || downloadUrl == null) { checkForUpdate(); return; }
         if (!getPackageManager().canRequestPackageInstalls()) {
             try {
@@ -164,6 +167,9 @@ public class SettingsActivity extends Activity {
             }
             return;
         }
+        staging = true;
+        action.setEnabled(false);
+        action.setText("скачиваем…");
         java.io.File dir = new java.io.File(getExternalFilesDir(null), "updates");
         dir.mkdirs();
         java.io.File out = new java.io.File(dir, "dermes-" + latestTag + ".apk");
@@ -180,6 +186,7 @@ public class SettingsActivity extends Activity {
             status.setText("скачиваем… системное окно откроется по завершении");
             pollInstall(out);
         } catch (Exception e) {
+            staging = false; action.setEnabled(true); action.setText("Обновить до v" + latestTag);
             status.setText("download failed: " + e);
         }
     }
@@ -195,14 +202,33 @@ public class SettingsActivity extends Activity {
     private void pollInstall(java.io.File apk) {
         final android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
         h.postDelayed(new Runnable() {
-            int misses = 0;
+            int misses = 0; long last = -1;
             @Override public void run() {
                 if (isDestroyed()) return;
-                if (apk.exists() && apk.length() == expectedSize) stageAndInstall(apk);
+                long len = apk.exists() ? apk.length() : -1;
+                // size must equal the release asset AND be stable for one tick: a torn
+                // APK handed to PackageInstaller fails as INSTALL_PARSE_FAILED_NOT_APK
+                if (len == expectedSize && len == last && zipSane(apk)) stageAndInstall(apk);
                 else if (++misses < 80) h.postDelayed(this, 1500); // ~2 min cap
-                else status.setText("скачивание не завершилось; повтори обновление");
+                else { staging = false; action.setEnabled(true);
+                       status.setText("скачивание не завершилось; повтори обновление"); }
+                last = len;
             }
         }, 1500);
+    }
+
+    /** Cheap zip integrity: local header up front, EOCD record at the tail. */
+    private boolean zipSane(java.io.File f) {
+        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(f, "r")) {
+            if (raf.length() < 30) return false;
+            byte[] h = new byte[2]; raf.readFully(h);
+            if (h[0] != 'P' || h[1] != 'K') return false;
+            byte[] t = new byte[(int) Math.min(64, raf.length())];
+            raf.seek(raf.length() - t.length); raf.readFully(t);
+            for (int i = 0; i + 3 < t.length; i++)
+                if (t[i] == 'P' && t[i+1] == 'K' && t[i+2] == 5 && t[i+3] == 6) return true;
+            return false;
+        } catch (Exception e) { return false; }
     }
 
     /** Stream the APK into an installer session, drop the file, show the system sheet. */
@@ -233,10 +259,12 @@ public class SettingsActivity extends Activity {
                 }
                 apk.delete(); // bytes live in the session now - no apk junk in storage
                 uiPost("подтверди обновление в системном окне");
+                runOnUiThread(() -> { staging = false; action.setEnabled(true); });
             } catch (Exception e) {
                 if (sessionId >= 0) try { getPackageManager().getPackageInstaller().abandonSession(sessionId); } catch (Exception ignored) {}
                 apk.delete();
                 uiPost("stage failed: " + e);
+                runOnUiThread(() -> { staging = false; action.setEnabled(true); });
             }
         }).start();
     }
