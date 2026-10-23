@@ -37,6 +37,7 @@ public class DeviceActivity extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        Shell.prepare(this);
 
         Runtime rt = Runtime.getRuntime();
         android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
@@ -64,7 +65,7 @@ public class DeviceActivity extends Activity {
         TextView info = new TextView(this);
         info.setText(sb);
         UI.bodyMedium(info);
-        info.setPadding(UI.space18(this), UI.space14(this), UI.space18(this), UI.space8(this));
+        info.setPadding(0, 0, 0, UI.space8(this));
 
         Button fetch = new Button(this);
         fetch.setText("Fetch llama.cpp runtime");
@@ -103,22 +104,19 @@ public class DeviceActivity extends Activity {
             }).start();
         });
 
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(UI.BACKGROUND);
-        root.setFitsSystemWindows(true);
-        root.setPadding(UI.space20(this), UI.space8(this), UI.space20(this), UI.space10(this));
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+
         ScrollView sc = new ScrollView(this);
         sc.addView(info);
-        root.addView(sc, new LinearLayout.LayoutParams(-1, 0, 1f));
-        root.addView(fetch, UI.block(this, 12));
-        root.addView(open, UI.block(this, 8));
-        root.addView(UI.footer(this, "v" + UI.version(this)), UI.block(this, 16));
-        root.addView(UI.headerRow(this, "Device", "RAM, storage and runtime"), 0);
-        setContentView(root);
+        content.addView(sc, new LinearLayout.LayoutParams(-1, 0, 1f));
+        content.addView(fetch, UI.block(this, 12));
+        content.addView(open, UI.block(this, 8));
+        content.addView(UI.footer(this, "v" + UI.version(this)), UI.block(this, 16));
+
+        setContentView(Shell.wrap(this, -1, "Device", "RAM, storage and runtime", content, true, this::finish));
 
     }
-
 
     private void startDownload(String url) {
         try {

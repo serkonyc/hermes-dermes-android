@@ -39,7 +39,8 @@ public class DermesActivity extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
-        setContentView(build());
+        Shell.prepare(this);
+        build();
         sweepOldApks();
         checkForUpdate();
     }
@@ -49,9 +50,9 @@ public class DermesActivity extends Activity {
         Tile(String l, String s, int i, int a, Class<?> t) { label = l; sub = s; icon = i; accent = a; target = t; }
     }
 
-    private View build() {
-        LinearLayout root = UI.screen(this);
-        root.addView(UI.headerRow(this, "Dermes", "local AI · your phone, no cloud"));
+    private void build() {
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
 
         View hero = hero();
         UI.animateIn(hero, 40);
@@ -84,7 +85,7 @@ public class DermesActivity extends Activity {
         status.setText("checking for updates…");
         root.addView(status);
         root.addView(UI.footer(this, "v" + UI.version(this)));
-        return root;
+        setContentView(Shell.wrap(this, Shell.HOME, "Dermes", "Local AI on your phone", root, true));
     }
 
     private View hero() {

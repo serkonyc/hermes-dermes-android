@@ -36,6 +36,7 @@ public class CapsuleActivity extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        Shell.prepare(this);
 
         labelIn = field("label (visible while sealed)", false);
         bodyIn = field("message to your future self…", true);
@@ -55,31 +56,29 @@ public class CapsuleActivity extends Activity {
 
         list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(UI.space18(this), UI.space8(this), UI.space18(this), UI.space8(this));
+        list.setPadding(0, UI.space8(this), 0, UI.space8(this));
         ScrollView sc = new ScrollView(this);
         sc.addView(list);
 
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.addView(UI.headerRow(this, "Time Capsules", "sealed notes that unlock later"));
-        root.addView(sc, new LinearLayout.LayoutParams(-1, 0, 1f));
-        root.addView(labelIn);
-        root.addView(bodyIn);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+
+        content.addView(sc, new LinearLayout.LayoutParams(-1, 0, 1f));
+        content.addView(labelIn);
+        content.addView(bodyIn);
         LinearLayout chips = new LinearLayout(this);
-        chips.setPadding(UI.space18(this), UI.space6(this), UI.space18(this), 0);
+        chips.setPadding(0, UI.space6(this), 0, 0);
         chips.addView(new TextView(this) {{ setText("unlocks: "); setTextColor(UI.TEXT_2); }});
         chips.addView(when);
-        root.addView(chips);
+        content.addView(chips);
         LinearLayout row = new LinearLayout(this);
-        row.setPadding(UI.space14(this), 0, UI.space14(this), UI.space6(this));
+        row.setPadding(0, 0, 0, UI.space6(this));
         row.addView(plus1h); row.addView(plus1d); row.addView(reset);
-        root.addView(row);
-        root.addView(seal);
-        root.addView(UI.footer(this, "v" + UI.version(this)), UI.block(this, 16));
-        root.setBackgroundColor(UI.BG);
-        root.setPadding(UI.space20(this), UI.space8(this), UI.space20(this), UI.space10(this));
-        root.setFitsSystemWindows(true);
-        setContentView(root);
+        content.addView(row);
+        content.addView(seal);
+        content.addView(UI.footer(this, "v" + UI.version(this)), UI.block(this, 16));
+
+        setContentView(Shell.wrap(this, -1, "Time Capsules", "Sealed notes that unlock later", content, true, this::finish));
 
         render();
     }
@@ -95,7 +94,7 @@ public class CapsuleActivity extends Activity {
         e.setPadding(UI.space18(this), UI.space12(this), UI.space18(this), UI.space12(this));
         e.setBackground(UI.card(CapsuleActivity.this, 14));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-        lp.setMargins(UI.space18(this), UI.space6(this), UI.space18(this), 0);
+        lp.setMargins(0, UI.space6(this), 0, 0);
         e.setLayoutParams(lp);
         return e;
     }

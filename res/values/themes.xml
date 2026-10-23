@@ -2,8 +2,10 @@
 <resources>
     <style name="Theme.Dermes" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/ic_bg</item>
-        <item name="android:statusBarColor">@color/ic_bg</item>
-        <item name="android:navigationBarColor">@color/ic_bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarDividerColor">@android:color/transparent</item>
         <item name="android:colorAccent">#58A6FF</item>
     </style>
 </resources>

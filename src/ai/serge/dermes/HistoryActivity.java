@@ -29,7 +29,9 @@ public class HistoryActivity extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
-        LinearLayout root = UI.screen(this);
+        Shell.prepare(this);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
 
         View title = UI.headerRow(this, "History", "requests and tokens · last 7 days");
 
@@ -48,12 +50,11 @@ public class HistoryActivity extends Activity {
                 ? "no data yet — open Pocket Brain to record a visit"
                 : days.size() + " day(s) recorded on this phone · one unit per app visit");
 
-        root.addView(title);
-        root.addView(reqBars, new LinearLayout.LayoutParams(-1, 0, 1f));
-        root.addView(tokBars, new LinearLayout.LayoutParams(-1, 0, 1f));
-        root.addView(note);
-        root.addView(UI.footer(this, "v" + UI.version(this)));
-        setContentView(root);
+        content.addView(reqBars, new LinearLayout.LayoutParams(-1, 0, 1f));
+        content.addView(tokBars, new LinearLayout.LayoutParams(-1, 0, 1f));
+        content.addView(note);
+        content.addView(UI.footer(this, "v" + UI.version(this)));
+        setContentView(Shell.wrap(this, -1, "History", "Requests and tokens", content, true, this::finish));
     }
 
     private int dp(float v) { return Math.round(v * getResources().getDisplayMetrics().density); }

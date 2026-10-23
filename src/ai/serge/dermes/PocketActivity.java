@@ -50,6 +50,7 @@ public class PocketActivity extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        Shell.prepare(this);
         HistoryActivity.accumulate(this, 1, 0); // one visit = one history unit
 
         prog = new TextView(this);
@@ -69,15 +70,17 @@ public class PocketActivity extends Activity {
         dlBtn.setVisibility(View.GONE);
         dlBtn.setOnClickListener(v -> startDownload(dlBtn));
 
-        LinearLayout root = UI.screen(this);
-        root.addView(UI.headerRow(this, "Neuro Chat", "one model · on-device · nothing leaves the phone"));
-        root.addView(prog);
-        root.addView(bar, UI.block(this, 12));
-        root.addView(actionBtn, UI.block(this, 16));
-        root.addView(dlBtn, UI.block(this, 8));
-        root.addView(UI.footer(this, "v" + UI.version(this) + " · model lives in app storage and survives updates"),
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(0, UI.space8(this), 0, 0);
+
+        content.addView(prog);
+        content.addView(bar, UI.block(this, 12));
+        content.addView(actionBtn, UI.block(this, 16));
+        content.addView(dlBtn, UI.block(this, 8));
+        content.addView(UI.footer(this, "v" + UI.version(this) + " · model lives in app storage and survives updates"),
                 UI.block(this, 24));
-        setContentView(root);
+        setContentView(Shell.wrap(this, Shell.MODELS, "Models", "Download once · chat offline", content, true));
     }
 
     @Override protected void onResume() {

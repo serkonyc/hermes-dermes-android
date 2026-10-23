@@ -12,7 +12,7 @@ import android.widget.TextView;
 
 /**
  * Design system (v4.13.2): Material Design 3 tokens + Telegram-style dark aesthetic.
- * 
+ *
  * Core principles applied:
  * - 8dp spacing scale (4dp for icons/fine details)
  * - Tonal surfaces (lighter surface = higher elevation, no strokes)
@@ -36,17 +36,17 @@ public final class UI {
     public static final int SURFACE_CONTAINER        = 0xFF242A36;  // elevated cards
     public static final int SURFACE_CONTAINER_HIGH   = 0xFF2C323F;  // modals
     public static final int SURFACE_CONTAINER_HIGHEST= 0xFF353B49;  // tooltips
-    
+
     // Legacy aliases for existing code
     public static final int BG       = BACKGROUND;
     public static final int SURFACE_HI = SURFACE_CONTAINER;
-    
+
     // Text colors (high-emphasis for body, medium for secondary info)
     public static final int TEXT_0 = 0xFFF2F5FA;  // high-emphasis (body text)
     public static final int TEXT_1 = 0xFFA9B3C2;  // medium-emphasis (captions, labels)
     public static final int TEXT_2 = 0xFF69748A;  // disabled, hints
     public static final int STROKE = 0x00000000;  // deprecated, tonal surfaces only
-    
+
     // Accent & status
     public static final int ACCENT = 0xFF7EA6F5;  // primary action, interactive
     public static final int ACCENT_SOFT = 0xFF2E3D5C;  // user-message surface (accent at low chroma)
@@ -70,7 +70,7 @@ public final class UI {
 
     // ========== Type scale (MD3 display/headline/title/body/label) ==========
     // Size and weight for each role; line-height auto-calc by TextView
-    
+
     // Display - hero text, large numerals
     public static void displayLarge(TextView t) {
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 36);
@@ -82,7 +82,7 @@ public final class UI {
         t.setTextColor(TEXT_0);
         t.setTypeface(android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.NORMAL);
     }
-    
+
     // Headline - section headers, prominent titles
     public static void headlineMedium(TextView t) {
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
@@ -94,7 +94,7 @@ public final class UI {
         t.setTextColor(TEXT_0);
         t.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
     }
-    
+
     // Title - medium-emphasis, shorter text
     public static void titleMedium(TextView t) {
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
@@ -106,7 +106,7 @@ public final class UI {
         t.setTextColor(TEXT_0);
         t.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
     }
-    
+
     // Body - paragraphs, longer text
     public static void bodyLarge(TextView t) {
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
@@ -129,7 +129,7 @@ public final class UI {
         t.setTextColor(TEXT_1);
         t.setTypeface(android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.NORMAL);
     }
-    
+
     // Label - buttons, chips, captions
     public static void labelLarge(TextView t) {
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
@@ -145,7 +145,7 @@ public final class UI {
     }
 
     // ========== Components ==========
-    
+
     /**
      * Tonal surface card (MD3 elevation through color, not shadows).
      * Surface Container Low = default elevated card (chat bubbles, tiles).
@@ -156,7 +156,7 @@ public final class UI {
         g.setCornerRadius(dp(c, radiusDp));
         return g;
     }
-    
+
     /** Card with explicit fill (user bubbles etc). */
     public static GradientDrawable card(Context c, int radiusDp, int color) {
         GradientDrawable g = new GradientDrawable();
@@ -185,7 +185,7 @@ public final class UI {
         b.setPadding(space16(c), space12(c), space16(c), space12(c));
         b.setElevation(dp(c, 2));
     }
-    
+
     /** Tonal button (secondary action, Surface Container style). */
     public static void buttonTonal(android.widget.Button b, Context c) {
         GradientDrawable g = new GradientDrawable();
@@ -197,7 +197,7 @@ public final class UI {
         labelLarge(b);
         b.setPadding(space16(c), space12(c), space16(c), space12(c));
     }
-    
+
     /** Outlined button (minimal emphasis, Surface with tinted outline). */
     public static void buttonOutlined(android.widget.Button b, Context c) {
         GradientDrawable g = new GradientDrawable();
@@ -210,7 +210,7 @@ public final class UI {
         labelLarge(b);
         b.setPadding(space16(c), space12(c), space16(c), space12(c));
     }
-    
+
     /**
      * Screen header: display/headline title + caption tagline.
      * Standard top padding: 20dp sides, 16dp top, 24dp bottom.
@@ -219,11 +219,11 @@ public final class UI {
         LinearLayout col = new LinearLayout(c);
         col.setOrientation(LinearLayout.VERTICAL);
         col.setPadding(0, 0, 0, space24(c));
-        
+
         TextView t = new TextView(c);
         t.setText(title);
         headlineMedium(t);
-        
+
         if (tagline != null && !tagline.isEmpty()) {
             TextView s = new TextView(c);
             s.setText(tagline);
@@ -237,7 +237,7 @@ public final class UI {
         }
         return col;
     }
-    
+
     /**
      * Standard screen root: page bg, safe area insets, 20dp margins, 16dp top gap below status bar.
      * All activities wrap content inside this.
@@ -251,7 +251,7 @@ public final class UI {
         root.setPadding(space24(act), space24(act), space24(act), space24(act));
         return root;
     }
-    
+
     /** Centered footer: small label, bottom padding for nav bar clearance. */
     public static View footer(Context c, String text) {
         TextView t = new TextView(c);
@@ -262,14 +262,14 @@ public final class UI {
         t.setPadding(0, space16(c), 0, dp(c, 8));
         return t;
     }
-    
+
     /** Full-width block with top margin (standard vertical gap between sections). */
     public static LinearLayout.LayoutParams block(Context c, float topDp) {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
         lp.topMargin = dp(c, topDp);
         return lp;
     }
-    
+
     /**
      * Icon inside tinted surface chip (tile/grid signature look).
      * Surface Container + 15% tint wash, rounded 12dp, icon centered with padding.
@@ -279,20 +279,20 @@ public final class UI {
         Drawable d = c.getDrawable(iconRes);
         d.setTint(tint);
         iv.setImageDrawable(d);
-        
+
         GradientDrawable bg = new GradientDrawable();
         bg.setColor((tint & 0x00FFFFFF) | 0x26000000);  // 15% tint
         bg.setCornerRadius(dp(c, 12));
         iv.setBackground(bg);
-        
+
         int pad = (int) (dp(c, iconDp) * 0.28f);
         iv.setPadding(pad, pad, pad, pad);
-        
+
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(c, boxDp), dp(c, boxDp));
         iv.setLayoutParams(lp);
         return iv;
     }
-    
+
     /** Staggered entrance (rise + fade, ease-out curve). */
     public static void animateIn(View v, long delayMs) {
         v.setAlpha(0f);
@@ -303,7 +303,7 @@ public final class UI {
                 .setInterpolator(new DecelerateInterpolator(1.4f))
                 .start();
     }
-    
+
     /** Get app version (for footer display). */
     public static String version(Context c) {
         try { return c.getPackageManager().getPackageInfo(c.getPackageName(), 0).versionName; }

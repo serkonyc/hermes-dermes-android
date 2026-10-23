@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="ai.serge.dermes"
-    android:versionCode="4141"
-    android:versionName="4.14.1">
+    android:versionCode="4150"
+    android:versionName="4.15.0">
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -34,9 +34,9 @@
             <activity android:name=".DigestActivity" android:exported="false" />
             <activity android:name=".HistoryActivity" android:exported="false" />
                 <activity android:name=".DeviceActivity" android:exported="false" />
-            <activity android:name=".PocketActivity" android:exported="false" />
+            <activity android:name=".PocketActivity" android:parentActivityName=".DermesActivity" android:exported="false" />
             <activity android:name=".CapsuleActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
             <activity android:name=".RunnerActivity" android:exported="false" android:screenOrientation="portrait" android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|keyboardHidden" />
-            <activity android:name=".ChatActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|density|keyboardHidden" />
+            <activity android:name=".ChatActivity" android:parentActivityName=".DermesActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|density|keyboardHidden" />
     </application>
 </manifest>

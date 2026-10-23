@@ -33,6 +33,7 @@ public class DigestActivity extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        Shell.prepare(this);
         header = new TextView(this);
         UI.labelSmall(header);
         header.setTextColor(UI.TEXT_2);
@@ -46,16 +47,14 @@ public class DigestActivity extends Activity {
 
         ScrollView scroll = new ScrollView(this);
         scroll.addView(list);
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(UI.BG);
-        root.setFitsSystemWindows(true);
-        root.setPadding(UI.space20(this), UI.space8(this), UI.space20(this), UI.space10(this));
-        root.addView(header);
-        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
-        root.addView(UI.footer(this, "v" + UI.version(this)));
-        root.addView(UI.headerRow(this, "Digest", "morning brief · on-device"), 0);
-        setContentView(root);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+
+        content.addView(header);
+        content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
+        content.addView(UI.footer(this, "v" + UI.version(this)));
+
+        setContentView(Shell.wrap(this, -1, "Digest", "Hermes morning feed", content, true, this::finish));
 
         render(getCache(), true);
         refresh();
