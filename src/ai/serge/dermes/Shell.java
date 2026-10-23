@@ -50,6 +50,8 @@ public final class Shell {
 
     public static View wrap(final Activity a, int selected, String title, String subtitle,
                             View content, boolean scrollable, Runnable back, View menu) {
+        // activity open + foreground seconds for ActivityLog: every screen passes through wrap()
+        ActivityLog.track(a);
         FrameLayout frame = new FrameLayout(a);
         frame.setBackgroundColor(UI.BACKGROUND);
         frame.addView(atmosphere(a), new FrameLayout.LayoutParams(-1, UI.dp(a, 260)));

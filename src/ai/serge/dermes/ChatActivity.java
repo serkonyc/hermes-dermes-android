@@ -1,6 +1,7 @@
 package ai.serge.dermes;
 
 import android.app.Activity;
+import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -60,8 +61,7 @@ public class ChatActivity extends Activity {
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         Shell.prepare(this);
-        HistoryActivity.accumulate(this, 1, 0);
-        loadHistory();
+                loadHistory();
 
         if (!nativeLoaded) {
             TextView tv = (TextView) UI.footer(this, "Runtime load failed:\n" + nativeError);
@@ -299,6 +299,24 @@ public class ChatActivity extends Activity {
         android.view.inputmethod.InputMethodManager im =
                 (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         if (im != null) im.hideSoftInputFromWindow(input.getWindowToken(), 0);
+    }
+
+    /** One-shot off-device-thread summarization for Digest; null if model missing/busy. */
+    static String summarize(Context c, String prompt) {
+        if (!nativeLoaded) return "⚠ native runtime unavailable";
+        File d = new File(c.getExternalFilesDir(null), "models");
+        File[] fs = d.listFiles((x, n) -> n.endsWith(".gguf"));
+        if (fs == null || fs.length == 0) return null;
+        File f = null;
+        for (File x : fs) if (x.getName().startsWith("LFM2.5-8B")) f = x;
+        if (f == null) f = fs[0];
+        long h;
+        try { h = nativeLoad(f.getPath(), 1024, 4); } catch (Throwable t) { return "⚠ load failed: " + t; }
+        try {
+            String out = nativeGenerate(h, prompt, null, null, 256);
+            return out == null ? null : stripThink(out);
+        } catch (Throwable t) { return "⚠ generate failed: " + t; }
+        finally { nativeFree(h); }
     }
 
     private File modelFile() {

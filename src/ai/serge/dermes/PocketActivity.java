@@ -51,8 +51,7 @@ public class PocketActivity extends Activity {
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         Shell.prepare(this);
-        HistoryActivity.accumulate(this, 1, 0); // one visit = one history unit
-
+        
         prog = new TextView(this);
         prog.setTextSize(12.5f); prog.setTextColor(UI.TEXT_1);
 

@@ -115,10 +115,12 @@ Java_ai_serge_dermes_ChatActivity_nativeGenerate(JNIEnv *env, jclass cls, jlong 
             int len = llama_token_to_piece(h->vocab, tok, buf, sizeof(buf), 0, true);
             if (len > 0 && outLen + len < 16000) {
                 memcpy(out + outLen, buf, (size_t)len); outLen += len; out[outLen] = 0;
-                jstring js = (*env)->NewStringUTF(env, out);
-                (*env)->CallVoidMethod(env, cb, mid, js);
-                (*env)->DeleteLocalRef(env, js);
-                if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); break; }
+                if (cb && mid) {   // one-shot summarize() passes no token callback
+                    jstring js = (*env)->NewStringUTF(env, out);
+                    (*env)->CallVoidMethod(env, cb, mid, js);
+                    (*env)->DeleteLocalRef(env, js);
+                    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); break; }
+                }
             }
             struct llama_batch b = llama_batch_get_one(&tok, 1);
             if (llama_decode(h->ctx, b) != 0) break;

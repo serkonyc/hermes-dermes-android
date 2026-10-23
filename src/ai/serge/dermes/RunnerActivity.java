@@ -8,6 +8,7 @@ import android.view.WindowManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.JavascriptInterface;
 
 /** Plunger Run (ex Neon Runner) — three.js runner shipped in assets/web; WebView renders it.
  *  Pure procedural scene (no image assets): index.html + game.js + lib/three r147. */
@@ -26,6 +27,10 @@ public final class RunnerActivity extends Activity {
         s.setDomStorageEnabled(true);              // best score lives in localStorage
         web.setBackgroundColor(UI.BACKGROUND);
         web.setWebViewClient(new WebViewClient());
+        web.addJavascriptInterface(new Object() {
+            @JavascriptInterface public void run()   { ActivityLog.onRun(RunnerActivity.this); }
+            @JavascriptInterface public void swipe() { ActivityLog.onSwipe(RunnerActivity.this, 1); }
+        }, "dlog");
         web.setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION

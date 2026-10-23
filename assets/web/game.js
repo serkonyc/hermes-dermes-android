@@ -151,7 +151,8 @@ function die(){S.mode='over';S.dead=.001;S.shake=1;S.flash=.4;S.ts=.32;
 function move(d){S.lane=Math.max(0,Math.min(2,S.lane+d));}
 function jump(){if(!S.air&&S.roll<=0){S.vy=JUMP_V;S.air=true;}}
 function doRoll(){S.roll=.45;if(S.air)S.vy=Math.min(S.vy,-2);}
-function act(a){if(S.mode==='menu'){reset();showRun();return;}
+function act(a){if(window.dlog&&a!=='T'&&a!=='O')dlog.swipe();
+ if(S.mode==='menu'){reset();showRun();if(window.dlog)dlog.run();return;}
  if(S.mode==='over'){if(S.dead>.8)reset(),showRun();return;}
  if(a==='L')move(-1);else if(a==='R')move(1);else if(a==='U')jump();else if(a==='D')doRoll();}
 let tsx=0,tsy=0;
