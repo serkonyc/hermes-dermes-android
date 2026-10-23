@@ -48,27 +48,24 @@ for(let i=0;i<NCity;i++){const s=Math.random()<.5?-1:1;
 scene.add(city); // instanceColor works WITHOUT vertexColors (missing attr -> black)
 // sidewalk curbs
 for(const s of[-1,1]){const c=box(.5,.3,320,M(0xCFC4AE));c.position.set(s*(LANE*1.5+.6),.15,-110);scene.add(c);}
-// ---------- player: running vantus (cargo van with cab, hood, wheels, lights) ----------
-const vanM=M(0x17161B,.38,.12), vanD=M(0x2A2A30,.45,.16), vanW=M(0xD6EFFF,.35,.4), redM=M(0xE63946,.45,.25), whtM=M(0xF5F5F5,.7), blkM=M(0x0b0b0d,.95), chromeM=M(0xBFC7CF,.35,.6);
+// ---------- player: running plunger (recognizable tool, not human) ----------
+const plungerHandle=M(0xB47734,.92), plungerKnob=M(0x8D5A28,.9), plungerCup=M(0x25252A,.72), plungerLip=M(0x111114,.85), plungerWood=M(0xD6A86A,.85);
 const player=new THREE.Group(), rig=new THREE.Group(); player.add(rig); scene.add(player);
 function limb(w,h,m,pivotY){const p=new THREE.Group();const b=box(w,h,w,m);b.position.y=-h/2;p.add(b);p.position.y=pivotY;return p;}
-var armL,armR,legL,legR, wheelL, wheelR, exhaust;
-{const body=box(.6,.52,.46,vanM); body.position.y=1.04; rig.add(body);
- const cab=box(.58,.26,.32,vanD); cab.position.set(0,1.36,.02); rig.add(cab);
- const hood=box(.52,.1,.36,vanD); hood.position.set(0,1.22,.18); rig.add(hood);
- const glass=box(.46,.15,.06,vanW); glass.position.set(0,1.4,.19); rig.add(glass);
- const grille=box(.36,.08,.04,chromeM); grille.position.set(0,1.1,.23); rig.add(grille);
- const hl1=box(.1,.07,.04,whtM), hl2=hl1.clone(); hl1.position.set(-.2,1.0,.24); hl2.position.set(.2,1.0,.24); rig.add(hl1,hl2);
- const tl1=box(.08,.07,.04,redM), tl2=tl1.clone(); tl1.position.set(-.2,1.0,-.24); tl2.position.set(.2,1.0,-.24); rig.add(tl1,tl2);
- const bumper=box(.52,.07,.06,vanD); bumper.position.set(0,.98,.25); rig.add(bumper);
- const roofrack=box(.5,.04,.4,vanD); roofrack.position.set(0,1.32,-.04); rig.add(roofrack);
- const pipe=box(.06,.12,.06,vanD); pipe.position.set(.24,1.36,-.17); rig.add(pipe);
- exhaust=new THREE.Group(); exhaust.position.copy(pipe.position); exhaust.position.y+=.11; rig.add(exhaust);
- for(let i=0;i<3;i++){const p=new THREE.Mesh(new THREE.SphereGeometry(.045,8,6),new THREE.MeshBasicMaterial({color:0x4a4a4a,transparent:true,opacity:.45})); p.position.set(.04,.11*i,-.09*i); exhaust.add(p);}
- armL=limb(.09,.3,vanM,1.2); armR=limb(.09,.3,vanM,1.2); armL.position.x=-.35; armR.position.x=.35;
- legL=limb(.14,.36,vanD,.68); legR=limb(.14,.36,vanD,.68); legL.position.x=-.14; legR.position.x=.14;
- wheelL=limb(.11,.38,blkM,.38); wheelR=limb(.11,.38,blkM,.38); wheelL.position.x=-.3; wheelR.position.x=.3; wheelL.rotation.x=Math.PI/2; wheelR.rotation.x=Math.PI/2;
- rig.add(armL,armR,legL,legR,wheelL,wheelR);}
+var armL,armR,legL,legR, plungerBody;
+{plungerBody=new THREE.Group(); plungerBody.position.y=.52; rig.add(plungerBody);
+ const cup=new THREE.Mesh(new THREE.SphereGeometry(.55,24,12,0,TAU,0,Math.PI*.58),plungerCup); cup.rotation.x=Math.PI; cup.position.y=.58; cup.scale.set(1,.68,1); plungerBody.add(cup);
+ const cupBottom=new THREE.Mesh(new THREE.CylinderGeometry(.55,.55,.14,26),M(0xC0392B,.8)); cupBottom.position.y=.51; plungerBody.add(cupBottom);
+ const eyeL=new THREE.Mesh(new THREE.SphereGeometry(.07,10,8),new THREE.MeshBasicMaterial({color:0xffffff})); eyeL.position.set(-.12,.36,.36); plungerBody.add(eyeL);
+ const eyeR=eyeL.clone(); eyeR.position.x=.12; plungerBody.add(eyeR);
+ const smile=new THREE.Mesh(new THREE.TorusGeometry(.1,.02,8,12,Math.PI),new THREE.MeshBasicMaterial({color:0xffffff})); smile.position.set(0,.28,.4); smile.rotation.z=Math.PI; plungerBody.add(smile);
+ const cupInner=new THREE.Mesh(new THREE.CylinderGeometry(.27,.18,.12,22),plungerWood); cupInner.position.y=.5; plungerBody.add(cupInner);
+ const stick=new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,1.15,16),plungerHandle); stick.position.y=1.16; plungerBody.add(stick);
+ const knob=new THREE.Mesh(new THREE.SphereGeometry(.15,16,12),plungerKnob); knob.position.y=1.76; plungerBody.add(knob);
+ const band=box(.24,.06,.08,plungerLip); band.position.set(0,1.2,.03); plungerBody.add(band);
+ armL=limb(.09,.28,plungerHandle,.72); armR=limb(.09,.28,plungerHandle,.72); armL.position.set(-.21,.42,.04); armR.position.set(.21,.42,.04);
+ legL=limb(.13,.32,plungerHandle,.26); legR=limb(.13,.32,plungerHandle,.26); legL.position.set(-.13,.1,.04); legR.position.set(.13,.1,.04);
+ rig.add(armL,armR,legL,legR);}
 const shCv=document.createElement('canvas');shCv.width=shCv.height=64;{const g=shCv.getContext('2d');
  const rg=g.createRadialGradient(32,32,4,32,32,30);rg.addColorStop(0,'rgba(30,22,12,.55)');rg.addColorStop(1,'rgba(30,22,12,0)');
  g.fillStyle=rg;g.fillRect(0,0,64,64);}
