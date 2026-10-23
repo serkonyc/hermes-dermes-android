@@ -54,8 +54,9 @@ const AU={m:new Audio('audio/music.m4a'),pick:new Audio('audio/pickup.m4a'),
 AU.m.loop=true; AU.m.volume=.35; AU.pick.volume=.55; AU.bump.volume=.7; AU.jump.volume=.35;
 let audioOn=false;
 function unlockAudio(){
- if(audioOn)return;
- AU.m.play().then(()=>{audioOn=true;}).catch(()=>{}); // retry until a real gesture lands (audioOn stays false until playing succeeds)
+ if(audioOn)return; audioOn=true;
+ const p=AU.m.play();
+ if(p&&p.catch)p.catch(()=>{audioOn=false;setTimeout(()=>AU.m.play().then(()=>{audioOn=true;}).catch(()=>{}),400);}); // Android file://: first play can reject, one delayed retry
 }
 function sfx(k){if(!audioOn)return;try{AU[k].currentTime=0;AU[k].play().catch(()=>{});}catch(e){}}
 // unlock must ride the same gesture as game start, not a separate first touch
