@@ -48,23 +48,24 @@ for(let i=0;i<NCity;i++){const s=Math.random()<.5?-1:1;
 scene.add(city); // instanceColor works WITHOUT vertexColors (missing attr -> black)
 // sidewalk curbs
 for(const s of[-1,1]){const c=box(.5,.3,320,M(0xCFC4AE));c.position.set(s*(LANE*1.5+.6),.15,-110);scene.add(c);}
-// ---------- player: orange hoodie runner ----------
-const skM=M(0xFF6B35,.85), pnM=M(0x2B3A55,.9), sk2=M(0xF2C29B,.8), whM=M(0xF5F5F5,.7);
+// ---------- player: running vantus ----------
+const vanM=M(0x17161B,.38,.12), vanD=M(0x333038,.45,.16), vanW=M(0xF5F5F5,.35,.4), redM=M(0xE63946,.45,.25);
 const player=new THREE.Group(), rig=new THREE.Group(); player.add(rig); scene.add(player);
 function limb(w,h,m,pivotY){const p=new THREE.Group();const b=box(w,h,w,m);b.position.y=-h/2;p.add(b);p.position.y=pivotY;return p;}
-var armL,armR,legL,legR;
-{const torso=box(.44,.55,.26,skM);torso.position.y=1.05;rig.add(torso);       // hoodie
- const hood=box(.3,.16,.3,skM);hood.position.set(0,1.36,.06);rig.add(hood);   // hood bump
- const head=box(.25,.25,.23,sk2);head.position.y=1.52;rig.add(head);
- const cap=box(.27,.09,.25,M(0xE63946,.8));cap.position.set(0,1.66,0);rig.add(cap);
- const capb=box(.27,.04,.1,M(0xC62F3C,.8));capb.position.set(0,1.62,-.16);rig.add(capb); // cap brim
- armL=limb(.11,.42,skM,1.32);armR=limb(.11,.42,skM,1.32);
- armL.position.x=-.29;armR.position.x=.29;
- legL=limb(.14,.5,pnM,.76);legR=limb(.14,.5,pnM,.76);
- legL.position.x=-.12;legR.position.x=.12;
- for(const a of[armL,armR])a.position.z=0;
- const shoeL=box(.14,.08,.2,whM),shoeR=shoeL.clone();
- shoeL.position.set(-.12,.05,-.03);shoeR.position.set(.12,.05,-.03);rig.add(shoeL,shoeR);
+var armL,armR,legL,legR, exhaust;
+{const body=box(.62,.58,.48,vanM); body.position.y=1.02; rig.add(body);
+ const cab=box(.42,.3,.4,vanD); cab.position.set(0,1.42,.02); rig.add(cab);
+ const glass=box(.34,.17,.08,vanW); glass.position.set(0,1.43,.2); rig.add(glass);
+ const bumper=box(.56,.13,.18,vanD); bumper.position.set(0,.82,.22); rig.add(bumper);
+ const grille=box(.28,.09,.07,redM); grille.position.set(0,.97,.27); rig.add(grille);
+ const light1=box(.11,.08,.06,redM), light2=light1.clone(); light1.position.set(-.19,.78,.23); light2.position.set(.19,.78,.23); rig.add(light1,light2);
+ const spoiler=box(.62,.06,.14,vanD); spoiler.position.set(0,1.26,-.26); rig.add(spoiler);
+ const pipe=box(.08,.13,.08,vanD); pipe.position.set(.23,1.28,-.17); rig.add(pipe);
+ exhaust=new THREE.Group(); exhaust.position.copy(pipe.position); exhaust.position.y+=.12; rig.add(exhaust);
+ for(let i=0;i<4;i++){const p=new THREE.Mesh(new THREE.SphereGeometry(.055,8,6),new THREE.MeshBasicMaterial({color:0x4a4a4a,transparent:true,opacity:.5})); p.position.set(0,.07*i,-.12*i); exhaust.add(p);}
+ armL=limb(.1,.35,vanM,1.23); armR=limb(.1,.35,vanM,1.23); armL.position.x=-.36; armR.position.x=.36;
+ legL=limb(.15,.44,vanD,.72); legR=limb(.15,.44,vanD,.72); legL.position.x=-.17; legR.position.x=.17;
+ const footL=box(.16,.07,.23,redM), footR=footL.clone(); footL.position.set(-.17,.04,-.02); footR.position.set(.17,.04,-.02); rig.add(footL,footR);
  rig.add(armL,armR,legL,legR);}
 const shCv=document.createElement('canvas');shCv.width=shCv.height=64;{const g=shCv.getContext('2d');
  const rg=g.createRadialGradient(32,32,4,32,32,30);rg.addColorStop(0,'rgba(30,22,12,.55)');rg.addColorStop(1,'rgba(30,22,12,0)');
@@ -91,9 +92,10 @@ function tWall(){ // train car: colored body, windows, roof, dark nose
  const rf=box(.94,.12,4.2,M(0x555F68,.8));rf.position.y=2.62;
  const nose=box(1.0,.5,.25,M(0x2b2b2b,.6));nose.position.set(0,.5,-2.12);
  g.add(b,w1,w2,st,rf,nose);return g;}
-function tCoin(){const m=new THREE.Mesh(new THREE.CylinderGeometry(.3,.3,.07,14),
- M(GO,.4,.15));m.material.emissive=new THREE.Color(GO).convertSRGBToLinear();m.material.emissiveIntensity=.25;
- m.rotation.z=Math.PI/2;return m;}
+function tCoin(){const g=new THREE.Group();const base=new THREE.Mesh(new THREE.SphereGeometry(.28,16,12),M(0x6F4A25,.95));
+ const top=new THREE.Mesh(new THREE.SphereGeometry(.2,16,12),M(0x8B5E34,.9)); top.scale.set(1,.45,1); top.position.y=.15;
+ const drip=new THREE.Mesh(new THREE.SphereGeometry(.08,10,8),M(0x5A3A1F,.95)); drip.position.set(.06,-.2,.02); drip.scale.set(1,1.35,1);
+ base.scale.set(1,.72,1); g.add(base,top,drip); return g;}
 const TPL={low:tLow,bar:tBar,wall:tWall};
 // ---------- state ----------
 const S={mode:'menu',t:0,dist:0,speed:26,coins:0,score:0,
@@ -138,7 +140,7 @@ function collide(){const h=S.roll>0?.8:1.62,feet=S.y,top=S.y+h;
   if(o.type==='bar'&&top>1.05)return die();
   if(o.type==='wall')return die();}
  for(const c of S.coinsArr){if(!c.taken&&Math.abs(c.z)<.9&&c.lane===S.lane&&Math.abs(S.y+.6-c.y)<.9){
-  c.taken=true;scene.remove(c.m);S.coins++;burst((c.lane-1)*LANE,c.y,c.z,GO,10);}}}
+  c.taken=true;scene.remove(c.m);S.coins++;burst((c.lane-1)*LANE,c.y,c.z,0x8B5E34,10);}}}
 function die(){S.mode='over';S.dead=.001;S.shake=1;S.flash=.4;S.ts=.32;
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
  S.bestC=Math.max(S.bestC,S.coins);localStorage.setItem('nr_bestc',S.bestC);
@@ -158,12 +160,12 @@ addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tsx,dy=e.ch
 addEventListener('keydown',e=>act({ArrowLeft:'L',ArrowRight:'R',ArrowUp:'U',ArrowDown:'D',' ':'U'}[e.key]));
 // ---------- HUD ----------
 const fmt=n=>(''+n).padStart(6,'0');
-$('mbest').textContent='РЕКОРД '+fmt(S.best)+' \u00b7 \u25cf '+S.bestC;
+$('mbest').textContent='РЕКОРД '+fmt(S.best)+' · 💩 '+S.bestC;
 function showMenu(){$('menu').style.display='flex';$('over').style.display='none';$('hud').style.display='none';$('meta').style.display='none';}
 function showRun(){$('menu').style.display='none';$('over').style.display='none';$('hud').style.display='flex';$('meta').style.display='block';}
 function showOver(){$('over').style.display='flex';$('hud').style.display='none';
- $('ostats').textContent=fmt(Math.floor(S.score))+' \u00b7 \u25cf '+S.coins+' \u00b7 '+Math.floor(S.dist)+'m';
- $('obest').textContent='РЕКОРД '+fmt(S.best)+' \u00b7 \u25cf '+S.bestC;
+ $('ostats').textContent=fmt(Math.floor(S.score))+' · 💩 '+S.coins+' · '+Math.floor(S.dist)+'m';
+ $('obest').textContent='РЕКОРД '+fmt(S.best)+' · 💩 '+S.bestC;
  setTimeout(()=>{$('ogo').style.visibility='visible';},800);}
 showMenu();
 // ---------- update ----------
@@ -227,7 +229,7 @@ let last=performance.now();
 function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;
  update(dt*S.ts);updInst();animRig();animCam(dt);
  $('score').textContent=fmt(Math.floor(S.score));
- $('coins').textContent='\u25cf '+S.coins;
+ $('coins').textContent='💩 '+S.coins;
  $('best').textContent=fmt(S.best);
  $('meta').textContent=Math.floor(S.dist)+'m \u00b7 '+Math.floor(S.speed)+'km/h';
  renderer.render(scene,camera);
