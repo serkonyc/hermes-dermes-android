@@ -110,7 +110,7 @@ let nextSpawn=30; S.obs=[];S.coinsArr=[];
 function reset(){S.mode='run';S.t=0;S.dist=0;S.speed=26;S.coins=0;S.score=0;S.lane=1;S.x=0;S.y=0;S.vy=0;
  S.air=false;S.roll=0;S.anim=0;S.dead=0;S.shake=0;S.flash=0;S.ts=1;
  for(const o of S.obs)scene.remove(o.m);for(const c of S.coinsArr)scene.remove(c.m);
- S.obs=[];S.coinsArr=[];nextSpawn=30;}
+ S.obs=[];S.coinsArr=[];nextSpawn=30;S.missed=0;}
 function addObs(type,lane){const m=TPL[type]();m.position.set((lane-1)*LANE,0,SPAWN_Z);scene.add(m);S.obs.push({type,lane,z:SPAWN_Z,m});}
 function spawn(){
  const diff=Math.min(1,S.dist/3000), r=Math.random();
@@ -144,7 +144,7 @@ function collide(){const h=S.roll>0?.8:1.62,feet=S.y,top=S.y+h;
   if(o.type==='low'&&feet<.8)return die();
   if(o.type==='bar'&&top>1.05)return die();
   if(o.type==='wall')return die();}
- for(const c of S.coinsArr){if(!c.taken&&Math.abs(c.z)<.9&&c.lane===S.lane&&Math.abs(S.y+.6-c.y)<.9){
+ for(const c of S.coinsArr){if(!c.taken&&!c.missed&&Math.abs(c.z)<.9&&c.lane===S.lane&&Math.abs(S.y+.6-c.y)<.9){
   c.taken=true;scene.remove(c.m);S.coins++;burst((c.lane-1)*LANE,c.y,c.z,0x8B5E34,10);}}}
 function die(){S.mode='over';S.dead=.001;S.shake=1;S.flash=.4;S.ts=.32;
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
@@ -202,9 +202,11 @@ function update(dt){
  if(S.roll>0)S.roll-=dt;
  S.anim+=dt*(S.air||S.roll>0?4:S.speed*.32);
  for(const o of S.obs)o.z+=dz,o.m.position.z=o.z;
- for(const c of S.coinsArr){c.z+=dz;c.m.position.z=c.z;c.m.rotation.y+=dt*4;}
+ for(const c of S.coinsArr){if(!c.missed){c.z+=dz;c.m.position.z=c.z;} c.m.rotation.y+=dt*4;}
  S.obs=S.obs.filter(o=>o.z<DESPAWN_Z||(scene.remove(o.m),false));
- S.coinsArr=S.coinsArr.filter(c=>c.z<DESPAWN_Z&&!c.taken);
+ // missed poops stop moving forward once they pass the player (z>0.9) and are removed far behind
+ for(const c of S.coinsArr){if(!c.taken&&!c.missed&&c.z>0.9){c.missed=true;}}
+ S.coinsArr=S.coinsArr.filter(c=>c.z<25&&!c.taken||(scene.remove(c.m),false));
  if(S.dist>=nextSpawn)spawn();
  collide();}
 // ---------- rig + camera ----------
