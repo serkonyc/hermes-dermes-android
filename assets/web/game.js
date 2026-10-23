@@ -48,6 +48,16 @@ for(let i=0;i<NCity;i++){const s=Math.random()<.5?-1:1;
 scene.add(city); // instanceColor works WITHOUT vertexColors (missing attr -> black)
 // sidewalk curbs
 for(const s of[-1,1]){const c=box(.5,.3,320,M(0xCFC4AE));c.position.set(s*(LANE*1.5+.6),.15,-110);scene.add(c);}
+// ---------- audio ----------
+const AU={m:new Audio('audio/music.m4a'),pick:new Audio('audio/pickup.m4a'),
+ bump:new Audio('audio/bump.m4a'),jump:new Audio('audio/jump.m4a')};
+AU.m.loop=true; AU.m.volume=.5; AU.pick.volume=.6; AU.bump.volume=.9; AU.jump.volume=.45;
+let audioOn=false;
+function unlockAudio(){if(audioOn)return;audioOn=true;AU.m.play().catch(()=>{});}
+function sfx(k){if(!audioOn)return;try{AU[k].currentTime=0;AU[k].play().catch(()=>{});}catch(e){}}
+addEventListener('touchstart',unlockAudio,{passive:true,once:true});
+addEventListener('keydown',unlockAudio,{once:true});
+
 // ---------- player: running plunger (recognizable tool, not human) ----------
 const plungerHandle=M(0xB47734,.92), plungerKnob=M(0x25252A,.72), plungerCup=M(0x25252A,.72), plungerLip=M(0x111114,.85), plungerWood=M(0xD6A86A,.85);
 const player=new THREE.Group(), rig=new THREE.Group(); player.add(rig); scene.add(player);
@@ -142,14 +152,14 @@ function collide(){const h=S.roll>0?.8:1.62,feet=S.y,top=S.y+h;
   if(o.type==='bar'&&top>1.05)return die();
   if(o.type==='wall')return die();}
  for(const c of S.coinsArr){if(!c.taken&&Math.abs(c.z)<.9&&c.lane===S.lane&&Math.abs(S.y+.6-c.y)<.9){
-  c.taken=true;scene.remove(c.m);S.coins++;burst((c.lane-1)*LANE,c.y,c.z,0x8B5E34,10);}}}
-function die(){S.mode='over';S.dead=.001;S.shake=1;S.flash=.4;S.ts=.32;
+  c.taken=true;scene.remove(c.m);S.coins++;sfx('pick');burst((c.lane-1)*LANE,c.y,c.z,0x8B5E34,10);}}}
+function die(){S.mode='over';S.dead=.001;S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
  S.bestC=Math.max(S.bestC,S.coins);localStorage.setItem('nr_bestc',S.bestC);
  burst(S.x,S.y+.8,0,0xF5F5F5,30);showOver();}
 // ---------- input ----------
 function move(d){S.lane=Math.max(0,Math.min(2,S.lane+d));}
-function jump(){if(!S.air&&S.roll<=0){S.vy=JUMP_V;S.air=true;}}
+function jump(){if(!S.air&&S.roll<=0){S.vy=JUMP_V;S.air=true;sfx('jump');}}
 function doRoll(){S.roll=.45;if(S.air)S.vy=Math.min(S.vy,-2);}
 function act(a){if(window.dlog&&a!=='T'&&a!=='O')dlog.swipe();
  if(S.mode==='menu'){reset();showRun();if(window.dlog)dlog.run();return;}
@@ -176,10 +186,10 @@ const M4=new THREE.Matrix4(),Q0=new THREE.Quaternion(),V1=new THREE.Vector3(),V0
 function updInst(){
  for(let i=0;i<30;i++){V1.set(0,.05,((S.dist*10)%4)-i*4+4);M4.compose(V1,Q0,V0);ties.setMatrixAt(i,M4);}
  ties.instanceMatrix.needsUpdate=true;
- for(let i=0;i<10;i++){const c=cloudPos[i];V1.set(c.x,c.y,c.z);V0.set(c.s,c.s*.35,c.s*.6);
+ for(let i=0;i<10;i++){const c=cloudPos[i];V1.set(c.x,c.y,-260+(((c.z+S.dist*.35)%320)+320)%320);V0.set(c.s,c.s*.35,c.s*.6);
   M4.compose(V1,Q0,V0);clouds.setMatrixAt(i,M4);}
  clouds.instanceMatrix.needsUpdate=true;V0.set(1,1,1);
- for(let i=0;i<NCity;i++){const b=cityPos[i],z=60-(((b.z+S.dist*.55)%300)+300)%300;
+ for(let i=0;i<NCity;i++){const b=cityPos[i],z=-240+(((b.z+S.dist*.85)%300)+300)%300;
   V1.set(b.x,b.h/2,z);V0.set(b.w,b.h,b.w);
   M4.compose(V1,Q0,V0);city.setMatrixAt(i,M4);}
  city.instanceMatrix.needsUpdate=true;V0.set(1,1,1);}
