@@ -79,7 +79,8 @@ if [ -n "$PREV_PUB" ]; then
     unzip -l /tmp/pv/dermes.apk | awk 'NR>3 && $4!~/META/ {print $4}' | sort > /tmp/ent_prev.txt
     unzip -l dermes.apk | awk 'NR>3 && $4!~/META/ {print $4}' | sort > /tmp/ent_new.txt
     # res/ entries may be intentionally removed (dead resources); fail on missing non-res entries (dex/manifest/asset loss)
-    if comm -23 /tmp/ent_prev.txt /tmp/ent_new.txt | grep -v '^res/' | grep -q .; then
+    # RELEASE_KEEP_FILTER: regex of intentionally-removed entries for this release
+    if comm -23 /tmp/ent_prev.txt /tmp/ent_new.txt | grep -v '^res/' | grep -v "${RELEASE_KEEP_FILTER:-__never__}" | grep -q .; then
       echo "FAIL: entries disappeared vs $PREV_PUB:"; comm -23 /tmp/ent_prev.txt /tmp/ent_new.txt; exit 1
     fi
   fi

@@ -1,18 +1,62 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Neon Runner</title>
+<title>Neon Runner 3D</title>
 <style>
-  html,body{margin:0;height:100%;background:#0B0E14;overflow:hidden;touch-action:none;
+  html,body{margin:0;padding:0;height:100%;background:#05070C;overflow:hidden;touch-action:none;
     font-family:-apple-system,'Segoe UI',Roboto,sans-serif;-webkit-user-select:none;user-select:none}
-  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
-  canvas{display:block;background:#0B0E14}
+  #c{position:fixed;inset:0;display:block;width:100%;height:100%}
+  #vig{position:fixed;inset:0;pointer-events:none;
+    background:radial-gradient(ellipse at center,transparent 62%,rgba(5,7,12,.55) 100%)}
+  #hud{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:14px;right:14px;
+    display:none;justify-content:space-between;align-items:baseline;pointer-events:none}
+  #hud .v{font:700 15px ui-monospace,monospace;letter-spacing:.04em}
+  #hud .s{color:#2DE2E6}#hud .c{color:#F0C34E;font-size:14px}#hud .b{color:#5A6072;font-size:12px}
+  #meta{position:fixed;top:calc(env(safe-area-inset-top,0px) + 34px);right:14px;color:#5A6072;
+    font:11px ui-monospace,monospace;display:none;pointer-events:none}
+  .ov{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(5,7,12,.62);text-align:center;pointer-events:none}
+  .ov h1{margin:0;font-size:34px;font-weight:800;letter-spacing:.06em}
+  .ov p{margin:26px 0 0;color:#9AA0B4;font-size:14px;line-height:1.9}
+  .ov .big{font:700 16px ui-monospace,monospace;color:#EAE7F2;margin-top:14px}
+  .ov .go{margin-top:34px;color:#2DE2E6;font-size:13px;letter-spacing:.14em;animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+  #menu h1{color:#2DE2E6;text-shadow:0 0 24px rgba(45,226,230,.5)}
+  #over h1{color:#F0506E;text-shadow:0 0 24px rgba(240,80,110,.5)}
+  #flash{position:fixed;inset:0;background:#F0506E;opacity:0;pointer-events:none}
 </style>
 </head>
 <body>
-<div id="wrap"><canvas id="c"></canvas></div>
+<canvas id="c"></canvas>
+<div id="vig"></div>
+<div id="hud">
+  <span class="v s" id="score">SCORE 000000</span>
+  <span class="v c" id="coins">● 0</span>
+  <span class="v b" id="best">BEST 000000</span>
+</div>
+<div id="meta">0m · 0km/h</div>
+<div class="ov" id="menu">
+  <h1>NEON RUNNER</h1>
+  <p>свайп: ↑ прыжок · ↓ подкат · ← → полоса<br><span style="color:#5A6072" id="mbest"></span></p>
+  <div class="go">— ТАП, ЧТОБЕ БЕЖАТЬ —</div>
+</div>
+<div class="ov" id="over">
+  <h1>ТЫ УМЕР</h1>
+  <div class="big" id="ostats"></div>
+  <p id="obest"></p>
+  <div class="go" id="ogo" style="visibility:hidden">— ТАП, ЧТОБЫ СНОВА —</div>
+</div>
+<div id="flash"></div>
+<script src="lib/three.min.js"></script>
+<script src="lib/CopyShader.js"></script>
+<script src="lib/LuminosityHighPassShader.js"></script>
+<script src="lib/EffectComposer.js"></script>
+<script src="lib/ShaderPass.js"></script>
+<script src="lib/MaskPass.js"></script>
+<script src="lib/RenderPass.js"></script>
+<script src="lib/UnrealBloomPass.js"></script>
 <script src="game.js"></script>
 </body>
 </html>

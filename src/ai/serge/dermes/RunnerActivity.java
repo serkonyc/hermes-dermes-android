@@ -9,8 +9,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-/** Neon Runner v2 — HTML5 canvas game shipped in assets/web; WebView renders it.
- *  All game logic is JS: index.html + game.js + assets/*.png. */
+/** Neon Runner 3D — three.js runner shipped in assets/web; WebView renders it.
+ *  Pure procedural scene (no image assets): index.html + game.js + lib/three r147. */
 public final class RunnerActivity extends Activity {
 
     private WebView web;
