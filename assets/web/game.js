@@ -172,46 +172,86 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
  const grip=box(.06,.14,.06,M(0x6B3E2A,.8)); grip.position.y=-.1;
  sword.add(blade,guard,grip); sword.position.set(0,.3,-.3); sword.rotation.x=.42; rig.add(sword); // на спине; в подкате прижимается (animRig)
 }
-// ---------- KayKit Rogue: rigged CC0 модель со скелетной анимацией (заменяет примитивного героя, тот остаётся офлайн-фолбэком) ----------
+// ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-let mixer=null,mReady=false,mClip={},mCur='',deathPlayed=false;
+let MJ=null,mReady=false,deathPlayed=false;
 {const L=(typeof THREE.GLTFLoader==='function')&&new THREE.GLTFLoader();
- if(L)L.load('../models/rogue.glb',gltf=>{
-   const root=gltf.scene;
-   // feet -> y0, масштаб под рост текущего героя (~1.45 в мире)
-   const b=new THREE.Box3().setFromObject(root);
-   const H=b.max.y-b.min.y; root.scale.setScalar(1.45/H);
+ if(L)L.load('../models/link.glb',gltf=>{
+   const root=gltf.scene; MJ={};
+   root.traverse(o=>{MJ[o.name]=o;if(o.isMesh)o.frustumCulled=false;});
+   if(!MJ.rig||!MJ.head){mReady=false;return;}
+   const b=new THREE.Box3().setFromObject(root); const H=b.max.y-b.min.y;
+   root.scale.setScalar(1.7/H); // рост с колпаком; тело ~1.45 как у примитива
    const b2=new THREE.Box3().setFromObject(root); root.position.y=-b2.min.y;
-   root.traverse(o=>{if(o.isMesh){o.frustumCulled=false;}});
-   heroM.add(root);
-   mixer=new THREE.AnimationMixer(root);
-   for(const cl of gltf.animations)mClip[cl.name]=mixer.clipAction(cl);
-   mClip.Running_A.play();
-   // стартовый промотход: модель смотрит лицом вперёд, как примитивный герой (rotation.y=PI)
-   root.rotation.y=Math.PI;
-   mReady=true; player.visible=false;
- },undefined,()=>{mReady=false;}); // файл недоступен -> примитивный герой со пружинами
+   root.rotation.y=Math.PI;     // лицом вперёд по тропе
+   heroM.add(root); mReady=true; player.visible=false;
+ },undefined,()=>{mReady=false;});
 }
-function playClip(n,fade,loop,clamp){const a=mClip[n];if(!a)return;
- a.loop=loop===false?THREE.LoopOnce:THREE.LoopRepeat;a.clampWhenFinished=!!clamp;a.enabled=true;a.reset();
- if(mCur&&mClip[mCur])a.crossFadeFrom(mClip[mCur],fade||.1,true);
- a.play();mCur=n;}
 // контактная тень бегуна: та же «лепёшка», что у деревьев; с высотой прыжка тает и сжимается
 const heroSh=new THREE.Mesh(new THREE.CircleGeometry(.42,12),new THREE.MeshBasicMaterial({color:0x14300E,transparent:true,opacity:.34,depthWrite:false}));
 heroSh.geometry.rotateX(-Math.PI/2);heroSh.renderOrder=1;scene.add(heroSh);
 function driveHero(dt){
- heroM.position.set(S.x,S.y,0); heroM.rotation.y=0; // модель повёрнута корнем на PI
+ const j=MJ, ML=[j.rig,j.head,j.hat,j.armL,j.armR,j.elbowL,j.elbowR,j.legL,j.legR,j.kneeL,j.kneeR,j.ankleL,j.ankleR];
+ if(!j.__cl){j.__cl=[-.35,1.62];}
  heroSh.position.set(S.x,.012,0);
  const hs=1-Math.min(.65,S.y*.35); heroSh.scale.setScalar(hs); heroSh.material.opacity=.34*hs;
- if(S.mode==='over'){ if(!deathPlayed){deathPlayed=true;playClip('Death_A',.08,false,true);} mixer.update(dt); return; }
- if(S.roll>0){ if(mCur!=='Dodge_Forward')playClip('Dodge_Forward',.06,false,false); mixer.update(dt); return; }
- if(S.air){ const want=S.vy>0?'Jump_Start':'Jump_Idle';
-  if(mCur!==want)playClip(want,.08,want==='Jump_Idle',want==='Jump_Start'); mixer.update(dt); return; }
- if(land>0.4&&mCur!=='Jump_Land'&&mCur==='Jump_Idle'){playClip('Jump_Land',.05,false,false);mixer.update(dt);return;}
- if(S.mode==='menu'){ if(mCur!=='Idle')playClip('Idle',.3); mixer.update(dt); return; }
- if(mCur!=='Running_A'){playClip('Running_A',.12);mClip.Running_A.timeScale=.9+Math.min(1,(S.speed-26)/26)*.55;}
- mClip.Running_A.timeScale=.9+Math.min(1,(S.speed-26)/26)*.55;
- mixer.update(dt);}
+ springTip(0,dt); j.hat.rotation.x=tipQ*.6; // колпак: пружинный наклон
+ const T=tgt;
+ if(S.mode==='over'){ // рогдолл смерти: limp-суставы, ничком, болтанка
+  if(S.y>0){S.vy-=GRAV*dt;S.y+=S.vy*dt;if(S.y<0){S.y=0;S.vy=Math.abs(S.vy)*.3;if(S.vy<.6)S.vy=0;}}
+  heroM.position.set(S.x,S.y,0);
+  const q=Math.min(1,S.t*2%1+0.75); heroM.scale.set(1,0.82,1);
+  for(const o of ML)for(const ax of['x','y','z'])T(o,ax,0);
+  T(j.rig,'x',.8);T(j.rig,'z',S.dz||.4);j.rig.position.y=.1;
+  T(j.armL,'x',-2.1);T(j.armR,'x',-1.7);T(j.armL,'z',1.1);T(j.armR,'z',-1.3);
+  T(j.elbowL,'x',-1.2);T(j.elbowR,'x',-.7);
+  T(j.legL,'x',.9);T(j.legR,'x',.5);T(j.kneeL,'x',-1.2);T(j.kneeR,'x',-.8);
+  T(j.head,'x',.5);T(j.hat,'x',-1.9);
+  springs(dt,88,8.5,ML); return;}
+ if(S.roll>0){const s=Math.min(1,Math.min(S.roll,.45-S.roll)*10); // плавный вход/выход позы подката
+  heroM.position.set(S.x,S.y*(1-s),0);
+  heroM.scale.set(1+.15*s,1-.3*s,1+.15*s); // squash: с длинным колпаком иначе не пролезть под планкой
+  T(j.rig,'x',1.35*s);T(j.rig,'z',-.08*s);j.rig.position.y=0;
+  T(j.hat,'x',-1.8*s);
+  T(j.armL,'x',.6*s);T(j.armR,'x',.6*s);T(j.elbowL,'x',.9*s);T(j.elbowR,'x',.9*s);
+  T(j.armL,'z',.35*s);T(j.armR,'z',-.35*s);
+  T(j.legL,'x',-1.0*s);T(j.legR,'x',-1.0*s);T(j.kneeL,'x',1.1*s);T(j.kneeR,'x',1.1*s);
+  T(j.ankleL,'x',-.5*s);T(j.ankleR,'x',-.5*s);T(j.head,'x',.35*s);
+  tipV+=(-.9*s-tipQ)*40*dt; springs(dt,300,27,ML); return;}
+ heroM.position.set(S.x,S.y,0);
+ if(S.air){const up=S.vy>0; // отрыв - группировка, снижение - распластка
+  j.rig.position.y=0;
+  T(j.rig,'x',up?.14:-.08);
+  T(j.armL,'x',up?-2.3:-1.1);T(j.armR,'x',up?-2.3:-1.1);T(j.armL,'z',.15);T(j.armR,'z',-.15);
+  T(j.elbowL,'x',up?-.9:-.4);T(j.elbowR,'x',up?-.9:-.4);
+  T(j.legL,'x',up?-.9:-.1);T(j.legR,'x',up?-.2:.5);
+  T(j.kneeL,'x',up?1.5:.15);T(j.kneeR,'x',up?.4:.1);
+  T(j.ankleL,'x',up?.5:-.2);T(j.ankleR,'x',up?.5:-.2);
+  T(j.head,'x',up?.1:-.05);
+  tipV+=Math.sin(S.t*9)*(up?.9:-1.1)*dt*22;
+  springs(dt,150,15,ML); return;}
+ // ---------- 4-фазная походка на GLB-суставах: FK-цепочки, наклон, таз, контр-вращения ----------
+ const a=S.anim*2,sw=Math.sin(a),sq=1-.13*land;
+ const spd=Math.min(1,(S.speed-26)/26),amp=.95+spd*.25;
+ const legPh=ph=>{const s0=Math.sin(a+ph),s1=Math.sin(a+ph+Math.PI*.5);
+  return{thigh:-amp*s0*.55,knee:Math.max(0,.75*(.5-.5*s1)+.2),ankle:.2*s1};};
+ const lp=legPh(0),rp=legPh(Math.PI);
+ const armPh=ph=>{const s0=Math.sin(a+ph);return{shoulder:-s0*.85-.1,elbow:-.35-.3*Math.max(0,s0)};};
+ const alp=armPh(Math.PI),arp=armPh(0); // руки в противофазе с ногами
+ heroM.scale.set(1+.09*land,sq,1+.09*land); // squash при приземлении
+ T(j.rig,'x',.12+spd*.04+Math.sin(a*2+Math.PI*.2)*.03); // наклон вперёд + дыхание
+ j.rig.position.y=-.02+Math.abs(sw)*.045+Math.sin(a)*.018; // осциллятор таза
+ T(j.rig,'z',Math.sin(a)*.05);T(j.rig,'y',Math.sin(a)*.09);
+ T(j.legL,'x',lp.thigh);T(j.kneeL,'x',lp.knee);T(j.ankleL,'x',lp.ankle);
+ T(j.legR,'x',rp.thigh);T(j.kneeR,'x',rp.knee);T(j.ankleR,'x',rp.ankle);
+ T(j.armL,'x',alp.shoulder);T(j.armR,'x',arp.shoulder);
+ T(j.elbowL,'x',alp.elbow);T(j.elbowR,'x',arp.elbow);
+ T(j.armL,'z',.12-Math.max(0,alp.shoulder)*.08);T(j.armR,'z',-.12+Math.max(0,arp.shoulder)*.08);
+ T(j.head,'z',-Math.sin(a)*.03);T(j.head,'y',Math.sin(a)*.09+Math.sin(S.t*.8)*.06); // стабилизация взгляда
+ T(j.head,'x',.04+Math.sin(a*2+Math.PI*.3)*.025);
+ tipV+=Math.sin(a*2+Math.PI*.3)*dt*24; // импульс колпака от ускорения головы
+ springs(dt,170,15.5,ML);
+}
 // ---------- templates: Korok Forest obstacles (BotW lore) ----------
 // low-poly камень: икосаэдр с детерминированным дрожжем вершин (тот же seed = та же форма)
 function rockGeo(seed){const g=new THREE.IcosahedronGeometry(1,1);const p=g.attributes.position;
@@ -439,10 +479,11 @@ function springTip(target,dt){const k=42,d=7;tipV+=(target-tipQ)*k*dt-d*tipV*dt;
 // пружинные суставы: углы догоняют цель через PD-регулятор -> связность, инерция и лёгкий перелёт куклы
 function tgt(o,ax,v){(o.__t||(o.__t={}))[ax]=v;}
 const SKIN=()=>[rig,head,armL,armR,armL.elbow,armR.elbow,legL,legR,legL.knee,legR.knee,legL.ankle,legR.ankle];
-function springs(dt,k,d){for(const j of SKIN()){const t=j.__t;if(!t)continue;const s=j.__s||(j.__s={});
+function springs(dt,k,d,list){for(const j of (list||SKIN())){const t=j.__t;if(!t)continue;const s=j.__s||(j.__s={});
  for(const ax in t){let st=s[ax];if(!st)st=s[ax]={v:0,c:j.rotation[ax]};
   st.v+=((t[ax]-st.c)*k-d*st.v)*dt;st.c+=st.v*dt;
-  if(ax==='x'&&j===rig)st.c=Math.max(-1.62,Math.min(.35,st.c)); // корпус не проваливается сквозь землю при падении
+  const cl=j.__cl||(j===rig?[-1.62,.35]:null); // корпус не проваливается сквозь землю при падении
+  if(cl&&ax==='x')st.c=Math.max(cl[0],Math.min(cl[1],st.c));
   j.rotation[ax]=st.c;}}}
 function allRelax(){for(const j of SKIN())for(const ax of['x','y','z'])if(j.__t)j.__t[ax]=0;}
 function animRig(dt){
