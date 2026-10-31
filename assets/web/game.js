@@ -185,7 +185,8 @@ let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0);
    const b2=new THREE.Box3().setFromObject(root); root.position.y=-b2.min.y;
    root.rotation.y=Math.PI;     // лицом вперёд по тропе
    heroM.add(root); heroCOM.set((b2.max.x+b2.min.x)/2,(b2.max.y+b2.min.y)/2,(b2.max.z+b2.min.z)/2); mReady=true; player.visible=false;
- },undefined,()=>{mReady=false;});
+   if($('ver'))$('ver').textContent='v'+VER+' · GLB'; // меню уже открыто - обновить лейбл сразу
+ },undefined,()=>{mReady=false;if(window.dlog&&dlog.err)dlog.err('glb');});
 }
 // контактная тень бегуна: та же «лепёшка», что у деревьев; с высотой прыжка тает и сжимается
 const heroSh=new THREE.Mesh(new THREE.CircleGeometry(.42,12),new THREE.MeshBasicMaterial({color:0x14300E,transparent:true,opacity:.34,depthWrite:false}));
@@ -413,8 +414,11 @@ addEventListener('keydown',e=>act({ArrowLeft:'L',ArrowRight:'R',ArrowUp:'U',Arro
 // ---------- HUD ----------
 const fmt=n=>(''+n).padStart(6,'0');
 $('mbest').textContent='РЕКОРД '+fmt(S.best)+' · ⚔ '+S.bestC;
-function showMenu(){$('menu').style.display='flex';$('over').style.display='none';$('hud').style.display='none';$('meta').style.display='none';}
-function showRun(){$('menu').style.display='none';$('over').style.display='none';$('hud').style.display='flex';$('meta').style.display='block';}
+const VER='4.35.3';
+function showMenu(){$('menu').style.display='flex';$('over').style.display='none';$('hud').style.display='none';$('meta').style.display='none';
+ let v=$('ver');if(!v){v=document.createElement('div');v.id='ver';v.style.cssText='position:fixed;bottom:6px;left:0;right:0;text-align:center;font-size:11px;opacity:.5';document.body.appendChild(v);}
+ v.style.display='block';v.textContent='v'+VER+' · '+(mReady?'GLB':'FALLBACK');}
+function showRun(){$('menu').style.display='none';$('over').style.display='none';$('hud').style.display='flex';$('meta').style.display='block';if($('ver'))$('ver').style.display='none';}
 function showOver(){$('over').style.display='flex';$('hud').style.display='none';
  $('ostats').textContent=fmt(Math.floor(S.score))+' · ⚔ '+S.coins+' · '+Math.floor(S.dist)+'m';
  $('obest').textContent='РЕКОРД '+fmt(S.best)+' · ⚔ '+S.bestC;
