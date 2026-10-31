@@ -29,25 +29,24 @@ for(let i=0;i<10;i++)cloudPos.push({x:(Math.random()*2-1)*120,y:22+Math.random()
 scene.add(clouds);
 {const sun=new THREE.Mesh(new THREE.SphereGeometry(9,12,12),new THREE.MeshBasicMaterial({color:0xFFF6C9,fog:false}));
  sun.position.set(-70,60,-220);scene.add(sun);}
-// ---------- ground + rails ----------
-const ground=new THREE.Mesh(new THREE.PlaneGeometry(300,320),M(GR)); ground.rotation.x=-Math.PI/2; ground.position.set(0,-.02,-110); scene.add(ground);
-const ties=new THREE.InstancedMesh(new THREE.BoxGeometry(LANE*3+1,.1,.5),M(0x6B4A2F),30); scene.add(ties);
-const railM=M(0xB8C0C8,.4,.25);
-for(let l=0;l<3;l++){for(const s of[-.38,.38]){const r=box(.09,.12,320,railM);
- r.position.set((l-1)*LANE+s,.11,-110);scene.add(r);}}
-// ---------- city ----------
-const PALETTE=[0xF25F5C,0xFFE066,0x6BCB77,0x4D96FF,0xFF9F45,0xF5EFE6,0x9B5DE5,0x00BBF9];
-const winCv=document.createElement('canvas');winCv.width=winCv.height=64;{const g=winCv.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,64,64);g.fillStyle='rgba(30,40,60,.35)';for(let r=0;r<8;r++)for(let c=0;c<5;c++)g.fillRect(3+c*12,3+r*8,8,5);}
-const winTex=new THREE.CanvasTexture(winCv);winTex.encoding=THREE.sRGBEncoding;
-const cityM2=M(0xffffff,.9);cityM2.map=winTex;
-const NCity=64, city=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),cityM2,NCity), cityPos=[];
-const cCol=new THREE.Color();
-for(let i=0;i<NCity;i++){const s=Math.random()<.5?-1:1;
- cityPos.push({x:s*(11+Math.random()*24),z:Math.random()*300,h:5+Math.random()*15,w:3+Math.random()*5});
- cCol.setHex(PALETTE[i%PALETTE.length]).convertSRGBToLinear();city.setColorAt(i,cCol);}
-scene.add(city); // instanceColor works WITHOUT vertexColors (missing attr -> black)
-// sidewalk curbs
-for(const s of[-1,1]){const c=box(.5,.3,320,M(0xCFC4AE));c.position.set(s*(LANE*1.5+.6),.15,-110);scene.add(c);}
+// ---------- ground + dirt path ----------
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(300,320),M(0x3E7A2A,.95)); ground.rotation.x=-Math.PI/2; ground.position.set(0,-.02,-110); scene.add(ground);
+const ties=new THREE.InstancedMesh(new THREE.BoxGeometry(LANE*3+1,.08,2.4),M(0x6B4E2E,.95),30); scene.add(ties);
+// ---------- forest ----------
+const TREE_PALETTE=[0x3C7A2B,0x4C9C37,0x2F6B22,0x5CBA47];
+const trunkM=M(0x5A3A1F,.95);
+const NTree=72, trunks=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),trunkM,NTree), canopies=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),M(0xffffff,.85),NTree), treePos=[];
+const tCol=new THREE.Color();
+for(let i=0;i<NTree;i++){const s=Math.random()<.5?-1:1; const h=4+Math.random()*6;
+ treePos.push({x:s*(LANE*1.8+.8+Math.random()*16),z:Math.random()*320,h,w:1+Math.random()*.5,canopyH:h*.6,canopyW:2+Math.random()*1.5});
+ tCol.setHex(TREE_PALETTE[i%TREE_PALETTE.length]).convertSRGBToLinear(); canopies.setColorAt(i,tCol);}
+scene.add(trunks); scene.add(canopies);
+// ---------- bushes ----------
+const bushM=M(0x3E8A26,.9);
+const NBush=48, bushes=new THREE.InstancedMesh(new THREE.BoxGeometry(.8,.6,.8),bushM,NBush), bushPos=[];
+for(let i=0;i<NBush;i++){const s=Math.random()<.5?-1:1;
+ bushPos.push({x:s*(LANE*1.6+.35+Math.random()*.5),z:Math.random()*220,h:.5+Math.random()*.45});}
+scene.add(bushes);
 // ---------- audio ----------
 const AU={m:new Audio('audio/music.m4a'),pick:new Audio('audio/pickup.m4a'),
  bump:new Audio('audio/bump.m4a'),jump:new Audio('audio/jump.m4a')};
@@ -66,56 +65,60 @@ addEventListener('mousedown',unlockAudio);
 // file:// WebView sometimes reports NotAllowedError even inside the gesture; retry on any later gesture too
 addEventListener('touchend',()=>{if(!audioOn)unlockAudio();},{passive:true});
 
-// ---------- player: running plunger (recognizable tool, not human) ----------
-const plungerHandle=M(0xB47734,.92), plungerKnob=M(0x25252A,.72), plungerCup=M(0x25252A,.72), plungerLip=M(0x111114,.85), plungerWood=M(0xD6A86A,.85);
+// ---------- player: blocky forest hero ----------
+const skinM=M(0xF4D0B0,.8), tunicM=M(0x3FAE5A,.8), beltM=M(0x6B3E2A,.85), bootM=M(0x6B4A2F,.85), hatM=M(0x41C05E,.8), hairM=M(0x2E2E2E,.9);
 const player=new THREE.Group(), rig=new THREE.Group(); player.add(rig); scene.add(player);
 function limb(w,h,m,pivotY){const p=new THREE.Group();const b=box(w,h,w,m);b.position.y=-h/2;p.add(b);p.position.y=pivotY;return p;}
-var armL,armR,legL,legR, plungerBody;
-{plungerBody=new THREE.Group(); plungerBody.position.y=.52; rig.add(plungerBody);
- const cup=new THREE.Mesh(new THREE.SphereGeometry(.55,24,12,0,TAU,0,Math.PI*.58),plungerCup); cup.rotation.x=Math.PI; cup.position.y=.58; cup.scale.set(1,.68,1); plungerBody.add(cup);
- const cupBottom=new THREE.Mesh(new THREE.CylinderGeometry(.55,.55,.14,26),M(0xC0392B,.8)); cupBottom.position.y=.51; plungerBody.add(cupBottom);
- const eyeL=new THREE.Mesh(new THREE.SphereGeometry(.07,10,8),new THREE.MeshBasicMaterial({color:0xffffff})); eyeL.position.set(-.12,.36,.36); plungerBody.add(eyeL);
- const eyeR=eyeL.clone(); eyeR.position.x=.12; plungerBody.add(eyeR);
- const smile=new THREE.Mesh(new THREE.TorusGeometry(.1,.02,8,12,Math.PI),new THREE.MeshBasicMaterial({color:0xffffff})); smile.position.set(0,.28,.4); smile.rotation.z=Math.PI; plungerBody.add(smile);
- const cupInner=new THREE.Mesh(new THREE.CylinderGeometry(.27,.18,.12,22),plungerWood); cupInner.position.y=.5; plungerBody.add(cupInner);
- const stick=new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,.62,16),plungerHandle); stick.position.y=.9; plungerBody.add(stick);
- const knob=new THREE.Mesh(new THREE.SphereGeometry(.12,16,12),plungerKnob); knob.position.y=1.24; plungerBody.add(knob);
- const band=box(.24,.06,.08,plungerLip); band.position.set(0,1.05,.03); plungerBody.add(band);
- armL=limb(.09,.28,plungerHandle,.72); armR=limb(.09,.28,plungerHandle,.72); armL.position.set(-.21,.42,.04); armR.position.set(.21,.42,.04);
- legL=limb(.13,.32,plungerHandle,.26); legR=limb(.13,.32,plungerHandle,.26); legL.position.set(-.13,.1,.04); legR.position.set(.13,.1,.04);
- rig.add(armL,armR,legL,legR);}
+var armL,armR,legL,legR, head, sword;
+{head=new THREE.Group(); head.position.set(0,.84,0); rig.add(head);
+ const face=box(.6,.6,.6,skinM); head.add(face);
+ const hair=box(.62,.42,.08,hairM); hair.position.set(0,.16,.34); head.add(hair);
+ const eyeL=box(.1,.12,.08,M(0x1A2E14,.6)); eyeL.position.set(-.14,.04,.28); const eyeR=eyeL.clone(); eyeR.position.x=.14; head.add(eyeL,eyeR);
+ const hat=new THREE.Mesh(new THREE.ConeGeometry(.44,.36,4),hatM); hat.position.set(0,.5,0); hat.rotation.y=Math.PI/4; head.add(hat);
+ const body=box(.64,.56,.32,tunicM); body.position.set(0,.3,0); rig.add(body);
+ const belt=box(.68,.08,.36,beltM); belt.position.set(0,.08,0); rig.add(belt);
+ armL=limb(.18,.52,tunicM,.58); armR=limb(.18,.52,tunicM,.58); armL.position.set(-.4,.28,0); armR.position.set(.4,.28,0); rig.add(armL,armR);
+ legL=limb(.24,.6,tunicM,.0); legR=limb(.24,.6,tunicM,.0); legL.position.set(-.15,-.26,0); legR.position.set(.15,-.26,0); rig.add(legL,legR);
+ const bootL=box(.26,.16,.26,bootM); const bootR=bootL.clone(); bootL.position.set(-.15,-.58,0); bootR.position.set(.15,-.58,0); rig.add(bootL,bootR);
+ // carried sword on the back
+ sword=new THREE.Group();
+ const blade=box(.08,.78,.04,M(0xC4CBD2,.35,.75)); blade.position.y=.34;
+ const guard=box(.22,.05,.05,M(0x6B3E2A,.8)); guard.position.y=.02;
+ const grip=box(.06,.16,.06,M(0x6B3E2A,.8)); grip.position.y=-.08;
+ sword.add(blade,guard,grip); sword.position.set(0,.28,-.32); sword.rotation.x=.48; rig.add(sword);
+}
 const shCv=document.createElement('canvas');shCv.width=shCv.height=64;{const g=shCv.getContext('2d');
  const rg=g.createRadialGradient(32,32,4,32,32,30);rg.addColorStop(0,'rgba(30,22,12,.55)');rg.addColorStop(1,'rgba(30,22,12,0)');
  g.fillStyle=rg;g.fillRect(0,0,64,64);}
  const shadow=new THREE.Mesh(new THREE.PlaneGeometry(1.2,1.2),
   new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(shCv),transparent:true,depthWrite:false}));
- shadow.rotation.x=-Math.PI/2;shadow.position.y=.04;shadow.renderOrder=1;scene.add(shadow);
-// ---------- templates: subway props ----------
-function tLow(){ // orange barrier with white top
- const g=new THREE.Group();const b=box(1.02,.8,.6,M(0xFF8C42,.8));b.position.y=.4;
- const s=box(1.06,.12,.66,M(0xF5F5F5,.7));s.position.y=.84;
- const f1=box(.1,.7,.66,M(0x6B6B6B,.7)),f2=f1.clone();f1.position.set(-.46,.35,0);f2.position.set(.46,.35,0);
+shadow.rotation.x=-Math.PI/2;shadow.position.y=.04;shadow.renderOrder=1;scene.add(shadow);
+// ---------- templates: forest obstacles ----------
+function tLow(){ // low bush
+ const g=new THREE.Group();const b=box(1.02,.7,.6,M(0x3E8A26,.9));b.position.y=.35;
+ const s=box(1.06,.16,.66,M(0x5CBA47,.9));s.position.y=.74;
+ const f1=box(.1,.6,.66,M(0x2F6B22,.9)),f2=f1.clone();f1.position.set(-.46,.3,0);f2.position.set(.46,.3,0);
  g.add(b,s,f1,f2);return g;}
-function tBar(){ // low gantry: gray beam + yellow hazard plate
- const g=new THREE.Group();const b=box(1.12,.5,.5,M(0x9AA5B1,.6,.15));b.position.y=1.32;
- const s=box(1.06,.2,.54,M(0xF4B400,.7));s.position.y=1.06;
- const l1=box(.09,1.06,.09,M(0x77808A,.6,.3)),l2=l1.clone();l1.position.set(-.53,.53,0);l2.position.set(.53,.53,0);
+function tBar(){ // fallen branch gantry: wood beam + leaves plate
+ const g=new THREE.Group();const b=box(1.12,.5,.5,M(0x8A5A30,.95));b.position.y=1.32;
+ const s=box(1.06,.2,.54,M(0x4C9C37,.9));s.position.y=1.06;
+ const l1=box(.09,1.06,.09,M(0x5A3A1F,.9)),l2=l1.clone();l1.position.set(-.53,.53,0);l2.position.set(.53,.53,0);
  g.add(b,s,l1,l2);return g;}
-function tWall(){ // train car: colored body, windows, roof, dark nose
- const g=new THREE.Group();const c=PALETTE[(Math.random()*PALETTE.length)|0];
- const b=box(1.06,2.35,4.2,M(c,.75));b.position.y=1.42;
- const w1=box(1.1,.45,.9,M(0x1d2b3a,.3,.4)),w2=w1.clone();w1.position.set(0,1.9,-1);w2.position.set(0,1.9,1);
- const st=box(1.1,.16,4.25,M(0xF5EFE6,.7));st.position.y=1.35;
- const rf=box(.94,.12,4.2,M(0x555F68,.8));rf.position.y=2.62;
- const nose=box(1.0,.5,.25,M(0x2b2b2b,.6));nose.position.set(0,.5,-2.12);
+function tWall(){ // big boulder block
+ const g=new THREE.Group();
+ const b=box(1.06,2.35,4.2,M(0x7A7875,.9));b.position.y=1.42;
+ const w1=box(1.1,.45,.9,M(0x9E9E9E,.9)),w2=w1.clone();w1.position.set(0,1.9,-1);w2.position.set(0,1.9,1);
+ const st=box(1.1,.16,4.25,M(0x6A6A6A,.85));st.position.y=1.35;
+ const rf=box(.94,.12,4.2,M(0x606060,.85));rf.position.y=2.62;
+ const nose=box(1.0,.5,.25,M(0x5A5A5A,.85));nose.position.set(0,.5,-2.12);
  g.add(b,w1,w2,st,rf,nose);return g;}
-function tCoin(){const g=new THREE.Group();
- const base=new THREE.Mesh(new THREE.SphereGeometry(.3,16,10),M(0x5A3A1F,.95)); base.scale.set(1,.42,1); base.position.y=0;
- const mid=new THREE.Mesh(new THREE.SphereGeometry(.22,14,10),M(0x6F4A25,.95)); mid.scale.set(1,.5,1); mid.position.y=.12;
- const top=new THREE.Mesh(new THREE.SphereGeometry(.13,12,8),M(0x7A5230,.95)); top.scale.set(1,.6,1); top.position.y=.24;
- const tip=new THREE.Mesh(new THREE.SphereGeometry(.06,10,6),M(0x7A5230,.95)); tip.position.set(.03,.32,.02); tip.rotation.z=-.4;
- const shine=new THREE.Mesh(new THREE.SphereGeometry(.045,8,6),new THREE.MeshBasicMaterial({color:0xFFF0C0})); shine.position.set(.1,.26,.12);
- g.add(base,mid,top,tip,shine); g.position.y=.02; return g;}
+function tCoin(){ // sword pickup
+ const g=new THREE.Group();
+ const blade=box(.08,.7,.05,M(0xC4CBD2,.35,.75)); blade.position.y=.65;
+ const guard=box(.22,.05,.05,M(0x6B3E2A,.85)); guard.position.y=.26;
+ const grip=box(.06,.16,.06,M(0x6B3E2A,.85)); grip.position.y=.12;
+ const pommel=new THREE.Mesh(new THREE.SphereGeometry(.05,8,6),M(0xFFD24A,.5,.2)); pommel.position.y=.04;
+ g.add(blade,guard,grip,pommel); return g;}
 const TPL={low:tLow,bar:tBar,wall:tWall};
 // ---------- state ----------
 const S={mode:'menu',t:0,dist:0,speed:26,coins:0,score:0,
@@ -131,7 +134,7 @@ function spawn(){
  const diff=Math.min(1,S.dist/3000), r=Math.random();
  if(r<.3)addObs('low',(Math.random()*3)|0);
  else if(r<.54)addObs('bar',(Math.random()*3)|0);
- else if(r<.84){const bl=new Set();const n=diff>.4&&Math.random()<.5?2:1;   // trains more often
+ else if(r<.84){const bl=new Set();const n=diff>.4&&Math.random()<.5?2:1;   // boulders more often
    while(bl.size<n)bl.add((Math.random()*3)|0);bl.forEach(l=>addObs('wall',l));}
  else{const l=(Math.random()*3)|0,aerial=Math.random()<.3;
   for(let i=0;i<6;i++){const m=tCoin();const y=aerial?1.5+Math.sin(i*.9)*.4:.95;
@@ -154,13 +157,13 @@ function burst(x,y,z,col,n){const c=new THREE.Color(col).convertSRGBToLinear();
 const laneHit=o=>o.lane===S.lane&&Math.abs(S.x-(o.lane-1)*LANE)<LANE*.6;
 function collide(){const h=S.roll>0?.8:1.62,feet=S.y,top=S.y+h;
  for(const o of S.obs){if(!laneHit(o))continue;
-  const near=o.type==='wall'?(o.z+2.1>-0.4&&o.z-2.1<0.4):Math.abs(o.z)<0.95;   // train is 4.2 long
+  const near=o.type==='wall'?(o.z+2.1>-0.4&&o.z-2.1<0.4):Math.abs(o.z)<0.95;   // boulder is 4.2 long
   if(!near)continue;
-  if(o.type==='low'&&feet<.8)return die();
+  if(o.type==='low'&&feet<.7)return die();
   if(o.type==='bar'&&top>1.05)return die();
   if(o.type==='wall')return die();}
  for(const c of S.coinsArr){if(!c.taken&&Math.abs(c.z)<.9&&c.lane===S.lane&&Math.abs(S.y+.6-c.y)<.9){
-  c.taken=true;scene.remove(c.m);S.coins++;sfx('pick');burst((c.lane-1)*LANE,c.y,c.z,0x8B5E34,10);}}}
+  c.taken=true;scene.remove(c.m);S.coins++;sfx('pick');burst((c.lane-1)*LANE,c.y,c.z,0xC4CBD2,10);}}}
 function die(){S.mode='over';S.dead=.001;S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
  S.bestC=Math.max(S.bestC,S.coins);localStorage.setItem('nr_bestc',S.bestC);
@@ -181,12 +184,12 @@ addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tsx,dy=e.ch
 addEventListener('keydown',e=>act({ArrowLeft:'L',ArrowRight:'R',ArrowUp:'U',ArrowDown:'D',' ':'U'}[e.key]));
 // ---------- HUD ----------
 const fmt=n=>(''+n).padStart(6,'0');
-$('mbest').textContent='РЕКОРД '+fmt(S.best)+' · 💩 '+S.bestC;
+$('mbest').textContent='РЕКОРД '+fmt(S.best)+' · ⚔ '+S.bestC;
 function showMenu(){$('menu').style.display='flex';$('over').style.display='none';$('hud').style.display='none';$('meta').style.display='none';}
 function showRun(){$('menu').style.display='none';$('over').style.display='none';$('hud').style.display='flex';$('meta').style.display='block';}
 function showOver(){$('over').style.display='flex';$('hud').style.display='none';
- $('ostats').textContent=fmt(Math.floor(S.score))+' · 💩 '+S.coins+' · '+Math.floor(S.dist)+'m';
- $('obest').textContent='РЕКОРД '+fmt(S.best)+' · 💩 '+S.bestC;
+ $('ostats').textContent=fmt(Math.floor(S.score))+' · ⚔ '+S.coins+' · '+Math.floor(S.dist)+'m';
+ $('obest').textContent='РЕКОРД '+fmt(S.best)+' · ⚔ '+S.bestC;
  setTimeout(()=>{$('ogo').style.visibility='visible';},800);}
 showMenu();
 // ---------- update ----------
@@ -197,14 +200,17 @@ function updInst(){
  for(let i=0;i<10;i++){const c=cloudPos[i];V1.set(c.x,c.y,-260+(((c.z+S.dist*.35)%320)+320)%320);V0.set(c.s,c.s*.35,c.s*.6);
   M4.compose(V1,Q0,V0);clouds.setMatrixAt(i,M4);}
  clouds.instanceMatrix.needsUpdate=true;V0.set(1,1,1);
- for(let i=0;i<NCity;i++){const b=cityPos[i],z=-240+(((b.z+S.dist*.85)%300)+300)%300;
-  V1.set(b.x,b.h/2,z);V0.set(b.w,b.h,b.w);
-  M4.compose(V1,Q0,V0);city.setMatrixAt(i,M4);}
- city.instanceMatrix.needsUpdate=true;V0.set(1,1,1);}
+ for(let i=0;i<NTree;i++){const b=treePos[i],z=-260+(((b.z+S.dist*.85)%320)+320)%320;
+  V1.set(b.x,b.h/2,z);V0.set(b.w,b.h,b.w);M4.compose(V1,Q0,V0);trunks.setMatrixAt(i,M4);
+  V1.set(b.x,b.h+b.canopyH/2,z);V0.set(b.canopyW,b.canopyH,b.canopyW);M4.compose(V1,Q0,V0);canopies.setMatrixAt(i,M4);}
+ trunks.instanceMatrix.needsUpdate=true;canopies.instanceMatrix.needsUpdate=true;V0.set(1,1,1);
+ for(let i=0;i<NBush;i++){const b=bushPos[i],z=-200+(((b.z+S.dist)%220)+220)%220;
+  V1.set(b.x,b.h/2,z);V0.set(.9,b.h,.9);M4.compose(V1,Q0,V0);bushes.setMatrixAt(i,M4);}
+ bushes.instanceMatrix.needsUpdate=true;V0.set(1,1,1);}
 function update(dt){
  S.t+=dt;
  for(let i=0;i<NP;i++){if(plife[i]>0){plife[i]-=dt;const k=i*3;
-  ppos[k]+=pvel[k]*dt;ppos[k+1]+=pvel[k+1]*dt;ppos[k+2]+=pvel[k+2]*dt;pvel[k+1]-=9*dt;
+  ppos[k]+=pvel[k]*dt;pvel[k+1]+=pvel[k+1]*dt;pvel[k+2]+=pvel[k+2]*dt;pvel[k+1]-=9*dt;
   if(plife[i]<=0)ppos[k+1]=-50;}}
  pPts.geometry.attributes.position.needsUpdate=true;
  S.shake=Math.max(0,S.shake-dt*2.5);S.flash=Math.max(0,S.flash-dt*1.8);$('flash').style.opacity=S.flash;
@@ -214,7 +220,7 @@ function update(dt){
  const dz=S.speed*dt;S.dist+=dz;S.score+=dz;
  S.x+=((S.lane-1)*LANE-S.x)*Math.min(1,dt*14);
  S.vy-=GRAV*dt;S.y+=S.vy*dt;
- if(S.y<=0){if(S.air)burst(S.x,.1,0,0xB09A7A,6);S.y=0;S.vy=0;S.air=false;}
+ if(S.y<=0){if(S.air)burst(S.x,.1,0,0x6B4E2E,6);S.y=0;S.vy=0;S.air=false;}
  if(S.roll>0)S.roll-=dt;
  S.anim+=dt*(S.air||S.roll>0?4:S.speed*.32);
  for(const o of S.obs)o.z+=dz,o.m.position.z=o.z;
@@ -234,7 +240,8 @@ function animRig(){
  const a=S.anim*2,sw=Math.sin(a);
  rig.position.y=Math.abs(Math.sin(a))*.03;
  legL.rotation.x=sw*.9;legR.rotation.x=-sw*.9;
- armL.rotation.x=-sw*.8;armR.rotation.x=sw*.8;}
+ armL.rotation.x=-sw*.8;armR.rotation.x=sw*.8;
+ head.rotation.y=Math.sin(S.t*.8)*.06;}
 let camX=0,camF=70;
 function animCam(dt){
  camX+=(S.x*.55-camX)*Math.min(1,dt*6);
@@ -250,7 +257,7 @@ let last=performance.now();
 function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;
  update(dt*S.ts);updInst();animRig();animCam(dt);
  $('score').textContent=fmt(Math.floor(S.score));
- $('coins').textContent='💩 '+S.coins;
+ $('coins').textContent='⚔ '+S.coins;
  $('best').textContent=fmt(S.best);
  $('meta').textContent=Math.floor(S.dist)+'m \u00b7 '+Math.floor(S.speed)+'km/h';
  renderer.render(scene,camera);
