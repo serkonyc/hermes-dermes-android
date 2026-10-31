@@ -174,13 +174,14 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.35.4';
+const VER='4.35.5';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0);
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
  const loadGLB=()=>{const L=(typeof THREE.GLTFLoader==='function')&&new THREE.GLTFLoader();
   if(!L){mReady=false;failBanner();return;}
-  L.load('../models/link.glb'+(gtries?'?r='+gtries:''),gltf=>{
+  const start=g=>window.LINK_GLB_B64?L.parse(b64buf(window.LINK_GLB_B64),'',g,e=>onGLBErr()):L.load('../models/link.glb'+(gtries?'?r='+gtries:''),g,undefined,onGLBErr());
+  start(gltf=>{
    const root=gltf.scene; MJ={};
    root.traverse(o=>{MJ[o.name]=o;if(o.isMesh)o.frustumCulled=false;});
    if(!MJ.rig||!MJ.head){mReady=false;failBanner();return;}
@@ -191,8 +192,10 @@ let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0);
    heroM.add(root); heroCOM.set((b2.max.x+b2.min.x)/2,(b2.max.y+b2.min.y)/2,(b2.max.z+b2.min.z)/2); mReady=true; player.visible=false;
    const fb=document.getElementById('gfail');if(fb)fb.remove();
    if($('ver'))$('ver').textContent='v'+VER+' · GLB';
-  },undefined,()=>{mReady=false;if(gtries++<2)setTimeout(loadGLB,400);else failBanner();});
+  });
  };
+ function onGLBErr(){mReady=false;if(gtries++<2)setTimeout(loadGLB,400);else failBanner();}
+ function b64buf(s){const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;}
  loadGLB();
 }
 // контактная тень бегуна: та же «лепёшка», что у деревьев; с высотой прыжка тает и сжимается
