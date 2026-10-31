@@ -81,8 +81,9 @@ Java_ai_serge_dermes_ChatActivity_nativeGenerate(JNIEnv *env, jclass cls, jlong 
     const char *prompt = (*env)->GetStringUTFChars(env, jprompt, NULL);
     int cap = (int)strlen(prompt) / 2 + 32;
     llama_token *toks = malloc((size_t)cap * sizeof(llama_token));
+    // add_bos=true: чат-шаблон LFM2 начинается с bos_token, а в GGUF нет add_bos_token - без BOS модель сходит с ума (спец-токены всё равно не удвоятся)
     int n = llama_tokenize(h->vocab, prompt, (int32_t)strlen(prompt),
-                           toks, cap, false, true);
+                           toks, cap, true, true);
     (*env)->ReleaseStringUTFChars(env, jprompt, prompt);
     if (n < 0) { free(toks); throw_exc(env, "tokenize failed"); return NULL; }
 
