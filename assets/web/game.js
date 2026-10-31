@@ -266,7 +266,8 @@ function driveHero(dt){
  T(j.head,'z',-Math.sin(a)*.03);T(j.head,'y',Math.sin(a)*.09+Math.sin(S.t*.8)*.06); // стабилизация взгляда
  T(j.head,'x',.04+Math.sin(a*2+Math.PI*.3)*.025);
  tipV+=Math.sin(a*2+Math.PI*.3)*dt*24; // импульс колпака от ускорения головы
- springs(dt,170,15.5,ML);
+ // кукла-марионетка: корпус ведёт жёстко, конечности догоняют мягче - цепь читается связанной, а не 13 шарниров
+ springs(dt,230,18,[j.rig,j.head]); springs(dt,120,13,[j.armL,j.armR,j.elbowL,j.elbowR,j.legL,j.legR,j.kneeL,j.kneeR,j.ankleL,j.ankleR]);
 }
 // ---------- templates: Korok Forest obstacles (BotW lore) ----------
 // low-poly камень: икосаэдр с детерминированным дрожжем вершин (тот же seed = та же форма)
