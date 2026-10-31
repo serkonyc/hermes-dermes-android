@@ -216,6 +216,23 @@ let pPts;
  pPts.geometry.attributes.position.needsUpdate=true;
  scene.add(pPts);}
 let pCur=0;
+ // вспышка-ореол при подборе меча: expanding ring + sparkle + звёздочка
+const pickFx=[];
+const pickRing=new THREE.InstancedMesh(new THREE.RingGeometry(.08,.14,24),new THREE.MeshBasicMaterial({color:0xFFE6A0,transparent:true,fog:false,side:THREE.DoubleSide,depthWrite:false}),10); pickRing.renderOrder=2; scene.add(pickRing);
+const pickGlow=new THREE.InstancedMesh(new THREE.CircleGeometry(.25,18),new THREE.MeshBasicMaterial({color:0xFFF3C0,transparent:true,fog:false,depthWrite:false}),10); pickGlow.renderOrder=1; scene.add(pickGlow);
+function sparkle(x,y,z){
+ pickFx.push({x,y,z,t:0});
+ burst(x,y,z,0xFFD24A,8); burst(x,y,z,0xFFF6D8,5); // золото + белая искра
+ S.flash=Math.max(S.flash,.10);}
+function updPickFx(dt){
+ for(let i=0;i<10;i++){const f=pickFx[i];if(!f){V0.set(0,0,0);M4.compose(V1.set(0,-50,0),Q0,V0);pickRing.setMatrixAt(i,M4);pickGlow.setMatrixAt(i,M4);continue;}
+  f.t+=dt;const k=f.t/.45; // 450 мс
+  if(k>=1){pickFx.splice(i,1);i--;continue;}
+  const g=1-k, r=.1+k*.95;
+  V1.set(f.x,f.y,f.z);Q0.identity();
+  V0.set(r,r,1);M4.compose(V1,Q0,V0);pickRing.setMatrixAt(i,M4);
+  V0.set(g*.55,g*.55,1);M4.compose(V1,Q0,V0);pickGlow.setMatrixAt(i,M4);}
+ pickRing.instanceMatrix.needsUpdate=true;pickGlow.instanceMatrix.needsUpdate=true;}
 function burst(x,y,z,col,n){const c=new THREE.Color(col).convertSRGBToLinear();
  for(let i=0;i<n;i++){const k=pCur++%NP;ppos[k*3]=x;ppos[k*3+1]=y;ppos[k*3+2]=z;
   pvel[k*3]=(Math.random()-.5)*6;pvel[k*3+1]=Math.random()*5+1;pvel[k*3+2]=(Math.random()-.5)*6;
@@ -223,7 +240,7 @@ function burst(x,y,z,col,n){const c=new THREE.Color(col).convertSRGBToLinear();
  pPts.geometry.attributes.position.needsUpdate=pPts.geometry.attributes.color.needsUpdate=true;}
 // ---------- collision ----------
 const laneHit=o=>o.lane===S.lane&&Math.abs(S.x-(o.lane-1)*LANE)<LANE*.6;
-function collide(){const h=S.roll>0?.8:1.62,feet=S.y,top=S.y+h;
+function collide(dt){const h=S.roll>0?.8:1.62,feet=S.y,top=S.y+h;
  for(const o of S.obs){if(!laneHit(o))continue;
   const near=Math.abs(o.z)<(o.type==='wall'?1.35:.95); // валун круглый R1.15, а не вагон 4.2 длиной
   if(!near)continue;
@@ -231,7 +248,8 @@ function collide(){const h=S.roll>0?.8:1.62,feet=S.y,top=S.y+h;
   if(o.type==='bar'&&top>1.05)return die();
   if(o.type==='wall')return die();}
  for(const c of S.coinsArr){if(!c.taken&&Math.abs(c.z)<.9&&c.lane===S.lane&&Math.abs(S.y+.6-c.y)<.9){
-  c.taken=true;scene.remove(c.m);S.coins++;sfx('pick');burst((c.lane-1)*LANE,c.y,c.z,0xC4CBD2,10);}}}
+  c.taken=true;scene.remove(c.m);S.coins++;sfx('pick');sparkle((c.lane-1)*LANE,c.y,0);S.coinsArr=S.coinsArr.filter(x=>x!==c);}}
+ updPickFx(dt);}
 function die(){S.mode='over';S.dead=.001;S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
  S.bestC=Math.max(S.bestC,S.coins);localStorage.setItem('nr_bestc',S.bestC);
@@ -315,7 +333,7 @@ function update(dt){
  S.obs=S.obs.filter(o=>o.z<DESPAWN_Z||(scene.remove(o.m),false));
  S.coinsArr=S.coinsArr.filter(c=>c.z<DESPAWN_Z&&!c.taken||(scene.remove(c.m),false));
  if(S.dist>=nextSpawn)spawn();
- collide();}
+ collide(dt);}
 // ---------- rig + camera ----------
 function animRig(){
  if(S.roll>0){const s=Math.min(1,Math.min(S.roll,.45-S.roll)*10); // плавный вход/выход позы
