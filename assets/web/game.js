@@ -208,33 +208,40 @@ function driveHero(dt){
   T(j.legL,'x',.9);T(j.legR,'x',.5);T(j.kneeL,'x',-1.2);T(j.kneeR,'x',-.8);
   T(j.head,'x',.5);T(j.hat,'x',-1.9);
   springs(dt,88,8.5,ML); return;}
- if(S.roll>0){ // КУВЫРОК: баллистика тела + полный оборот; squash 1:1.9 вдоль тела = честный катающийся клубок (замер R=0.56)
-  const p=1-S.roll/.62, q=Math.min(1,p/.72); // q: прогресс оборота (весь оборот до выката)
-  const tk=Math.min(1,p*7);                  // группировка: плотный клубок за ~0.15c
-  const z=q*Math.PI*2;
-  heroM.position.set(S.x,S.rollY+.56*Math.abs(Math.sin(z))+(1-tk)*.52*Math.max(0,-Math.sin(z)),0); // вход: пятка вытянутого тела над землёй
-  heroM.rotation.z=z;
-  heroM.scale.set(1-.05*tk,1-.47*tk,1-.05*tk); // продольный squash вдоль оси вращения + slight depth: club R=.56, ширина X не тронута
-  if(tk<1){ // вход: ещё не клубок - хвост колпака уходит за спину, иначе при наклоне хвост лезет в планку
-   j.hat.rotation.x=-1.1;j.hat.rotation.y=0;heroM.scale.set(1,1-.18*tk,1-.02*tk);}
-  const hOff=(1-tk)*(-.5);                   // вход до группировки: хвост колпака назад-вниз, над планкой не торчит
-  j.rig.position.y=0;
-  j.rig.rotation.x=1.2*tk;
-  j.head.rotation.x=.45*tk;
-  j.hat.rotation.x=-2.2*tk;                 // колпак параллелен squash-оси: хвост в габарит клубка, не лезет под планку/в землю
+ if(S.roll>0){ // КУВЫРОК ВПЕРЁД: оборот вокруг X (поперечной оси), ось качения постоянна - мяч, не прыжок
+  const p=1-S.roll/.62;
+  const tk=Math.min(1,p*8,Math.max(0,(.9-p)/.12));  // группировка: клубок к p~.125, держим до выката
+  const q=Math.min(1,Math.max(0,(p-.12)/.6));       // оборот стартует ПОСЛЕ сборки в клубок
+  const x=q*Math.PI*2;
+  const R=.52;                                      // радиус клубка и высота центра (замер Box3)
+  const rt=j.rig.parent; if(rt.__by===undefined)rt.__by=rt.position.y;
+  heroM.position.set(S.x,S.rollY,0);
+  rt.position.y=rt.__by;
+  heroM.rotation.x=-x; heroM.rotation.z=0;
+  heroM.rotation.x=-x;                            // голова вперёд по бегу (-z); знак проверен пробом
+  heroM.rotation.z=0;
+  heroM.scale.set(1,1,1);                         // без squash: геометрия клубка честная
+  j.rig.position.y=0;                              // (pivot компенсирован на root)
+  j.rig.rotation.x=1.2*tk;j.head.rotation.x=.5*tk; // подбородок к груди - без этого клубок не круглый
+  j.rig.rotation.x=1.2*tk;j.head.rotation.x=.5*tk;
+  j.hat.rotation.x=-2.1*tk;                       // колпак вдоль спины: хвост в габарите клубка
   j.armL.rotation.x=-1.6*tk;j.armR.rotation.x=-1.6*tk;j.elbowL.rotation.x=1.5*tk;j.elbowR.rotation.x=1.5*tk;
   j.armL.rotation.z=.45*tk;j.armR.rotation.z=-.45*tk;
-  j.legL.rotation.x=-1.45*tk;j.legR.rotation.x=-1.45*tk;j.kneeL.rotation.x=1.9*tk;j.kneeR.rotation.x=1.9*tk;
+  j.legL.rotation.x=-1.5*tk;j.legR.rotation.x=-1.5*tk;j.kneeL.rotation.x=1.9*tk;j.kneeR.rotation.x=1.9*tk;
   j.ankleL.rotation.x=-.6*tk;j.ankleR.rotation.x=-.6*tk;
-  j.rig.rotation.z=0;
-  if(p>.72){ // выкат: разворачиваем ноги под себя, ладони к земле
-   const w=(p-.72)/.28;
-   j.legL.rotation.x=-1.45*(1-w)-.3*w;j.legR.rotation.x=-1.45*(1-w)+.5*w;
+  if(p>.8){ // выкат: ноги под себя, ладони к земле
+   const w=Math.min(1,(p-.8)/.2);
+   j.legL.rotation.x=-1.5*(1-w)-.3*w;j.legR.rotation.x=-1.5*(1-w)+.5*w;
    j.kneeL.rotation.x=1.9*(1-w)+.2*w;j.kneeR.rotation.x=1.9*(1-w)+.1*w;
    j.armL.rotation.x=-1.6*(1-w)-.4*w;j.armR.rotation.x=-1.6*(1-w)+.2*w;}
+  // измеренная опора: подъём = -min.y позы (как у прыжка) - мяч катится касанием, асимметрия даёт честную закачку
+  heroM.updateMatrixWorld(true);
+  if(!heroM.__lb)heroM.__lb=new THREE.Box3();
+  heroM.__lb.setFromObject(heroM);
+  heroM.position.y+=Math.max(0,-heroM.__lb.min.y)+.015;
   return;}
  heroM.position.set(S.x,S.y,0);
- if(heroM.rotation.z!==0)heroM.rotation.z=0; // кувырок закончен - корпус прямо
+ if(heroM.rotation.x!==0||heroM.rotation.z!==0){heroM.rotation.set(0,0,0);const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;} // кувырок закончен - корпус прямо, root на место
  if(S.air){const up=S.vy>0; // отрыв - группировка, снижение - распластка
   j.rig.position.y=0;
   T(j.rig,'x',up?.14:-.08);
@@ -385,14 +392,14 @@ function collide(dt){const h=S.roll>0?.85:1.62,feet=S.roll>0?S.rollY:S.y,top=fee
  for(const c of S.coinsArr){if(!c.taken&&Math.abs(c.z)<.9&&c.lane===S.lane&&Math.abs(S.y+.6-c.y)<.9){
   c.taken=true;scene.remove(c.m);S.coins++;sfx('pick');sparkle((c.lane-1)*LANE,c.y,0);S.coinsArr=S.coinsArr.filter(x=>x!==c);}}
  updPickFx(dt);}
-function die(){S.mode='over';S.dead=.001;S.dz=(Math.random()<.5?-1:1)*(.35+Math.random()*.3);S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
+function die(){if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}S.mode='over';S.dead=.001;S.dz=(Math.random()<.5?-1:1)*(.35+Math.random()*.3);S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
  S.bestC=Math.max(S.bestC,S.coins);localStorage.setItem('nr_bestc',S.bestC);
  burst(S.x+bend(0),S.y+.8,0,0xF5F5F5,30);showOver();}
 // ---------- input ----------
 function move(d){S.lane=Math.max(0,Math.min(2,S.lane+d));}
 function jump(){if(!S.air&&S.roll<=0){S.vy=JUMP_V;S.air=true;sfx('jump');}}
-function doRoll(){if(S.roll>0)return;S.roll=.62;S.rollY=S.y;S.rollV=S.y>0?7:5.2;S.vy=0;if(S.air)sfx('jump');}
+function doRoll(){if(S.roll>0)return;S.roll=.62;S.rollAir=S.air;if(S.air){S.rollY=S.y;S.rollV=Math.min(S.vy,-2);S.vy=0;sfx('jump');}else{S.rollY=0;S.rollV=0;}}
 function act(a){if(window.dlog&&a!=='T'&&a!=='O')dlog.swipe();
  if(S.mode==='menu'){reset();showRun();if(window.dlog)dlog.run();return;}
  if(S.mode==='over'){if(S.dead>1.05)reset(),showRun();return;}
@@ -477,10 +484,10 @@ function update(dt){
  if(S.roll<=0){S.vy-=GRAV*dt;S.y+=S.vy*dt;
  if(S.y<=0){if(S.air){burst(S.x,.1,0,0x6B4E2E,6);land=1;}S.y=0;S.vy=0;S.air=false;}}
  land=Math.max(0,land-dt*7); // сплющивание при приземлении гаснет за ~0.14с
- if(S.roll>0){ // кувырок: тело на баллистике, приземление = пыль+тряска+impulse
-  S.rollV-=GRAV*.9*dt;S.rollY+=S.rollV*dt;
-  const q=Math.min(1,S.roll/.2); // жёсткая группировка до приземления
-  if(S.rollY<=0){if(S.rollV<-2){burst(S.x,.05,.3,0x6B4E2E,10);S.shake=Math.max(S.shake,.25);tipV+=2.4;}S.rollY=0;if(S.roll>.16)S.roll=.16;} // с воздуха: долетает оборот за .16c, не замирая
+ if(S.roll>0){ // кувырок: по земле катится на месте (ось постоянна); с воздуха - пикирование с приземлением
+  if(S.rollAir){S.rollV-=GRAV*.9*dt;S.rollY+=S.rollV*dt;
+   if(S.rollY<=0){burst(S.x,.05,.3,0x6B4E2E,10);S.shake=Math.max(S.shake,.25);tipV+=2.4;S.rollY=0;S.rollV=0;S.rollAir=false;S.air=false;S.y=0;if(S.roll>.16)S.roll=.16;} // долетает оборот за .16c, не замирая
+   S.y=S.rollY;} // физика прыжка живёт в rollY до приземления
   if(Math.random()<dt*20&&S.rollY<.06)burst(S.x,.03,.2,0x6B4E2E,1);
   S.roll-=dt;if(S.roll<=0)S.roll=0;}
  else if(S.roll>0)S.roll-=dt;
