@@ -177,16 +177,20 @@ public final class Shell {
 
     private static void applyBottomInset(final FrameLayout frame, final LinearLayout column) {
         frame.setOnApplyWindowInsetsListener((v, insets) -> {
-            int bottom = 0;
-            if (Build.VERSION.SDK_INT >= 30) bottom = insets.getInsets(android.view.WindowInsets.Type.systemBars()).bottom;
-            else bottom = insets.getSystemWindowInsetBottom();
+            int bottom, sys;
+            if (Build.VERSION.SDK_INT >= 30) {
+                sys = insets.getInsets(android.view.WindowInsets.Type.systemBars()).bottom;
+                // targetSdk 35 edge-to-edge: окно не резизится клавиатурой, IME приходит инсетом
+                bottom = insets.getInsets(android.view.WindowInsets.Type.systemBars()
+                        | android.view.WindowInsets.Type.ime()).bottom;
+            } else { bottom = sys = insets.getSystemWindowInsetBottom(); } // shortcut: <30 резизит adjustResize
             column.setPadding(column.getPaddingLeft(), column.getPaddingTop(), column.getPaddingRight(),
                     UI.dp(v.getContext(), NAV_HEIGHT_DP + 24) + bottom);
             View nav = ((FrameLayout) v).getChildAt(2); // atmosphere(0), column(1), nav(2)
             FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) nav.getLayoutParams();
-            lp.height = UI.dp(v.getContext(), NAV_HEIGHT_DP) + bottom;
+            lp.height = UI.dp(v.getContext(), NAV_HEIGHT_DP) + sys;
             nav.setLayoutParams(lp);
-            nav.setPadding(0, 0, 0, bottom);
+            nav.setPadding(0, 0, 0, sys);
             return insets;
         });
     }

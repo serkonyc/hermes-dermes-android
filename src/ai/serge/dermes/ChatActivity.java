@@ -173,7 +173,7 @@ public class ChatActivity extends Activity {
                     pending.setTextColor(UI.TEXT_0);
                 }
                 hist.add(new String[]{"assistant", clean});
-                persist(); pending = null; scheduleUnload(UNLOAD_IDLE_MS); scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
+                persist(); pending = null; scheduleUnload(UNLOAD_IDLE_MS); scroll.post(this::snapBottom);
             });
         }).start();
     }
@@ -185,9 +185,14 @@ public class ChatActivity extends Activity {
             String shown = showStreaming(partial);
             if (!shown.isEmpty()) {
                 if (pendingThinking) { stopThinking(); pending.setTextColor(UI.TEXT_0); }
-                pending.setText(shown); scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
+                pending.setText(shown); scroll.post(this::snapBottom);
             }
         });
+    }
+
+    private void snapBottom() { // юзер уехал вверх читать историю – не возвращаем силой
+        if (scroll.getScrollY() + scroll.getHeight() >= msgs.getHeight() - UI.dp(this, 120))
+            scroll.fullScroll(View.FOCUS_DOWN);
     }
 
     static String stripThink(String s) {
