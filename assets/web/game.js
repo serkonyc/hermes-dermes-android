@@ -30,6 +30,23 @@ for(let i=0;i<10;i++)cloudPos.push({x:(Math.random()*2-1)*120,y:22+Math.random()
 scene.add(clouds);
 {const sun=new THREE.Mesh(new THREE.SphereGeometry(9,12,12),new THREE.MeshBasicMaterial({color:0xFFF6C9,fog:false}));
  sun.position.set(-70,60,-220);scene.add(sun);}
+// ---------- дальние деревни и замки: кластеры домов и крепостей по сторонам от дороги ----------
+const vr=(s=>()=>((s=(s*16807)%2147483647)/2147483647))(4242); // свой сид: расстановка стабильна между запусками
+const noFog=m=>{m.fog=false;m.flatShading=true;return m;}; // дальше far-тумана - рисуем силуэтами, как облака
+const houseBody=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),noFog(M(0xD9C9A4,.95)),18);
+const houseRoof=new THREE.InstancedMesh(new THREE.ConeGeometry(.8,1,4),noFog(M(0xB0512F,.9)),18);
+const towerMesh=new THREE.InstancedMesh(new THREE.CylinderGeometry(.7,.95,1,8),noFog(M(0xB6B1A6,.95)),6);
+const towerTop=new THREE.InstancedMesh(new THREE.ConeGeometry(.95,1,6),noFog(M(0x44607F,.9)),6);
+const castleWall=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,.5),noFog(M(0xC6C0B2,.95)),4);
+scene.add(houseBody,houseRoof,towerMesh,towerTop,castleWall);
+const housePos=[],towerPos=[],wallPos=[];
+for(const side of[-1,1]){
+ for(let k=0;k<3;k++){const cx=side*(30+vr()*48),cz=vr()*340; // деревенька: 3 разнокалиберных дома
+  for(let h=0;h<3;h++)housePos.push({x:cx+(vr()-.5)*10,z:cz+(vr()-.5)*14,w:1.8+vr()*1.6,h:2.2+vr()*1.9,rh:1.2+vr()*1.2,ry:vr()*.8-.4});}
+ {const cx=side*50,cz=vr()*340; // замок: три башни с шатрами + стены между
+  for(let t=0;t<3;t++)towerPos.push({x:cx+(t-1)*5.5,z:cz+(t%2)*2.5,w:2+vr()*.8,h:7+vr()*4});
+  for(let t=0;t<2;t++)wallPos.push({x:cx-2.75-t*5.5,z:cz+1.2+w(t),w:5.8,h:3.6});}}
+function w(t){return t%2;} // кривизна стены повторяет шахматный сдвиг башен
 // ---------- ground + dirt path ----------
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(300,320),M(0x3E7A2A,.95)); ground.rotation.x=-Math.PI/2; ground.position.set(0,-.02,-110); scene.add(ground);
 // ---------- forest ----------
@@ -90,19 +107,26 @@ const LIFT=.91*HERO_K; // низ ботинка при прямых ногах =
  earL.rotation.z=1.25;earR.rotation.z=-1.25;earL.position.set(.3,.06,0);earR.position.set(-.3,.06,0);head.add(earL,earR);
  const eyeL=box(.07,.11,.05,M(0x2A4A1E,.6)); eyeL.position.set(-.13,.02,.31); const eyeR=eyeL.clone(); eyeR.position.x=.13; head.add(eyeL,eyeR);
  const nose=new THREE.Mesh(new THREE.ConeGeometry(.045,.12,5),skinM); nose.rotation.x=Math.PI/2; nose.position.set(0,-.06,.33); head.add(nose);
+ const browL=box(.1,.03,.05,hairM); browL.position.set(-.13,.13,.31); head.add(browL); const browR=browL.clone(); browR.position.x=.13; head.add(browR);
+ const mouth=box(.1,.022,.04,M(0xB5736A,.8)); mouth.position.set(0,-.17,.3); head.add(mouth);
+ const bang=box(.4,.09,.07,hairM); bang.position.set(0,.26,.24); bang.rotation.x=.35; head.add(bang); // чёлка из-под шляпы
  const hat=new THREE.Mesh(new THREE.CylinderGeometry(.3,.36,.15,10),hatM); hat.position.set(0,.32,0); head.add(hat);
  tip=new THREE.Mesh(new THREE.ConeGeometry(.28,.62,6),hatM); tip.position.set(0,.62,-.12); tip.rotation.set(-.55,Math.PI/4,0); head.add(tip); // загнутый кончик назад
  const body=new THREE.Mesh(new THREE.CylinderGeometry(.21,.28,.55,8),tunicM); body.position.set(0,.3,0); rig.add(body);
  const collar=new THREE.Mesh(new THREE.TorusGeometry(.2,.05,6,10),M(0xF2EFE2,.8)); collar.rotation.x=Math.PI/2; collar.position.set(0,.58,.02); rig.add(collar);
  const belt=new THREE.Mesh(new THREE.CylinderGeometry(.29,.29,.1,10),beltM); belt.position.set(0,.08,0); rig.add(belt);
  const buckle=box(.1,.09,.05,M(0xFFD24A,.5,.3)); buckle.position.set(0,.08,.28); rig.add(buckle);
+ const strap=new THREE.Mesh(new THREE.TorusGeometry(.3,.035,5,12),M(0x6B3E2A,.85)); strap.rotation.set(1.2,.45,0); strap.position.set(0,.34,0); rig.add(strap); // перевязь через грудь
+ const pouch=box(.17,.14,.1,M(0x8A5A33,.85)); pouch.position.set(.22,.03,-.24); pouch.rotation.y=-.3; rig.add(pouch); // сумка на поясе сзади
  armL=limb(.17,.52,tunicM,.58); armR=limb(.17,.52,tunicM,.58); armL.position.set(-.32,.46,0); armR.position.set(.32,.46,0); rig.add(armL,armR); // плечи у вера туловища
  const handL=new THREE.Mesh(sph(.085,8,6),skinM); const handR=handL.clone(); handL.position.y=-.56; handR.position.y=-.56; armL.add(handL); armR.add(handR);
+ const wristL=new THREE.Mesh(new THREE.CylinderGeometry(.095,.1,.09,6),M(0xF2EFE2,.8)); wristL.position.y=-.47; armL.add(wristL); const wristR=wristL.clone(); armR.add(wristR); // наручи
  // ноги: таз -> бедро -> колено -> голень -> ботинок; ботинки часть ноги, качаются вместе с ней
  function makeLeg(side){const hip=new THREE.Group();hip.position.set(side*.15,-.02,0); // тазовый шарнир прямо под ремнем - ноги прикреплены к заднице
   const thigh=new THREE.Mesh(new THREE.CapsuleGeometry(.12,.14,4,8),M(0x2E5E3E,.8));thigh.position.y=-.19;hip.add(thigh); // штаны
   const knee=new THREE.Group();knee.position.y=-.36;hip.add(knee);
   const shin=new THREE.Mesh(new THREE.CapsuleGeometry(.095,.18,4,8),skinM);shin.position.y=-.22;knee.add(shin); // голая голень
+  const sock=new THREE.Mesh(new THREE.CylinderGeometry(.1,.11,.18,6),M(0xF2EFE2,.8));sock.position.y=-.31;knee.add(sock); // гетра над ботинком
   const boot=new THREE.Mesh(sph(.14,8,6),bootM);boot.scale.set(1,.6,1.3);boot.position.set(0,-.42,.04);knee.add(boot);
   return{hip,knee};}
  {const L=makeLeg(-1),R=makeLeg(1);legL=L.hip;legR=R.hip;legL.knee=L.knee;legR.knee=R.knee;rig.add(legL,legR);}
@@ -116,8 +140,9 @@ const LIFT=.91*HERO_K; // низ ботинка при прямых ногах =
 // ---------- templates: Korok Forest obstacles (BotW lore) ----------
 // low-poly камень: икосаэдр с детерминированным дрожжем вершин (тот же seed = та же форма)
 function rockGeo(seed){const g=new THREE.IcosahedronGeometry(1,1);const p=g.attributes.position;
- let s=seed; const rnd=()=>((s=(s*16807)%2147483647)/2147483647);
- for(let i=0;i<p.count;i++){const k=1+(rnd()-.5)*.38;p.setXYZ(i,p.getX(i)*k,p.getY(i)*k,p.getZ(i)*k);}
+ // хэш от координат вершины (геометрия non-indexed): одинаковые координаты соседних граней дают одинаковый сдвиг - иначе между гранями дырки ("прозрачные валуны")
+ const hsh=(x,y,z)=>{const v=Math.sin((x*127.1+y*311.7+z*74.7)*2.13+seed)*43758.5453;return v-Math.floor(v);};
+ for(let i=0;i<p.count;i++){const k=1+(hsh(p.getX(i),p.getY(i),p.getZ(i))-.5)*.38;p.setXYZ(i,p.getX(i)*k,p.getY(i)*k,p.getZ(i)*k);}
  g.computeVertexNormals();return g;}
 const rockMs=[M(0x8F8D89,.9),M(0x7A7875,.9),M(0x9E9C98,.9)];rockMs.forEach(m=>m.flatShading=true);
 const rockGeos=[rockGeo(11),rockGeo(777),rockGeo(31337)];
@@ -244,6 +269,17 @@ function updInst(){
    V1.set(c.x+f[0]*c.s,c.y+f[1]*c.s,z+f[2]*c.s*.5);V0.set(c.s*.6*f[2],c.s*.32*f[2],c.s*.45*f[2]);
    M4.compose(V1,Q0,V0);clouds.setMatrixAt(i*3+k,M4);}}
  clouds.instanceMatrix.needsUpdate=true;
+ {const AXY=new THREE.Vector3(0,1,0); // дальние поселения: параллакс .55 (медленнее деревьев - дальше), цикл 340
+  for(let i=0;i<18;i++){const v=housePos[i],z=-300+(((v.z+S.dist*.55)%340)+340)%340;
+   Q0.setFromAxisAngle(AXY,v.ry);V1.set(v.x,v.h/2,z);V0.set(v.w,v.h,v.w);M4.compose(V1,Q0,V0);houseBody.setMatrixAt(i,M4);
+   V1.y=v.h+v.rh/2;V0.set(v.w*1.25,v.rh,v.w*1.25);M4.compose(V1,Q0,V0);houseRoof.setMatrixAt(i,M4);}
+  for(let i=0;i<6;i++){const v=towerPos[i],z=-300+(((v.z+S.dist*.55)%340)+340)%340;
+   Q0.identity();V1.set(v.x,v.h/2,z);V0.set(v.w,v.h,v.w);M4.compose(V1,Q0,V0);towerMesh.setMatrixAt(i,M4);
+   V1.y=v.h+v.w*.55;M4.compose(V1,Q0.setFromAxisAngle(AXY,.5),V0.set(v.w*1.15,v.w*1.1,v.w*1.15));towerTop.setMatrixAt(i,M4);}
+  for(let i=0;i<4;i++){const v=wallPos[i],z=-300+(((v.z+S.dist*.55)%340)+340)%340;
+   V1.set(v.x,v.h/2,z);V0.set(v.w,v.h,1);M4.compose(V1,Q0.identity(),V0);castleWall.setMatrixAt(i,M4);}
+  houseBody.instanceMatrix.needsUpdate=houseRoof.instanceMatrix.needsUpdate=true;
+  towerMesh.instanceMatrix.needsUpdate=towerTop.instanceMatrix.needsUpdate=castleWall.instanceMatrix.needsUpdate=true;}
  for(let i=0;i<NTree;i++){const b=treePos[i],z=-260+(((b.z+S.dist*.85)%320)+320)%320;
   V1.set(b.x+bend(z),b.h/2,z);V0.set(b.w,b.h,b.w);M4.compose(V1,Q0,V0);trunks.setMatrixAt(i,M4);
   V1.set(b.x+bend(z),b.h+b.canopyH/2,z);V0.set(b.canopyW,b.canopyH,b.canopyW);M4.compose(V1,Q0,V0);canopies.setMatrixAt(i,M4);
