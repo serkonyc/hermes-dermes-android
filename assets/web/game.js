@@ -172,6 +172,46 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
  const grip=box(.06,.14,.06,M(0x6B3E2A,.8)); grip.position.y=-.1;
  sword.add(blade,guard,grip); sword.position.set(0,.3,-.3); sword.rotation.x=.42; rig.add(sword); // на спине; в подкате прижимается (animRig)
 }
+// ---------- KayKit Rogue: rigged CC0 модель со скелетной анимацией (заменяет примитивного героя, тот остаётся офлайн-фолбэком) ----------
+const heroM=new THREE.Group(); scene.add(heroM);
+let mixer=null,mReady=false,mClip={},mCur='',deathPlayed=false;
+{const L=(typeof THREE.GLTFLoader==='function')&&new THREE.GLTFLoader();
+ if(L)L.load('../models/rogue.glb',gltf=>{
+   const root=gltf.scene;
+   // feet -> y0, масштаб под рост текущего героя (~1.45 в мире)
+   const b=new THREE.Box3().setFromObject(root);
+   const H=b.max.y-b.min.y; root.scale.setScalar(1.45/H);
+   const b2=new THREE.Box3().setFromObject(root); root.position.y=-b2.min.y;
+   root.traverse(o=>{if(o.isMesh){o.frustumCulled=false;}});
+   heroM.add(root);
+   mixer=new THREE.AnimationMixer(root);
+   for(const cl of gltf.animations)mClip[cl.name]=mixer.clipAction(cl);
+   mClip.Running_A.play();
+   // стартовый промотход: модель смотрит лицом вперёд, как примитивный герой (rotation.y=PI)
+   root.rotation.y=Math.PI;
+   mReady=true; player.visible=false;
+ },undefined,()=>{mReady=false;}); // файл недоступен -> примитивный герой со пружинами
+}
+function playClip(n,fade,loop,clamp){const a=mClip[n];if(!a)return;
+ a.loop=loop===false?THREE.LoopOnce:THREE.LoopRepeat;a.clampWhenFinished=!!clamp;a.enabled=true;a.reset();
+ if(mCur&&mClip[mCur])a.crossFadeFrom(mClip[mCur],fade||.1,true);
+ a.play();mCur=n;}
+// контактная тень бегуна: та же «лепёшка», что у деревьев; с высотой прыжка тает и сжимается
+const heroSh=new THREE.Mesh(new THREE.CircleGeometry(.42,12),new THREE.MeshBasicMaterial({color:0x14300E,transparent:true,opacity:.34,depthWrite:false}));
+heroSh.geometry.rotateX(-Math.PI/2);heroSh.renderOrder=1;scene.add(heroSh);
+function driveHero(dt){
+ heroM.position.set(S.x,S.y,0); heroM.rotation.y=0; // модель повёрнута корнем на PI
+ heroSh.position.set(S.x,.012,0);
+ const hs=1-Math.min(.65,S.y*.35); heroSh.scale.setScalar(hs); heroSh.material.opacity=.34*hs;
+ if(S.mode==='over'){ if(!deathPlayed){deathPlayed=true;playClip('Death_A',.08,false,true);} mixer.update(dt); return; }
+ if(S.roll>0){ if(mCur!=='Dodge_Forward')playClip('Dodge_Forward',.06,false,false); mixer.update(dt); return; }
+ if(S.air){ const want=S.vy>0?'Jump_Start':'Jump_Idle';
+  if(mCur!==want)playClip(want,.08,want==='Jump_Idle',want==='Jump_Start'); mixer.update(dt); return; }
+ if(land>0.4&&mCur!=='Jump_Land'&&mCur==='Jump_Idle'){playClip('Jump_Land',.05,false,false);mixer.update(dt);return;}
+ if(S.mode==='menu'){ if(mCur!=='Idle')playClip('Idle',.3); mixer.update(dt); return; }
+ if(mCur!=='Running_A'){playClip('Running_A',.12);mClip.Running_A.timeScale=.9+Math.min(1,(S.speed-26)/26)*.55;}
+ mClip.Running_A.timeScale=.9+Math.min(1,(S.speed-26)/26)*.55;
+ mixer.update(dt);}
 // ---------- templates: Korok Forest obstacles (BotW lore) ----------
 // low-poly камень: икосаэдр с детерминированным дрожжем вершин (тот же seed = та же форма)
 function rockGeo(seed){const g=new THREE.IcosahedronGeometry(1,1);const p=g.attributes.position;
@@ -222,7 +262,7 @@ let nextSpawn=30; S.obs=[];S.coinsArr=[];
 function reset(){S.mode='run';S.t=0;S.dist=0;S.speed=26;S.coins=0;S.score=0;S.lane=1;S.x=0;S.y=0;S.vy=0;
  S.air=false;S.roll=0;S.anim=0;S.dead=0;S.shake=0;S.flash=0;S.ts=1;
  for(const o of S.obs)scene.remove(o.m);for(const c of S.coinsArr)scene.remove(c.m);
- S.obs=[];S.coinsArr=[];nextSpawn=30;S.missed=0;}
+ S.obs=[];S.coinsArr=[];nextSpawn=30;S.missed=0;deathPlayed=false;}
 function addObs(type,lane){const m=TPL[type]();m.position.set((lane-1)*LANE,0,SPAWN_Z);scene.add(m);S.obs.push({type,lane,z:SPAWN_Z,m});}
 function spawn(){
  const diff=Math.min(1,S.dist/3000), r=Math.random();
@@ -298,7 +338,7 @@ function jump(){if(!S.air&&S.roll<=0){S.vy=JUMP_V;S.air=true;sfx('jump');}}
 function doRoll(){S.roll=.45;if(S.air)S.vy=Math.min(S.vy,-2);}
 function act(a){if(window.dlog&&a!=='T'&&a!=='O')dlog.swipe();
  if(S.mode==='menu'){reset();showRun();if(window.dlog)dlog.run();return;}
- if(S.mode==='over'){if(S.dead>.8)reset(),showRun();return;}
+ if(S.mode==='over'){if(S.dead>1.05)reset(),showRun();return;}
  if(a==='L')move(-1);else if(a==='R')move(1);else if(a==='U')jump();else if(a==='D')doRoll();}
 let tsx=0,tsy=0;
 addEventListener('touchstart',e=>{tsx=e.touches[0].clientX;tsy=e.touches[0].clientY;},{passive:true});
@@ -507,7 +547,7 @@ addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);
 // ---------- loop ----------
 let last=performance.now();
 function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;
- update(dt*S.ts);updInst();animRig(dt);animCam(dt);
+ update(dt*S.ts);updInst();if(mReady)driveHero(dt);else animRig(dt);animCam(dt);
  $('score').textContent=fmt(Math.floor(S.score));
  $('coins').textContent='⚔ '+S.coins;
  $('best').textContent=fmt(S.best);
