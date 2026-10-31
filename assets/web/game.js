@@ -31,7 +31,6 @@ scene.add(clouds);
  sun.position.set(-70,60,-220);scene.add(sun);}
 // ---------- ground + dirt path ----------
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(300,320),M(0x3E7A2A,.95)); ground.rotation.x=-Math.PI/2; ground.position.set(0,-.02,-110); scene.add(ground);
-const ties=new THREE.InstancedMesh(new THREE.BoxGeometry(LANE*3+1,.08,2.4),M(0x6B4E2E,.95),30); scene.add(ties);
 // ---------- forest ----------
 const TREE_PALETTE=[0x3C7A2B,0x4C9C37,0x2F6B22,0x5CBA47];
 const trunkM=M(0x5A3A1F,.95);
@@ -41,6 +40,10 @@ for(let i=0;i<NTree;i++){const s=Math.random()<.5?-1:1; const h=4+Math.random()*
  treePos.push({x:s*(LANE*1.8+.8+Math.random()*16),z:Math.random()*320,h,w:1+Math.random()*.5,canopyH:h*.6,canopyW:2+Math.random()*1.5});
  tCol.setHex(TREE_PALETTE[i%TREE_PALETTE.length]).convertSRGBToLinear(); canopies.setColorAt(i,tCol);}
 scene.add(trunks); scene.add(canopies);
+// тени деревьев: плоские тёмные лепёшки под кронами (shadow maps на телефоне не тащим)
+const tShGeo=new THREE.CircleGeometry(1,10);tShGeo.rotateX(-Math.PI/2);
+const treeSh=new THREE.InstancedMesh(tShGeo,new THREE.MeshBasicMaterial({color:0x14300E,transparent:true,opacity:.3,depthWrite:false}),NTree);
+treeSh.renderOrder=1;scene.add(treeSh);
 // ---------- bushes ----------
 const bushM=M(0x3E8A26,.9);
 const NBush=48, bushes=new THREE.InstancedMesh(new THREE.BoxGeometry(.8,.6,.8),bushM,NBush), bushPos=[];
@@ -149,7 +152,9 @@ const NP=260,ppos=new Float32Array(NP*3),pcol=new Float32Array(NP*3),pvel=new Fl
 let pPts;
 {const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(ppos,3));
  g.setAttribute('color',new THREE.BufferAttribute(pcol,3));
+ for(let i=1;i<NP*3;i+=3)ppos[i]=-50; // мёртвые частицы уводим под землю: иначе 260 точек лежат в (0,0,0) - та самая точка в центре тропы
  pPts=new THREE.Points(g,new THREE.PointsMaterial({size:.14,vertexColors:true,transparent:true,fog:false,depthWrite:false}));
+ pPts.geometry.attributes.position.needsUpdate=true;
  scene.add(pPts);}
 let pCur=0;
 function burst(x,y,z,col,n){const c=new THREE.Color(col).convertSRGBToLinear();
@@ -199,17 +204,15 @@ showMenu();
 // ---------- update ----------
 const M4=new THREE.Matrix4(),Q0=new THREE.Quaternion(),V1=new THREE.Vector3(),V0=new THREE.Vector3(1,1,1);
 function updInst(){
- for(let i=0;i<30;i++){const tz=((S.dist*10)%4)-i*4+4;V1.set(bend(tz),.05,tz);M4.compose(V1,Q0,V0);ties.setMatrixAt(i,M4);}
-const gp=ground.geometry.attributes.position;
-for(let i=0;i<gp.count;i++)gp.setX(i,ground._bx[i]+bend(gp.getZ(i)-110)); // база x в ground._bx, изгиб поверх
-gp.needsUpdate=true;
- ties.instanceMatrix.needsUpdate=true;
+ bendStrip(ground);bendStrip(path);
  for(let i=0;i<10;i++){const c=cloudPos[i];V1.set(c.x,c.y,-260+(((c.z+S.dist*.35)%320)+320)%320);V0.set(c.s,c.s*.35,c.s*.6);
   M4.compose(V1,Q0,V0);clouds.setMatrixAt(i,M4);}
  clouds.instanceMatrix.needsUpdate=true;V0.set(1,1,1);
  for(let i=0;i<NTree;i++){const b=treePos[i],z=-260+(((b.z+S.dist*.85)%320)+320)%320;
   V1.set(b.x+bend(z),b.h/2,z);V0.set(b.w,b.h,b.w);M4.compose(V1,Q0,V0);trunks.setMatrixAt(i,M4);
-  V1.set(b.x+bend(z),b.h+b.canopyH/2,z);V0.set(b.canopyW,b.canopyH,b.canopyW);M4.compose(V1,Q0,V0);canopies.setMatrixAt(i,M4);}
+  V1.set(b.x+bend(z),b.h+b.canopyH/2,z);V0.set(b.canopyW,b.canopyH,b.canopyW);M4.compose(V1,Q0,V0);canopies.setMatrixAt(i,M4);
+  V1.set(b.x+bend(z)+b.canopyW*.35,.025,z);V0.set(b.canopyW*1.15,1,b.canopyW*1.15);M4.compose(V1,Q0,V0);treeSh.setMatrixAt(i,M4);}
+ treeSh.instanceMatrix.needsUpdate=true;
  trunks.instanceMatrix.needsUpdate=true;canopies.instanceMatrix.needsUpdate=true;V0.set(1,1,1);
  for(let i=0;i<NBush;i++){const b=bushPos[i],z=-200+(((b.z+S.dist)%220)+220)%220;
   V1.set(b.x+bend(z),b.h/2,z);V0.set(.9,b.h,.9);M4.compose(V1,Q0,V0);bushes.setMatrixAt(i,M4);}
@@ -262,13 +265,21 @@ function animCam(dt){
  camera.rotation.z+=(S.x*.55-camera.position.x)*.04-camera.rotation.z;
  const tf=70+(S.speed-26)*.5;camF+=(tf-camF)*Math.min(1,dt*3);
  if(Math.abs(camera.fov-camF)>.05){camera.fov=camF;camera.updateProjectionMatrix();}}
- // ---------- road curve: дорога извивается по track-координате p; изгиб = смещение x по глубине z ----------
- const curveAt=p=>Math.sin(p*.03)*1.2+Math.sin(p*.011+.7)*2;
- const bend=z=>curveAt(S.dist+z)-curveAt(S.dist); // смещение по x на глубине z; у игрока (z=0) равно 0
- // shortcut: гнём только позиции (x) и плоскость земли; повороты объектов и нормали не трогаем — видно разницу только на телефоне, тогда добавим atan(bend')
- {ground.geometry.dispose();ground.geometry=new THREE.PlaneGeometry(300,320,1,80);ground.geometry.rotateX(-Math.PI/2);
- const a=ground.geometry.attributes.position;ground._bx=new Float32Array(a.count);
- for(let i=0;i<a.count;i++)ground._bx[i]=a.getX(i);} // x до изгиба
+ // ---------- road curve: редкие широкие дуги; изгиб = смещение x по глубине ----------
+ const curveAt=p=>Math.sin(p*.008)*2.2+Math.sin(p*.0035+1.3)*3; // длины волн ~800/1800 м - тропa виляет нечасто
+ const bend=z=>curveAt(S.dist+z)-curveAt(S.dist); // у игрока (z=0) равно 0
+ function bendStrip(m){ // m.rotation.x=-PI/2: локальный y плоскости = -world z
+  const a=m.geometry.attributes.position;
+  for(let i=0;i<a.count;i++)a.setX(i,m._bx[i]+bend(-a.getY(i)+m.position.z));
+  a.needsUpdate=true;}
+ {ground.geometry.dispose();ground.geometry=new THREE.PlaneGeometry(300,320,1,80); // без rotateX: поворот остаётся на mesh
+  const a=ground.geometry.attributes.position;ground._bx=new Float32Array(a.count);
+  for(let i=0;i<a.count;i++)ground._bx[i]=a.getX(i);}
+ // тропa = непрерывная земляная полоса поверх травы, шпал нет
+ const path=new THREE.Mesh(new THREE.PlaneGeometry(LANE*3+.6,320,1,80),M(GR,.95));
+ path.rotation.x=-Math.PI/2;path.position.set(0,-.01,-110);scene.add(path);
+ {const a=path.geometry.attributes.position;path._bx=new Float32Array(a.count);
+  for(let i=0;i<a.count;i++)path._bx[i]=a.getX(i);} // x до изгиба
 addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);
  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();});
 // ---------- loop ----------
