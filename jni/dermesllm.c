@@ -30,7 +30,7 @@ Java_ai_serge_dermes_ChatActivity_nativeLoad(JNIEnv *env, jclass cls,
     llama_backend_init();
     struct llama_model_params mp = llama_model_default_params();
     mp.n_gpu_layers = 0;                       // CPU only
-    mp.load_mode = LLAMA_LOAD_MODE_MMAP;       // OS evicts pages under RAM pressure
+    mp.load_mode = LLAMA_LOAD_MODE_NONE;       // полная загрузка в RAM: на Fold mmap-страницы вытеснялись под давлением памяти -> SIGBUS в генерации (краш «выкидывает на главный экран»)
     struct llama_model *model = llama_model_load_from_file(path, mp);
     (*env)->ReleaseStringUTFChars(env, jpath, path);
     if (!model) { throw_exc(env, "model load failed (OOM or corrupt GGUF)"); return 0; }

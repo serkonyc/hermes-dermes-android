@@ -14,8 +14,25 @@ public class DermesActivity extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        crashNet();
         Shell.prepare(this);
         build();
+    }
+
+    // Java-краши в filesDir/crash.txt + показ предыдущего при старте: без этого телефон чёрный ящик
+    private void crashNet() {
+        try {
+            java.io.File cf = new java.io.File(getFilesDir(), "crash.txt");
+            if (cf.length() > 0) {
+                String prev = new String(java.nio.file.Files.readAllBytes(cf.toPath()), java.nio.charset.StandardCharsets.UTF_8).trim();
+                cf.delete();
+                android.widget.Toast.makeText(this, prev.length() > 400 ? prev.substring(0, 400) : prev, android.widget.Toast.LENGTH_LONG).show();
+            }
+        } catch (Exception ignored) {}
+        Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+            try (java.io.PrintWriter w = new java.io.PrintWriter(new java.io.FileWriter(new java.io.File(getFilesDir(), "crash.txt")))) { e.printStackTrace(w); } catch (Exception ignored) {}
+            android.os.Process.killProcess(android.os.Process.myPid());
+        });
     }
 
     private void build() {
