@@ -68,9 +68,12 @@ addEventListener('touchend',()=>{if(!audioOn)unlockAudio();},{passive:true});
 // ---------- player: blocky forest hero ----------
 const skinM=M(0xF4D0B0,.8), tunicM=M(0x3FAE5A,.8), beltM=M(0x6B3E2A,.85), bootM=M(0x6B4A2F,.85), hatM=M(0x41C05E,.8), hairM=M(0xD9B45B,.9); // светлые волосы
 const player=new THREE.Group(), rig=new THREE.Group(); player.add(rig); scene.add(player);
+const HERO_K=.78; // общий масштаб героя
+player.scale.setScalar(HERO_K); // герой был слишком крупным относительно дорог и препятствий
+player.rotation.y=Math.PI;   // лицом вперёд (по ходу), спиной к зрителю; локальная -z теперь смотрит в камеру
 function limb(w,h,m,pivotY){const p=new THREE.Group();const b=box(w,h,w,m);b.position.y=-h/2;p.add(b);p.position.y=pivotY;return p;}
-var armL,armR,legL,legR, head, sword;
-const LIFT=.86; // ноги юнифона уходят на -0.86 от рига; поднимаем, чтобы ступни стояли на земле
+var armL,armR,legL,legR, head, sword, tip;
+const LIFT=.86*HERO_K; // ноги уходят на -0.86 локально; мирная единица = ×HERO_K; поднимаем ровно на них, ступни на земле
 {head=new THREE.Group(); head.position.set(0,.84,0); rig.add(head);
  const face=box(.66,.62,.6,skinM); head.add(face);
  const hair=box(.7,.3,.1,hairM); hair.position.set(0,.28,.31); head.add(hair);            // чёлка
@@ -78,7 +81,7 @@ const LIFT=.86; // ноги юнифона уходят на -0.86 от рига
  const sideL=box(.1,.36,.5,hairM); const sideR=sideL.clone(); sideL.position.set(-.36,.02,0); sideR.position.set(.36,.02,0); head.add(sideL,sideR);
  const eyeL=box(.09,.14,.06,M(0x2A4A1E,.6)); eyeL.position.set(-.15,0,.29); const eyeR=eyeL.clone(); eyeR.position.x=.15; head.add(eyeL,eyeR);
  const hat=box(.62,.14,.58,hatM); hat.position.set(0,.4,0); head.add(hat);                // основание шапки
- const tip=new THREE.Mesh(new THREE.ConeGeometry(.3,.6,4),hatM); tip.position.set(0,.72,-.12); tip.rotation.set(-.55,Math.PI/4,0); head.add(tip); // загнутый кончик назад
+ tip=new THREE.Mesh(new THREE.ConeGeometry(.3,.6,4),hatM); tip.position.set(0,.72,-.12); tip.rotation.set(-.55,Math.PI/4,0); head.add(tip); // загнутый кончик назад
  const body=box(.64,.56,.32,tunicM); body.position.set(0,.3,0); rig.add(body);
  const collar=box(.4,.1,.34,M(0xF2EFE2,.8)); collar.position.set(0,.6,.02); rig.add(collar);
  const belt=box(.68,.08,.36,beltM); belt.position.set(0,.08,0); rig.add(belt);
@@ -92,7 +95,7 @@ const LIFT=.86; // ноги юнифона уходят на -0.86 от рига
  const blade=box(.08,.62,.04,M(0xC4CBD2,.35,.75)); blade.position.y=.27;
  const guard=box(.22,.05,.05,M(0x6B3E2A,.8));
  const grip=box(.06,.14,.06,M(0x6B3E2A,.8)); grip.position.y=-.1;
- sword.add(blade,guard,grip); sword.position.set(0,.3,-.3); sword.rotation.x=.42; rig.add(sword); // вертикально на спине; при подкате кончик максимум ~1.03, под ветку не попадает
+ sword.add(blade,guard,grip); sword.position.set(0,.3,-.3); sword.rotation.x=.42; rig.add(sword); // на спине; в подкате прижимается (animRig)
 }
 // ---------- templates: forest obstacles ----------
 function tLow(){ // low bush
@@ -168,7 +171,7 @@ function collide(){const h=S.roll>0?.8:1.62,feet=S.y,top=S.y+h;
 function die(){S.mode='over';S.dead=.001;S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
  S.bestC=Math.max(S.bestC,S.coins);localStorage.setItem('nr_bestc',S.bestC);
- burst(S.x,S.y+.8,0,0xF5F5F5,30);showOver();}
+ burst(S.x+bend(0),S.y+.8,0,0xF5F5F5,30);showOver();}
 // ---------- input ----------
 function move(d){S.lane=Math.max(0,Math.min(2,S.lane+d));}
 function jump(){if(!S.air&&S.roll<=0){S.vy=JUMP_V;S.air=true;sfx('jump');}}
@@ -196,17 +199,20 @@ showMenu();
 // ---------- update ----------
 const M4=new THREE.Matrix4(),Q0=new THREE.Quaternion(),V1=new THREE.Vector3(),V0=new THREE.Vector3(1,1,1);
 function updInst(){
- for(let i=0;i<30;i++){V1.set(0,.05,((S.dist*10)%4)-i*4+4);M4.compose(V1,Q0,V0);ties.setMatrixAt(i,M4);}
+ for(let i=0;i<30;i++){const tz=((S.dist*10)%4)-i*4+4;V1.set(bend(tz),.05,tz);M4.compose(V1,Q0,V0);ties.setMatrixAt(i,M4);}
+const gp=ground.geometry.attributes.position;
+for(let i=0;i<gp.count;i++)gp.setX(i,ground._bx[i]+bend(gp.getZ(i)-110)); // база x в ground._bx, изгиб поверх
+gp.needsUpdate=true;
  ties.instanceMatrix.needsUpdate=true;
  for(let i=0;i<10;i++){const c=cloudPos[i];V1.set(c.x,c.y,-260+(((c.z+S.dist*.35)%320)+320)%320);V0.set(c.s,c.s*.35,c.s*.6);
   M4.compose(V1,Q0,V0);clouds.setMatrixAt(i,M4);}
  clouds.instanceMatrix.needsUpdate=true;V0.set(1,1,1);
  for(let i=0;i<NTree;i++){const b=treePos[i],z=-260+(((b.z+S.dist*.85)%320)+320)%320;
-  V1.set(b.x,b.h/2,z);V0.set(b.w,b.h,b.w);M4.compose(V1,Q0,V0);trunks.setMatrixAt(i,M4);
-  V1.set(b.x,b.h+b.canopyH/2,z);V0.set(b.canopyW,b.canopyH,b.canopyW);M4.compose(V1,Q0,V0);canopies.setMatrixAt(i,M4);}
+  V1.set(b.x+bend(z),b.h/2,z);V0.set(b.w,b.h,b.w);M4.compose(V1,Q0,V0);trunks.setMatrixAt(i,M4);
+  V1.set(b.x+bend(z),b.h+b.canopyH/2,z);V0.set(b.canopyW,b.canopyH,b.canopyW);M4.compose(V1,Q0,V0);canopies.setMatrixAt(i,M4);}
  trunks.instanceMatrix.needsUpdate=true;canopies.instanceMatrix.needsUpdate=true;V0.set(1,1,1);
  for(let i=0;i<NBush;i++){const b=bushPos[i],z=-200+(((b.z+S.dist)%220)+220)%220;
-  V1.set(b.x,b.h/2,z);V0.set(.9,b.h,.9);M4.compose(V1,Q0,V0);bushes.setMatrixAt(i,M4);}
+  V1.set(b.x+bend(z),b.h/2,z);V0.set(.9,b.h,.9);M4.compose(V1,Q0,V0);bushes.setMatrixAt(i,M4);}
  bushes.instanceMatrix.needsUpdate=true;V0.set(1,1,1);}
 function update(dt){
  S.t+=dt;
@@ -224,19 +230,24 @@ function update(dt){
  if(S.y<=0){if(S.air)burst(S.x,.1,0,0x6B4E2E,6);S.y=0;S.vy=0;S.air=false;}
  if(S.roll>0)S.roll-=dt;
  S.anim+=dt*(S.air||S.roll>0?4:S.speed*.32);
- for(const o of S.obs)o.z+=dz,o.m.position.z=o.z;
- for(const c of S.coinsArr){c.z+=dz;c.m.position.z=c.z;c.m.rotation.y+=dt*4;}
+ for(const o of S.obs){o.z+=dz;o.m.position.z=o.z;o.m.position.x=(o.lane-1)*LANE+bend(o.z);}
+ for(const c of S.coinsArr){c.z+=dz;c.m.position.z=c.z;c.m.position.x=(c.lane-1)*LANE+bend(c.z);c.m.rotation.y+=dt*4;}
  S.obs=S.obs.filter(o=>o.z<DESPAWN_Z||(scene.remove(o.m),false));
  S.coinsArr=S.coinsArr.filter(c=>c.z<DESPAWN_Z&&!c.taken||(scene.remove(c.m),false));
  if(S.dist>=nextSpawn)spawn();
  collide();}
 // ---------- rig + camera ----------
 function animRig(){
- if(S.roll>0){const p=1-S.roll/.5;player.position.set(S.x,S.y+LIFT+.08,0);
-  rig.rotation.x=-p*TAU;rig.position.y=.78; // центр кувырка над землёй по радиусу rigs, катится по поверхности
-  armL.rotation.x=armR.rotation.x=-1.2;legL.rotation.x=legR.rotation.x=1.0;return;}
+ if(S.roll>0){const s=Math.min(1,Math.min(S.roll,.45-S.roll)*10); // плавный вход/выход позы
+  player.position.set(S.x,S.y+LIFT*(1-s),0); // на входе в позу ещё стоим (ступни на земле), в позе таз ведёт rig.position.y
+  rig.rotation.x=-1.25*s;rig.position.y=.48*s; // подкат-подсед: таз 0.37 мира, ноги вперёд; полный оборот не влезаёт под ветку (шляпа R=1.05+pivot)
+  armL.rotation.x=armR.rotation.x=1.4*s;legL.rotation.x=legR.rotation.x=-1.2*s;
+  head.rotation.x=-.4*s; // подбородок к груди: шляпа не уходит вверх
+  tip.rotation.x=-.55-.9*s; // кончик шапки догибается назад-вниз
+  sword.rotation.x=.42+1.3*s; // меч прижимается назад-вниз, не торчит в ветку
+  return;}
  player.position.set(S.x,S.y+LIFT,0);
- rig.rotation.x=0;rig.position.y=0;
+ rig.rotation.x=0;rig.position.y=0;sword.rotation.x=.42;head.rotation.x=0;tip.rotation.x=-.55;
  if(S.air){rig.rotation.x=-.12;armL.rotation.x=armR.rotation.x=-2.1;legL.rotation.x=-.9;legR.rotation.x=.5;return;}
  const a=S.anim*2,sw=Math.sin(a);
  rig.position.y=Math.abs(Math.sin(a))*.03;
@@ -247,10 +258,17 @@ let camX=0,camF=70;
 function animCam(dt){
  camX+=(S.x*.55-camX)*Math.min(1,dt*6);
  camera.position.set(camX+(Math.random()-.5)*.5*S.shake,2.45+S.y*.22+(Math.random()-.5)*.5*S.shake,7.1);
- camera.lookAt(S.x*.7,1.5,-9);
+ camera.lookAt(S.x*.7,1.05,-9); // масштаб героя .78 -> центр кадра ниже
  camera.rotation.z+=(S.x*.55-camera.position.x)*.04-camera.rotation.z;
  const tf=70+(S.speed-26)*.5;camF+=(tf-camF)*Math.min(1,dt*3);
  if(Math.abs(camera.fov-camF)>.05){camera.fov=camF;camera.updateProjectionMatrix();}}
+ // ---------- road curve: дорога извивается по track-координате p; изгиб = смещение x по глубине z ----------
+ const curveAt=p=>Math.sin(p*.03)*1.2+Math.sin(p*.011+.7)*2;
+ const bend=z=>curveAt(S.dist+z)-curveAt(S.dist); // смещение по x на глубине z; у игрока (z=0) равно 0
+ // shortcut: гнём только позиции (x) и плоскость земли; повороты объектов и нормали не трогаем — видно разницу только на телефоне, тогда добавим atan(bend')
+ {ground.geometry.dispose();ground.geometry=new THREE.PlaneGeometry(300,320,1,80);ground.geometry.rotateX(-Math.PI/2);
+ const a=ground.geometry.attributes.position;ground._bx=new Float32Array(a.count);
+ for(let i=0;i<a.count;i++)ground._bx[i]=a.getX(i);} // x до изгиба
 addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);
  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();});
 // ---------- loop ----------
