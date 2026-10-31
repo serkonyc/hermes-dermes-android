@@ -154,14 +154,21 @@ function reset(){S.mode='run';S.t=0;S.dist=0;S.speed=26;S.coins=0;S.score=0;S.la
 function addObs(type,lane){const m=TPL[type]();m.position.set((lane-1)*LANE,0,SPAWN_Z);scene.add(m);S.obs.push({type,lane,z:SPAWN_Z,m});}
 function spawn(){
  const diff=Math.min(1,S.dist/3000), r=Math.random();
- if(r<.3)addObs('low',(Math.random()*3)|0);
- else if(r<.54)addObs('bar',(Math.random()*3)|0);
- else if(r<.84){const bl=new Set();const n=diff>.4&&Math.random()<.5?2:1;   // boulders more often
-   while(bl.size<n)bl.add((Math.random()*3)|0);bl.forEach(l=>addObs('wall',l));}
+ const p=Math.random()<.7; // мечи не к каждому препятствию
+ if(r<.3){const l=(Math.random()*3)|0;addObs('low',l);
+  if(p)swordRun(l,4,SPAWN_Z-3.3,i=>.95+Math.sin((i+.5)/4*Math.PI)*.8);} // арка над репьем - собирай в прыжке
+ else if(r<.54){const l=(Math.random()*3)|0;addObs('bar',l);
+  if(p)swordRun(l,3,SPAWN_Z-6.6,()=>.45);} // низкая линия за корнем - собирается в подкате
+ else if(r<.84){const bl=new Set();const n=diff>.4&&Math.random()<.5?2:1;   // валуны чаще
+  while(bl.size<n)bl.add((Math.random()*3)|0);bl.forEach(l=>addObs('wall',l));
+  const free=[0,1,2].find(l=>!bl.has(l)); // рядом, но в заведомо свободной полосе
+  if(p&&free!==undefined)swordRun(free,4,SPAWN_Z,()=>.95);}
  else{const l=(Math.random()*3)|0,aerial=Math.random()<.3;
-  for(let i=0;i<6;i++){const m=tCoin();const y=aerial?1.5+Math.sin(i*.9)*.4:.95;
-   m.position.set((l-1)*LANE,y,SPAWN_Z-i*2.2);scene.add(m);S.coinsArr.push({lane:l,z:SPAWN_Z-i*2.2,y,m,taken:false});}}
+  swordRun(l,6,SPAWN_Z,i=>aerial?1.5+Math.sin(i*.9)*.4:.95);}
  nextSpawn=S.dist+16+Math.random()*14-diff*8;}
+function swordRun(lane,n,z0,yFn){for(let i=0;i<n;i++){const m=tCoin();const y=yFn(i);
+ m.position.set((lane-1)*LANE,y,z0-i*2.2);m.rotation.z=.38; // наклон к вертикали, чтобы читался клинок
+ scene.add(m);S.coinsArr.push({lane,z:z0-i*2.2,y,m,taken:false});}}
 // ---------- particles ----------
 const NP=260,ppos=new Float32Array(NP*3),pcol=new Float32Array(NP*3),pvel=new Float32Array(NP*3),plife=new Float32Array(NP);
 let pPts;
@@ -250,7 +257,7 @@ function update(dt){
  S.anim+=dt*(S.air||S.roll>0?4:S.speed*.32);
  for(const o of S.obs){o.z+=dz;o.m.position.z=o.z;o.m.position.x=(o.lane-1)*LANE+bend(o.z);
   if(o.type==='wall')o.m.userData.spin.rotation.x-=dz/o.m.userData.R;} // валун катится со скоростью сцены
- for(const c of S.coinsArr){c.z+=dz;c.m.position.z=c.z;c.m.position.x=(c.lane-1)*LANE+bend(c.z);c.m.rotation.y+=dt*4;}
+ for(const c of S.coinsArr){c.z+=dz;c.m.position.z=c.z;c.m.position.x=(c.lane-1)*LANE+bend(c.z);c.m.rotation.y+=dt*.9;} // медленное вращение - клинок можно разглядеть
  S.obs=S.obs.filter(o=>o.z<DESPAWN_Z||(scene.remove(o.m),false));
  S.coinsArr=S.coinsArr.filter(c=>c.z<DESPAWN_Z&&!c.taken||(scene.remove(c.m),false));
  if(S.dist>=nextSpawn)spawn();
