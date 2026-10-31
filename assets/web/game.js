@@ -23,8 +23,9 @@ const box=(w,h,d,m)=>new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);
  const t=new THREE.CanvasTexture(cv);t.encoding=THREE.sRGBEncoding;
  const sk=new THREE.Mesh(new THREE.SphereGeometry(290,8,12),new THREE.MeshBasicMaterial({map:t,side:THREE.BackSide,fog:false,depthWrite:false}));
  scene.add(sk);}
-const cloudM=M(0xffffff,.95);cloudM.fog=false;
-const clouds=new THREE.InstancedMesh(new THREE.BoxGeometry(1,.5,1),cloudM,10), cloudPos=[];
+ const cloudM=M(0xffffff,.95);cloudM.fog=false;cloudM.flatShading=true;
+const CLOUD_P=[[ -.33,-.06,.7],[0,.14,.95],[.33,-.06,.7]]; // три сферических хлопка на облако
+const clouds=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,1),cloudM,30), cloudPos=[];
 for(let i=0;i<10;i++)cloudPos.push({x:(Math.random()*2-1)*120,y:22+Math.random()*20,z:-60-Math.random()*180,s:8+Math.random()*14});
 scene.add(clouds);
 {const sun=new THREE.Mesh(new THREE.SphereGeometry(9,12,12),new THREE.MeshBasicMaterial({color:0xFFF6C9,fog:false}));
@@ -78,7 +79,7 @@ player.rotation.y=Math.PI;   // лицом вперёд (по ходу), спи�
 function limb(w,h,m,pivotY){const p=new THREE.Group();const b=new THREE.Mesh(new THREE.CapsuleGeometry(w/2,Math.max(.01,h-w),4,8),m);b.position.y=-h/2;p.add(b);p.position.y=pivotY;return p;}
 const sph=(r,sx=10,sy=8)=>new THREE.SphereGeometry(r,sx,sy);
 var armL,armR,legL,legR, head, sword, tip;
-const LIFT=.86*HERO_K; // ноги уходят на -0.86 локально; мирная единица = ×HERO_K; поднимаем ровно на них, ступни на земле
+const LIFT=.91*HERO_K; // низ ботинка при прямых ногах = -.907 локально (замер headless-зондом); ступни точно на земле
 {head=new THREE.Group(); head.position.set(0,.84,0); rig.add(head);
  const face=new THREE.Mesh(sph(.34),skinM); head.add(face);
  const hair=new THREE.Mesh(sph(.355),hairM); hair.scale.set(1,.5,.9); hair.position.set(0,.2,-.03); head.add(hair); // шапка волос
@@ -95,11 +96,16 @@ const LIFT=.86*HERO_K; // ноги уходят на -0.86 локально; м�
  const collar=new THREE.Mesh(new THREE.TorusGeometry(.2,.05,6,10),M(0xF2EFE2,.8)); collar.rotation.x=Math.PI/2; collar.position.set(0,.58,.02); rig.add(collar);
  const belt=new THREE.Mesh(new THREE.CylinderGeometry(.29,.29,.1,10),beltM); belt.position.set(0,.08,0); rig.add(belt);
  const buckle=box(.1,.09,.05,M(0xFFD24A,.5,.3)); buckle.position.set(0,.08,.28); rig.add(buckle);
- armL=limb(.17,.52,tunicM,.58); armR=limb(.17,.52,tunicM,.58); armL.position.set(-.32,.28,0); armR.position.set(.32,.28,0); rig.add(armL,armR);
+ armL=limb(.17,.52,tunicM,.58); armR=limb(.17,.52,tunicM,.58); armL.position.set(-.32,.46,0); armR.position.set(.32,.46,0); rig.add(armL,armR); // плечи у вера туловища
  const handL=new THREE.Mesh(sph(.085,8,6),skinM); const handR=handL.clone(); handL.position.y=-.56; handR.position.y=-.56; armL.add(handL); armR.add(handR);
- legL=limb(.23,.6,tunicM,.0); legR=limb(.23,.6,tunicM,.0); legL.position.set(-.14,-.26,0); legR.position.set(.14,-.26,0); rig.add(legL,legR);
- const bootL=new THREE.Mesh(sph(.14,8,6),bootM); bootL.scale.set(1,.6,1.25); const bootR=bootL.clone();
- bootL.position.set(-.14,-.58,.03); bootR.position.set(.14,-.58,.03); rig.add(bootL,bootR);
+ // ноги: таз -> бедро -> колено -> голень -> ботинок; ботинки часть ноги, качаются вместе с ней
+ function makeLeg(side){const hip=new THREE.Group();hip.position.set(side*.15,-.02,0); // тазовый шарнир прямо под ремнем - ноги прикреплены к заднице
+  const thigh=new THREE.Mesh(new THREE.CapsuleGeometry(.12,.14,4,8),M(0x2E5E3E,.8));thigh.position.y=-.19;hip.add(thigh); // штаны
+  const knee=new THREE.Group();knee.position.y=-.36;hip.add(knee);
+  const shin=new THREE.Mesh(new THREE.CapsuleGeometry(.095,.18,4,8),skinM);shin.position.y=-.22;knee.add(shin); // голая голень
+  const boot=new THREE.Mesh(sph(.14,8,6),bootM);boot.scale.set(1,.6,1.3);boot.position.set(0,-.42,.04);knee.add(boot);
+  return{hip,knee};}
+ {const L=makeLeg(-1),R=makeLeg(1);legL=L.hip;legR=R.hip;legL.knee=L.knee;legR.knee=R.knee;rig.add(legL,legR);}
  // carried sword on the back
  sword=new THREE.Group();
  const blade=box(.08,.62,.04,M(0xC4CBD2,.35,.75)); blade.position.y=.27;
@@ -160,7 +166,7 @@ function reset(){S.mode='run';S.t=0;S.dist=0;S.speed=26;S.coins=0;S.score=0;S.la
 function addObs(type,lane){const m=TPL[type]();m.position.set((lane-1)*LANE,0,SPAWN_Z);scene.add(m);S.obs.push({type,lane,z:SPAWN_Z,m});}
 function spawn(){
  const diff=Math.min(1,S.dist/3000), r=Math.random();
- const p=Math.random()<.7; // мечи не к каждому препятствию
+ const p=Math.random()<.45; // мечи не к каждому препятствию (частота снижена в ~1.5 раза)
  if(r<.3){const l=(Math.random()*3)|0;addObs('low',l);
   if(p)swordRun(l,4,SPAWN_Z-3.3,i=>.95+Math.sin((i+.5)/4*Math.PI)*.8);} // арка над репьем - собирай в прыжке
  else if(r<.54){const l=(Math.random()*3)|0;addObs('bar',l);
@@ -170,7 +176,7 @@ function spawn(){
   const free=[0,1,2].find(l=>!bl.has(l)); // рядом, но в заведомо свободной полосе
   if(p&&free!==undefined)swordRun(free,4,SPAWN_Z,()=>.95);}
  else{const l=(Math.random()*3)|0,aerial=Math.random()<.3;
-  swordRun(l,6,SPAWN_Z,i=>aerial?1.5+Math.sin(i*.9)*.4:.95);}
+  if(Math.random()<.65)swordRun(l,6,SPAWN_Z,i=>aerial?1.5+Math.sin(i*.9)*.4:.95);}
  nextSpawn=S.dist+16+Math.random()*14-diff*8;}
 function swordRun(lane,n,z0,yFn){for(let i=0;i<n;i++){const m=tCoin();const y=yFn(i);
  m.position.set((lane-1)*LANE,y,z0-i*2.2);m.rotation.z=.38; // наклон к вертикали, чтобы читался клинок
@@ -233,9 +239,11 @@ showMenu();
 const M4=new THREE.Matrix4(),Q0=new THREE.Quaternion(),V1=new THREE.Vector3(),V0=new THREE.Vector3(1,1,1);
 function updInst(){
  bendStrip(ground);bendStrip(path);
- for(let i=0;i<10;i++){const c=cloudPos[i];V1.set(c.x,c.y,-260+(((c.z+S.dist*.35)%320)+320)%320);V0.set(c.s,c.s*.35,c.s*.6);
-  M4.compose(V1,Q0,V0);clouds.setMatrixAt(i,M4);}
- clouds.instanceMatrix.needsUpdate=true;V0.set(1,1,1);
+ for(let i=0;i<10;i++){const c=cloudPos[i],z=-260+(((c.z+S.dist*.35)%320)+320)%320;
+  for(let k=0;k<3;k++){const f=CLOUD_P[k];
+   V1.set(c.x+f[0]*c.s,c.y+f[1]*c.s,z+f[2]*c.s*.5);V0.set(c.s*.6*f[2],c.s*.32*f[2],c.s*.45*f[2]);
+   M4.compose(V1,Q0,V0);clouds.setMatrixAt(i*3+k,M4);}}
+ clouds.instanceMatrix.needsUpdate=true;
  for(let i=0;i<NTree;i++){const b=treePos[i],z=-260+(((b.z+S.dist*.85)%320)+320)%320;
   V1.set(b.x+bend(z),b.h/2,z);V0.set(b.w,b.h,b.w);M4.compose(V1,Q0,V0);trunks.setMatrixAt(i,M4);
   V1.set(b.x+bend(z),b.h+b.canopyH/2,z);V0.set(b.canopyW,b.canopyH,b.canopyW);M4.compose(V1,Q0,V0);canopies.setMatrixAt(i,M4);
@@ -258,13 +266,15 @@ function update(dt){
  const dz=S.speed*dt;S.dist+=dz;S.score+=dz;
  S.x+=((S.lane-1)*LANE-S.x)*Math.min(1,dt*14);
  S.vy-=GRAV*dt;S.y+=S.vy*dt;
- if(S.y<=0){if(S.air)burst(S.x,.1,0,0x6B4E2E,6);S.y=0;S.vy=0;S.air=false;}
+ if(S.y<=0){if(S.air){burst(S.x,.1,0,0x6B4E2E,6);land=1;}S.y=0;S.vy=0;S.air=false;}
+ land=Math.max(0,land-dt*7); // сплющивание при приземлении гаснет за ~0.14с
+ if(S.roll>0&&S.y<=0&&Math.random()<dt*16)burst(S.x,.05,.2,0x6B4E2E,1); // пыль из-под подката
  if(S.roll>0)S.roll-=dt;
  S.anim+=dt*(S.air||S.roll>0?4:S.speed*.32);
  for(const o of S.obs){
   const vz=dz+(o.type==='wall'?5.5*dt:0); // валун катится НАВСТРЕЧУ: свой ход поверх скролла сцены
   o.z+=vz;o.m.position.z=o.z;o.m.position.x=(o.lane-1)*LANE+bend(o.z);
-  if(o.type==='wall')o.m.userData.spin.rotation.x-=vz/o.m.userData.R*.08;} // спин ×.08: честный качение на 30+ м/с = мясорубка, визуально крутим медленно
+  if(o.type==='wall')o.m.userData.spin.rotation.x+=vz/o.m.userData.R*.08;} // валун катится К игроку: верх камня едет в +z; спин ×.08 - на 30+ м/с честное вращение = мясорубка
  for(const c of S.coinsArr){c.z+=dz;c.m.position.z=c.z;c.m.position.x=(c.lane-1)*LANE+bend(c.z);c.m.rotation.y+=dt*.9;} // медленное вращение - клинок можно разглядеть
  S.obs=S.obs.filter(o=>o.z<DESPAWN_Z||(scene.remove(o.m),false));
  S.coinsArr=S.coinsArr.filter(c=>c.z<DESPAWN_Z&&!c.taken||(scene.remove(c.m),false));
@@ -273,23 +283,34 @@ function update(dt){
 // ---------- rig + camera ----------
 function animRig(){
  if(S.roll>0){const s=Math.min(1,Math.min(S.roll,.45-S.roll)*10); // плавный вход/выход позы
+  player.scale.setScalar(HERO_K);
   player.position.set(S.x,S.y+LIFT*(1-s),0); // на входе в позу ещё стоим (ступни на земле), в позе таз ведёт rig.position.y
   rig.rotation.x=-1.25*s;rig.position.y=.48*s;rig.rotation.z=-.08*s; // подкат-подсед: таз 0.37 мира, ноги вперёд; полный оборот не влезаёт под ветку (шляпа R=1.05+pivot)
   armL.rotation.x=armR.rotation.x=1.4*s;legL.rotation.x=legR.rotation.x=-1.2*s;
-  head.rotation.x=-.4*s; // подбородок к груди: шляпа не уходит вверх
+  legL.knee.rotation.x=legR.knee.rotation.x=1.2*s; // колени поджаты под себя
+  head.rotation.x=-.4*s;head.rotation.y=0; // подбородок к груди: шляпа не уходит вверх
   tip.rotation.x=-.55-.9*s; // кончик шапки догибается назад-вниз
   sword.rotation.x=.42+1.3*s; // меч прижимается назад-вниз, не торчит в ветку
   return;}
+ player.scale.setScalar(HERO_K);
  player.position.set(S.x,S.y+LIFT,0);
- rig.rotation.x=0;rig.position.y=0;rig.rotation.z=0;sword.rotation.x=.42;head.rotation.x=0;tip.rotation.x=-.55;
- if(S.air){rig.rotation.x=-.12;armL.rotation.x=armR.rotation.x=-2.1;legL.rotation.x=-.9;legR.rotation.x=.5;return;}
- const a=S.anim*2,sw=Math.sin(a);
- rig.position.y=Math.abs(Math.sin(a))*.03;
- legL.rotation.x=sw*.9;legR.rotation.x=-sw*.9;
- armL.rotation.x=-sw*.8;armR.rotation.x=sw*.8;
+ rig.rotation.x=0;rig.position.y=0;rig.rotation.z=0;sword.rotation.x=.42;head.rotation.x=0;head.rotation.z=0;head.rotation.y=0;tip.rotation.x=-.55;
+ legL.knee.rotation.x=legR.knee.rotation.x=0;
+ if(S.air){const up=S.vy>0; // фаза полёта: отрыв - группировка, снижение - распластка для приземления
+  rig.rotation.x=up?-.14:.08;
+  armL.rotation.x=up?-2.3:-1.1;armR.rotation.x=up?-2.3:-1.1;armL.rotation.z=.15;armR.rotation.z=-.15;
+  legL.rotation.x=up?-.9:-.1;legR.rotation.x=up?-.2:.5;
+  legL.knee.rotation.x=up?1.5:.15;legR.knee.rotation.x=up?.4:.1;return;}
+ const a=S.anim*2,sw=Math.sin(a),sq=1-.13*land;
+ player.scale.set(HERO_K*(1+.09*land),HERO_K*sq,HERO_K*(1+.09*land)); // приземление: присели-пружинили
+ player.position.y=S.y+LIFT*sq;
+ rig.rotation.x=-.1+Math.sin(a*2)*.03;rig.position.y=-.02+Math.abs(sw)*.035;
+ legL.rotation.x=sw*.95;legR.rotation.x=-sw*.95;
+ legL.knee.rotation.x=Math.max(0,.9*sw+.3);legR.knee.rotation.x=Math.max(0,-.9*sw+.3); // колено гнётся на отходящей ноге
+ armL.rotation.x=-sw*1.05+.15;armR.rotation.x=sw*1.05+.15;armL.rotation.z=armR.rotation.z=0;
  rig.rotation.z=Math.sin(a)*.04; // покачивание корпуса в беге
- head.rotation.y=Math.sin(S.t*.8)*.06;}
-let camX=0,camF=70;
+ head.rotation.z=-sw*.05;head.rotation.x=.05+Math.sin(a*2)*.02;head.rotation.y=Math.sin(S.t*.8)*.06;} // голова контрит качание и смотрит по дорожке
+let camX=0,camF=70,land=0;
 function animCam(dt){
  camX+=(S.x*.55-camX)*Math.min(1,dt*6);
  camera.position.set(camX+(Math.random()-.5)*.5*S.shake,2.45+S.y*.22+(Math.random()-.5)*.5*S.shake,7.1);
