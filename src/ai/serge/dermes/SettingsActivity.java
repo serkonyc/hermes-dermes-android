@@ -122,7 +122,7 @@ public class SettingsActivity extends Activity {
                     }
                 }
             } catch (Exception e) {
-                note = "update check failed: " + e;
+                note = "проверка обновлений не удалась: " + e;
             }
             final String fLatest = latest, fDl = dl, fNote = note;
             runOnUiThread(() -> {
@@ -177,11 +177,11 @@ public class SettingsActivity extends Activity {
         try {
             // DownloadManager survives the phone's TUN proxy where raw sockets don't;
             // install itself goes through PackageInstaller (ACTION_VIEW handoff gets
-            // rejected on One UI 15 as "can't install app").
+            // rejected on One UI 15 as "не могу установить приложение").
             DownloadManager.Request r = new DownloadManager.Request(Uri.parse(downloadUrl));
             r.setDestinationUri(Uri.fromFile(out));
             r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            r.setTitle("Dermes update");
+            r.setTitle("Обновление Dermes");
             pollInstall(out, dm().enqueue(r));
         } catch (Exception e) {
             staging = false; action.setEnabled(true); action.setText("Обновить до v" + latestTag);
@@ -278,7 +278,7 @@ public class SettingsActivity extends Activity {
             } catch (Exception e) {
                 if (sessionId >= 0) try { getPackageManager().getPackageInstaller().abandonSession(sessionId); } catch (Exception ignored) {}
                 apk.delete();
-                uiPost("stage failed: " + e);
+                uiPost("не удалось подготовить: " + e);
                 runOnUiThread(() -> { staging = false; action.setEnabled(true); });
             }
         }).start();

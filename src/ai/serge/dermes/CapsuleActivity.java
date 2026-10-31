@@ -38,8 +38,8 @@ public class CapsuleActivity extends Activity {
         super.onCreate(b);
         Shell.prepare(this);
 
-        labelIn = field("label (visible while sealed)", false);
-        bodyIn = field("message to your future self…", true);
+        labelIn = field("Метка (видна, пока капсула закрыта)", false);
+        bodyIn = field("Послание себе в будущее…", true);
 
         final TextView when = new TextView(this);
         UI.bodyMedium(when);
@@ -50,7 +50,7 @@ public class CapsuleActivity extends Activity {
         Button reset  = chip("now",  () -> { unlockAt = System.currentTimeMillis(); when.setText(fmt(unlockAt)); });
 
         Button seal = new Button(this);
-        seal.setText("Seal capsule");
+        seal.setText("Запечатать капсулу");
         UI.buttonFilled(seal, this);
         seal.setOnClickListener(v -> seal(when));
 
@@ -68,7 +68,7 @@ public class CapsuleActivity extends Activity {
         content.addView(bodyIn);
         LinearLayout chips = new LinearLayout(this);
         chips.setPadding(0, UI.space6(this), 0, 0);
-        chips.addView(new TextView(this) {{ setText("unlocks: "); setTextColor(UI.TEXT_2); }});
+        chips.addView(new TextView(this) {{ setText("Откроется: "); setTextColor(UI.TEXT_2); }});
         chips.addView(when);
         content.addView(chips);
         LinearLayout row = new LinearLayout(this);
@@ -78,7 +78,7 @@ public class CapsuleActivity extends Activity {
         content.addView(seal);
         content.addView(UI.footer(this, "v" + UI.version(this)), UI.block(this, 16));
 
-        setContentView(Shell.wrap(this, -1, "Time Capsules", "Sealed notes that unlock later", content, true, this::finish));
+        setContentView(Shell.wrap(this, -1, "Капсулы времени", "Запечатанные заметки — вскроются в срок", content, true, this::finish));
 
         render();
     }
@@ -127,7 +127,7 @@ public class CapsuleActivity extends Activity {
     private void seal(TextView when) {
         String label = labelIn.getText().toString().trim();
         String body = bodyIn.getText().toString().trim();
-        if (label.isEmpty() || body.isEmpty()) { when.setText("label and message required"); return; }
+        if (label.isEmpty() || body.isEmpty()) { when.setText("Нужны метка и текст"); return; }
         try {
             JSONArray arr = load();
             JSONObject o = new JSONObject();
@@ -159,13 +159,13 @@ public class CapsuleActivity extends Activity {
                 lp.bottomMargin = UI.space8(this);
                 t.setLayoutParams(lp);
                 if (!open) {
-                    t.setText("🔒 " + o.getString("label") + "\nsealed · " + countdown(at));
+                    t.setText("🔒 " + o.getString("label") + "\nзапечатана · " + countdown(at));
                     t.setTextColor(UI.TEXT_2);
                 } else {
                     String body;
                     try { body = dec(o.getString("cipher"), at); }
-                    catch (Exception e) { body = "(corrupted)"; }
-                    t.setText("✉ " + o.getString("label") + " · opened\n\n" + body);
+                    catch (Exception e) { body = "(повреждена)"; }
+                    t.setText("✉ " + o.getString("label") + " · открыта\n\n" + body);
                     t.setTextColor(UI.TEXT_0);
                     final int idx = i;
                     t.setOnLongClickListener(v -> { delete(idx); return true; });
@@ -194,9 +194,9 @@ public class CapsuleActivity extends Activity {
 
     private static String countdown(long at) {
         long d = at - System.currentTimeMillis();
-        if (d < 3600_000L) return String.format(Locale.US, "opens in %d min", d / 60_000L);
-        if (d < 86_400_000L) return String.format(Locale.US, "opens in %d h", d / 3600_000L);
-        return String.format(Locale.US, "opens in %d days", d / 86_400_000L);
+        if (d < 3600_000L) return String.format(Locale.US, "откроется через %d мин", d / 60_000L);
+        if (d < 86_400_000L) return String.format(Locale.US, "откроется через %d ч", d / 3600_000L);
+        return String.format(Locale.US, "откроется через %d дн.", d / 86_400_000L);
     }
     private static String fmt(long t) {
         return java.text.DateFormat.getDateTimeInstance().format(t);

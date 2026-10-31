@@ -87,7 +87,7 @@ public class DeviceActivity extends Activity {
                     if (url == null) throw new Exception("no apk asset in release");
                     String ver = j.optString("tag_name");
                     final String fUrl = url;
-                    runOnUiThread(() -> { fetch.setText("download " + ver + " apk"); startDownload(fUrl); });
+                    runOnUiThread(() -> { fetch.setText("Скачать " + ver + " APK"); startDownload(fUrl); });
                 } catch (Exception e) {
                     runOnUiThread(() -> { fetch.setEnabled(true); fetch.setText("fetch failed: " + e.getMessage()); });
                 }
@@ -104,7 +104,7 @@ public class DeviceActivity extends Activity {
         content.addView(open, UI.block(this, 8));
         content.addView(UI.footer(this, "v" + UI.version(this)), UI.block(this, 16));
 
-        setContentView(Shell.wrap(this, -1, "Device", "full device metrics · live 2s", content, true, this::finish));
+        setContentView(Shell.wrap(this, -1, "Устройство", "полная телеметрия · обновление каждые 2 с", content, true, this::finish));
 
         info.setText(collect());
         ui.postDelayed(tick, 2000);

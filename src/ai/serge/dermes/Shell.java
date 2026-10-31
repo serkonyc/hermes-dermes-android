@@ -127,7 +127,7 @@ public final class Shell {
         bg.setStroke(UI.dp(a, 1), 0x12FFFFFF);
         bar.setBackground(bg);
         bar.setElevation(UI.dp(a, 14));
-        bar.addView(item(a, selected, HOME, "Hub", R.drawable.ic_home, DermesActivity.class));
+        bar.addView(item(a, selected, HOME, "Главная", R.drawable.ic_home, DermesActivity.class));
         bar.addView(item(a, selected, CHAT, "Чат", R.drawable.ic_chat, ChatActivity.class));
         bar.addView(item(a, selected, TOOLS, "Инструменты", R.drawable.ic_tools, PocketActivity.class));
         bar.addView(item(a, selected, SETTINGS, "Настройки", R.drawable.ic_settings, SettingsActivity.class));

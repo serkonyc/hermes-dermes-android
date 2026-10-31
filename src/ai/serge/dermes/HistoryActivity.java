@@ -29,7 +29,7 @@ public class HistoryActivity extends Activity {
 
         BarsView opens = new BarsView(this, "открытий приложения");
         BarsView mins  = new BarsView(this, "минут в приложении");
-        BarsView runs  = new BarsView(this, "забегов Плунжер");
+        BarsView runs  = new BarsView(this, "забегов «Лесной Ран»");
 
         TextView table = new TextView(this);
         UI.bodySmall(table);
@@ -54,7 +54,7 @@ public class HistoryActivity extends Activity {
         content.addView(runs,  new LinearLayout.LayoutParams(-1, 0, 1f));
         content.addView(table);
         content.addView(UI.footer(this, "v" + UI.version(this)));
-        setContentView(Shell.wrap(this, -1, "Активность", "App usage", content, true, this::finish));
+        setContentView(Shell.wrap(this, -1, "Активность", "сколько времени в приложении", content, true, this::finish));
     }
 
     // ---------- bars ----------

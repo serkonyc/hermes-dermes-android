@@ -65,7 +65,7 @@ public class PocketActivity extends Activity {
         UI.buttonFilled(actionBtn, this);
         dlBtn = new android.widget.Button(this);
         UI.buttonTonal(dlBtn, this);
-        dlBtn.setText("Re-download");
+        dlBtn.setText("Скачать заново");
         dlBtn.setVisibility(View.GONE);
         dlBtn.setOnClickListener(v -> startDownload(dlBtn));
 
@@ -90,7 +90,7 @@ public class PocketActivity extends Activity {
         list.setOrientation(LinearLayout.VERTICAL);
         list.setBackground(UI.card(this, 24));
         list.setPadding(UI.space16(this), 0, UI.space16(this), 0);
-        list.addView(UI.row(this, R.drawable.ic_feed, UI.ACCENT, "Дайджест", "LLM-вендоры, benchmarks · 9:00",
+        list.addView(UI.row(this, R.drawable.ic_feed, UI.ACCENT, "Дайджест", "вендоры LLM и бенчмарки · 9:00",
                 () -> startActivity(new Intent(this, DigestActivity.class))));
         list.addView(toolsDivider());
         list.addView(UI.row(this, R.drawable.ic_capsule, UI.VIOLET, "Капсулы", "заметки, которые помнит модель",
@@ -125,16 +125,16 @@ public class PocketActivity extends Activity {
     private void refreshState() {
         File f = modelFile();
         if (f.exists() && f.length() == MODEL.bytes) {
-            actionBtn.setText("Chat");
+            actionBtn.setText("В чат");
             actionBtn.setOnClickListener(v -> startActivity(new Intent(this, ChatActivity.class)));
-            prog.setText("model in storage ✓ — offline chat, unloads from RAM when idle");
+            prog.setText("модель в памяти телефона ✓ чат работает офлайн, при простое выгружается");
             bar.setVisibility(View.GONE);
             dlBtn.setVisibility(View.VISIBLE);
         } else {
-            actionBtn.setText("Download model");
+            actionBtn.setText("Скачать модель");
             actionBtn.setOnClickListener(v -> startDownload(actionBtn));
             if (f.exists()) {
-                prog.setText(String.format(Locale.US, "paused at %.0f%% — tap to resume",
+                prog.setText(String.format(Locale.US, "пауза на %.0f%% — нажми, чтобы продолжить",
                         f.length() * 100.0 / MODEL.bytes));
                 bar.setVisibility(View.VISIBLE);
                 bar.setIndeterminate(false);
@@ -174,14 +174,14 @@ public class PocketActivity extends Activity {
             r.setDescription(MODEL.quant);
             r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION);
             final long id = dm.enqueue(r);
-            btn.setText("downloading…");
+            btn.setText("скачиваю… (можно свернуть)");
             btn.setEnabled(false);
             bar.setVisibility(View.VISIBLE);
             bar.setIndeterminate(true);
             pollProgress(dm, id, out, btn);
         } catch (Exception e) {
             bar.setVisibility(View.GONE);
-            prog.setText("download failed: " + e.getMessage());
+            prog.setText("скачивание не удалось: " + e.getMessage());
         }
     }
 
@@ -209,8 +209,8 @@ public class PocketActivity extends Activity {
                                         got * 100.0 / MODEL.bytes, MODEL.bytes / 1e9));
                             } else if (st == DownloadManager.STATUS_FAILED) {
                                 bar.setVisibility(View.GONE);
-                                prog.setText("failed — tap to retry");
-                                btn.setText("Download model");
+                                prog.setText("не вышло — нажми ещё раз");
+                                btn.setText("Скачать модель");
                                 btn.setEnabled(true);
                                 return;
                             }

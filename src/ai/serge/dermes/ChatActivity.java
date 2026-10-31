@@ -64,7 +64,7 @@ public class ChatActivity extends Activity {
                 loadHistory();
 
         if (!nativeLoaded) {
-            TextView tv = (TextView) UI.footer(this, "Runtime load failed:\n" + nativeError);
+            TextView tv = (TextView) UI.footer(this, "Не удалось запустить рантайм:\n" + nativeError);
             tv.setPadding(UI.space24(this), UI.space32(this), UI.space24(this), 0);
             tv.setGravity(Gravity.NO_GRAVITY);
             setContentView(tv);
@@ -77,7 +77,7 @@ public class ChatActivity extends Activity {
         status = new TextView(this);
         UI.bodySmall(status);
         status.setTextColor(UI.TEXT_2);
-        status.setText(modelFile() == null ? "Model not installed · get it in Models" : "Unloads after 90s idle · CPU only");
+        status.setText(modelFile() == null ? "Модель не установлена — скачай её в разделе «Инструменты»" : "Выгружается через 90 с простоя · только процессор");
         status.setPadding(0, 0, 0, UI.space16(this));
         root.addView(status);
 
@@ -91,7 +91,7 @@ public class ChatActivity extends Activity {
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
 
         input = new EditText(this);
-        input.setHint("Message…");
+        input.setHint("Сообщение…");
         UI.bodyLarge(input);
         input.setTextColor(UI.TEXT_0);
         input.setHintTextColor(UI.TEXT_2);
@@ -102,7 +102,7 @@ public class ChatActivity extends Activity {
         input.setPadding(UI.space20(this), UI.space16(this), UI.space20(this), UI.space16(this));
 
         send = new Button(this);
-        send.setText("Send");
+        send.setText("Отправить");
         UI.buttonFilled(send, this);
         send.setMinWidth(UI.dp(this, 96));
         send.setOnClickListener(v -> onSend());
@@ -119,7 +119,7 @@ public class ChatActivity extends Activity {
 
         renderSaved();
         historyButton = menuButton();
-        setContentView(Shell.wrap(this, Shell.CHAT, "Neuro Chat", "History stays on this phone", root, false, this::finish, historyButton));
+        setContentView(Shell.wrap(this, Shell.CHAT, "Нейрочат", "История остаётся на телефоне", root, false, this::finish, historyButton));
     }
 
     private void onSend() {
@@ -137,14 +137,14 @@ public class ChatActivity extends Activity {
 
     private void loadThenGenerate() {
         File f = modelFile();
-        if (f == null) { status.setText("Model not installed · get it in Models"); return; }
-        state = 1; send.setText("Load…"); status.setText("Loading model into RAM… first reply takes a moment");
+        if (f == null) { status.setText("Модель не установлена — скачай её в разделе «Инструменты»"); return; }
+        state = 1; send.setText("Загрузить"); status.setText("Загружаю модель в память — первый ответ чуть дольше");
         startThinking();
         new Thread(() -> {
             long nh;
             try { nh = nativeLoad(f.getPath(), N_CTX, N_THREADS); }
             catch (Throwable t) {
-                ui.post(() -> { state = 0; send.setText("Send"); stopThinking(); status.setText("Load failed: " + t.getMessage()); });
+                ui.post(() -> { state = 0; send.setText("Отправить"); stopThinking(); status.setText("Не удалось загрузить: " + t.getMessage()); });
                 return;
             }
             ui.post(() -> {
@@ -155,7 +155,7 @@ public class ChatActivity extends Activity {
     }
 
     private void generate() {
-        state = 3; send.setText("Stop"); scheduleUnload(UNLOAD_IDLE_MS);
+        state = 3; send.setText("Стоп"); scheduleUnload(UNLOAD_IDLE_MS);
         pending = addMessage("assistant", ""); startThinking();
         String prompt = buildPrompt();
         new Thread(() -> {
@@ -166,10 +166,10 @@ public class ChatActivity extends Activity {
             } catch (Throwable t) { reply = null; }
             String r = reply;
             ui.post(() -> {
-                state = h != 0 ? 2 : 0; send.setText("Send"); stopThinking();
+                state = h != 0 ? 2 : 0; send.setText("Отправить"); stopThinking();
                 String clean = r == null ? "" : stripThink(r);
                 if (pending != null) {
-                    pending.setText(clean.isEmpty() ? (r == null ? "⚠ Generate failed" : "(empty reply)") : clean);
+                    pending.setText(clean.isEmpty() ? (r == null ? "⚠ Не удалось сгенерировать" : "(пустой ответ)") : clean);
                     pending.setTextColor(UI.TEXT_0);
                 }
                 hist.add(new String[]{"assistant", clean});
@@ -208,7 +208,7 @@ public class ChatActivity extends Activity {
 
     private void startThinking() {
         if (pending == null || pendingThinking) return;
-        pendingThinking = true; pending.setText("Thinking…"); pending.setTextColor(UI.ACCENT);
+        pendingThinking = true; pending.setText("Думаю…"); pending.setTextColor(UI.ACCENT);
         pulse = new AlphaAnimation(1f, .35f); pulse.setDuration(900); pulse.setRepeatMode(Animation.REVERSE); pulse.setRepeatCount(Animation.INFINITE); pending.startAnimation(pulse);
     }
     private void stopThinking() { pendingThinking = false; if (pending != null && pulse != null) pending.clearAnimation(); pulse = null; }
@@ -217,8 +217,8 @@ public class ChatActivity extends Activity {
     private synchronized void unloadNow() {
         if (state == 3 && h != 0) { nativeAbort(h); ui.postDelayed(unloadTask, 10_000); return; }
         if (h != 0) {
-            long old = h; h = 0; state = 0; ui.removeCallbacks(unloadTask); send.setText("Send"); stopThinking();
-            new Thread(() -> nativeFree(old)).start(); status.setText("Model unloaded · RAM freed");
+            long old = h; h = 0; state = 0; ui.removeCallbacks(unloadTask); send.setText("Отправить"); stopThinking();
+            new Thread(() -> nativeFree(old)).start(); status.setText("Модель выгружена — память освобождена");
         } else state = 0;
     }
 
@@ -236,7 +236,7 @@ public class ChatActivity extends Activity {
         boolean user = "user".equals(role);
         LinearLayout col = new LinearLayout(this); col.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-1, -2); clp.bottomMargin = UI.space24(this); col.setLayoutParams(clp);
-        TextView label = new TextView(this); UI.labelSmall(label); label.setText(user ? "You" : "Dermes"); label.setTextColor(user ? UI.TEXT_2 : UI.ACCENT); if (user) label.setGravity(Gravity.END); col.addView(label);
+        TextView label = new TextView(this); UI.labelSmall(label); label.setText(user ? "Ты" : "Dermes"); label.setTextColor(user ? UI.TEXT_2 : UI.ACCENT); if (user) label.setGravity(Gravity.END); col.addView(label);
         TextView body = new TextView(this); UI.bodyChat(body); body.setText(text); body.setLineSpacing(0, 1.35f);
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(-2, -2); blp.topMargin = UI.space6(this);
         if (user) { blp.gravity = Gravity.END; body.setMaxEms(24); body.setBackground(UI.card(this, 22, UI.ACCENT_SOFT)); body.setPadding(UI.space16(this), UI.space12(this), UI.space16(this), UI.space12(this)); }
@@ -250,16 +250,16 @@ public class ChatActivity extends Activity {
 
     private void showHistory() {
         android.widget.PopupMenu menu = new android.widget.PopupMenu(this, historyButton);
-        if (hist.isEmpty()) menu.getMenu().add("No saved messages yet");
+        if (hist.isEmpty()) menu.getMenu().add("Сохранённых сообщений пока нет");
         int cap = Math.min(hist.size(), 12);
         for (int i = hist.size() - cap; i < hist.size(); i++) {
             String[] m = hist.get(i); String preview = m[1].replaceAll("\\s+", " "); if (preview.length() > 34) preview = preview.substring(0, 33) + "…";
-            final int idx = i; menu.getMenu().add((idx + 1) + ". " + ("user".equals(m[0]) ? "You: " : "Dermes: ") + preview).setOnMenuItemClickListener(x -> { jumpTo(idx); return true; });
+            final int idx = i; menu.getMenu().add((idx + 1) + ". " + ("user".equals(m[0]) ? "Ты: " : "Dermes: ") + preview).setOnMenuItemClickListener(x -> { jumpTo(idx); return true; });
         }
-        menu.getMenu().add("Clear this chat").setOnMenuItemClickListener(x -> { clearHistory(); return true; }); menu.show();
+        menu.getMenu().add("Очистить чат").setOnMenuItemClickListener(x -> { clearHistory(); return true; }); menu.show();
     }
     private void jumpTo(int idx) { scroll.post(() -> { if (idx < msgs.getChildCount()) scroll.smoothScrollTo(0, Math.max(0, msgs.getChildAt(idx).getTop() - UI.space16(this))); }); }
-    private void clearHistory() { ui.removeCallbacks(unloadTask); if (h != 0) nativeAbort(h); hist.clear(); msgs.removeAllViews(); persist(); status.setText("Chat cleared"); if (h != 0) scheduleUnload(5_000); }
+    private void clearHistory() { ui.removeCallbacks(unloadTask); if (h != 0) nativeAbort(h); hist.clear(); msgs.removeAllViews(); persist(); status.setText("Чат очищен"); if (h != 0) scheduleUnload(5_000); }
     private File historyFile() { File d = new File(getFilesDir(), "chat"); d.mkdirs(); return new File(d, "history.json"); }
     private void persist() {
         try {
@@ -294,7 +294,7 @@ public class ChatActivity extends Activity {
         b.setBackgroundResource(0);
         b.setImageTintList(android.content.res.ColorStateList.valueOf(UI.TEXT_1));
         b.setPadding(UI.space12(this), UI.space8(this), 0, UI.space8(this));
-        b.setContentDescription("Chat history");
+        b.setContentDescription("История чата");
         b.setOnClickListener(v -> showHistory());
         return b;
     }
@@ -313,7 +313,7 @@ public class ChatActivity extends Activity {
 
     /** One-shot off-device-thread summarization for Digest; null if model missing/busy. */
     static String summarize(Context c, String prompt) {
-        if (!nativeLoaded) return "⚠ native runtime unavailable";
+        if (!nativeLoaded) return "⚠ Нативный рантайм недоступен";
         File d = new File(c.getExternalFilesDir(null), "models");
         File[] fs = d.listFiles((x, n) -> n.endsWith(".gguf"));
         if (fs == null || fs.length == 0) return null;
@@ -321,11 +321,11 @@ public class ChatActivity extends Activity {
         for (File x : fs) if (x.getName().startsWith("LFM2.5-8B")) f = x;
         if (f == null) f = fs[0];
         long h;
-        try { h = nativeLoad(f.getPath(), 1024, 4); } catch (Throwable t) { return "⚠ load failed: " + t; }
+        try { h = nativeLoad(f.getPath(), 1024, 4); } catch (Throwable t) { return "⚠ Не удалось загрузить модель: " + t; }
         try {
             String out = nativeGenerate(h, prompt, null, null, 256);
             return out == null ? null : stripThink(out);
-        } catch (Throwable t) { return "⚠ generate failed: " + t; }
+        } catch (Throwable t) { return "⚠ Сбой генерации: " + t; }
         finally { nativeFree(h); }
     }
 

@@ -82,7 +82,7 @@ public class DigestActivity extends Activity {
         header.setTextColor(UI.TEXT_2);
         header.setGravity(Gravity.CENTER);
         header.setPadding(0, dp(6), 0, dp(6));
-        header.setText("digest · updating…");
+        header.setText("дайджест · обновляю…");
 
         search = new EditText(this);
         search.setHint("поиск по заголовкам и описаниям…");
@@ -130,7 +130,7 @@ public class DigestActivity extends Activity {
         content.addView(header);
         content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
         content.addView(UI.footer(this, "v" + UI.version(this)));
-        setContentView(Shell.wrap(this, -1, "Digest", "новости по категориям · поиск · фильтры", content, false, this::finish));
+        setContentView(Shell.wrap(this, -1, "Дайджест", "новости по категориям · поиск · фильтры", content, false, this::finish));
 
         // cached items first (persisted merged list), then live refresh
         try {
@@ -167,10 +167,10 @@ public class DigestActivity extends Activity {
                 if (!merged.isEmpty()) {
                     all.clear(); all.addAll(merged);
                     try { getPrefs().edit().putString("items", toJson(merged)).apply(); } catch (Exception ignored) {}
-                    header.setText("digest · " + DateFormat.getTimeInstance().format(System.currentTimeMillis())
+                    header.setText("дайджест · " + DateFormat.getTimeInstance().format(System.currentTimeMillis())
                             + " · " + merged.size() + " новостей");
                 } else {
-                    header.setText("digest · offline · " + all.size() + " новостей из кэша");
+                    header.setText("дайджест · офлайн · " + all.size() + " новостей из кэша");
                 }
                 rebuild();
             });

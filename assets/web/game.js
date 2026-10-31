@@ -438,7 +438,7 @@ function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;
  $('score').textContent=fmt(Math.floor(S.score));
  $('coins').textContent='⚔ '+S.coins;
  $('best').textContent=fmt(S.best);
- $('meta').textContent=Math.floor(S.dist)+'m \u00b7 '+Math.floor(S.speed)+'km/h';
+ $('meta').textContent=Math.floor(S.dist)+' м \u00b7 '+Math.floor(S.speed)+' км/ч';
  renderer.render(scene,camera);
  requestAnimationFrame(loop);}
 requestAnimationFrame(loop);

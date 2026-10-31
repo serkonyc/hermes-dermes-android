@@ -64,13 +64,13 @@ public class DermesActivity extends Activity {
         list.setOrientation(LinearLayout.VERTICAL);
         list.setBackground(UI.card(this, 24));
         list.setPadding(UI.space16(this), 0, UI.space16(this), 0);
-        list.addView(UI.row(this, R.drawable.ic_feed, UI.ACCENT, "Дайджест", "Hermes morning feed",
+        list.addView(UI.row(this, R.drawable.ic_feed, UI.ACCENT, "Дайджест", "утренняя лента Hermes",
                 () -> startActivity(new android.content.Intent(this, DigestActivity.class))));
         list.addView(divider());
-        list.addView(UI.row(this, R.drawable.ic_capsule, UI.VIOLET, "Капсулы", "from the future",
+        list.addView(UI.row(this, R.drawable.ic_capsule, UI.VIOLET, "Капсулы", "привет из будущего",
                 () -> startActivity(new android.content.Intent(this, CapsuleActivity.class))));
         list.addView(divider());
-        list.addView(UI.row(this, R.drawable.ic_runner, UI.TEAL, "Лесной Ран", "tap. jump. repeat",
+        list.addView(UI.row(this, R.drawable.ic_runner, UI.TEAL, "Лесной Ран", "беги · прыгай · не сбавляй темп",
                 () -> startActivity(new android.content.Intent(this, RunnerActivity.class))));
         root.addView(list);
         UI.animateIn(list, 200);
