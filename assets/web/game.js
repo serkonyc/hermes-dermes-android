@@ -1,7 +1,7 @@
 // Neon Runner -> Subway-style runner, day palette, no bloom. three.js r147 UMD.
 'use strict';
 const SKY=0x4FB8F5, HZ=0xBFE6FA, GR=0x8A7A66, GO=0xFFD24A, OR=0xFF8C42;
-const LANE=1.15, GRAV=26, JUMP_V=8.6, SPAWN_Z=-70, DESPAWN_Z=6, TAU=Math.PI*2;
+const LANE=1.725, GRAV=26, JUMP_V=8.6, SPAWN_Z=-70, DESPAWN_Z=6, TAU=Math.PI*2; // LANE x1.5: тропа - основная игровая зона
 const $=id=>document.getElementById(id);
 let renderer,scene,camera;
 try{
@@ -75,25 +75,31 @@ const player=new THREE.Group(), rig=new THREE.Group(); player.add(rig); scene.ad
 const HERO_K=.78; // общий масштаб героя
 player.scale.setScalar(HERO_K); // герой был слишком крупным относительно дорог и препятствий
 player.rotation.y=Math.PI;   // лицом вперёд (по ходу), спиной к зрителю; локальная -z теперь смотрит в камеру
-function limb(w,h,m,pivotY){const p=new THREE.Group();const b=box(w,h,w,m);b.position.y=-h/2;p.add(b);p.position.y=pivotY;return p;}
+function limb(w,h,m,pivotY){const p=new THREE.Group();const b=new THREE.Mesh(new THREE.CapsuleGeometry(w/2,Math.max(.01,h-w),4,8),m);b.position.y=-h/2;p.add(b);p.position.y=pivotY;return p;}
+const sph=(r,sx=10,sy=8)=>new THREE.SphereGeometry(r,sx,sy);
 var armL,armR,legL,legR, head, sword, tip;
 const LIFT=.86*HERO_K; // ноги уходят на -0.86 локально; мирная единица = ×HERO_K; поднимаем ровно на них, ступни на земле
 {head=new THREE.Group(); head.position.set(0,.84,0); rig.add(head);
- const face=box(.66,.62,.6,skinM); head.add(face);
- const hair=box(.7,.3,.1,hairM); hair.position.set(0,.28,.31); head.add(hair);            // чёлка
- const hairB=box(.7,.5,.12,hairM); hairB.position.set(0,.06,-.31); head.add(hairB);        // затылок
- const sideL=box(.1,.36,.5,hairM); const sideR=sideL.clone(); sideL.position.set(-.36,.02,0); sideR.position.set(.36,.02,0); head.add(sideL,sideR);
- const eyeL=box(.09,.14,.06,M(0x2A4A1E,.6)); eyeL.position.set(-.15,0,.29); const eyeR=eyeL.clone(); eyeR.position.x=.15; head.add(eyeL,eyeR);
- const hat=box(.62,.14,.58,hatM); hat.position.set(0,.4,0); head.add(hat);                // основание шапки
- tip=new THREE.Mesh(new THREE.ConeGeometry(.3,.6,4),hatM); tip.position.set(0,.72,-.12); tip.rotation.set(-.55,Math.PI/4,0); head.add(tip); // загнутый кончик назад
- const body=box(.64,.56,.32,tunicM); body.position.set(0,.3,0); rig.add(body);
- const collar=box(.4,.1,.34,M(0xF2EFE2,.8)); collar.position.set(0,.6,.02); rig.add(collar);
- const belt=box(.68,.08,.36,beltM); belt.position.set(0,.08,0); rig.add(belt);
- const buckle=box(.1,.09,.05,M(0xFFD24A,.5,.3)); buckle.position.set(0,.08,.2); rig.add(buckle);
- armL=limb(.18,.52,tunicM,.58); armR=limb(.18,.52,tunicM,.58); armL.position.set(-.4,.28,0); armR.position.set(.4,.28,0); rig.add(armL,armR);
- const handL=box(.16,.14,.16,skinM); const handR=handL.clone(); handL.position.y=-.56; handR.position.y=-.56; armL.add(handL); armR.add(handR);
- legL=limb(.24,.6,tunicM,.0); legR=limb(.24,.6,tunicM,.0); legL.position.set(-.15,-.26,0); legR.position.set(.15,-.26,0); rig.add(legL,legR);
- const bootL=box(.26,.16,.3,bootM); const bootR=bootL.clone(); bootL.position.set(-.15,-.58,.03); bootR.position.set(.15,-.58,.03); rig.add(bootL,bootR);
+ const face=new THREE.Mesh(sph(.34),skinM); head.add(face);
+ const hair=new THREE.Mesh(sph(.355),hairM); hair.scale.set(1,.5,.9); hair.position.set(0,.2,-.03); head.add(hair); // шапка волос
+ const hairB=new THREE.Mesh(sph(.35),hairM); hairB.scale.set(.92,.7,.5); hairB.position.set(0,.02,-.2); head.add(hairB); // затылок
+ const sideL=new THREE.Mesh(sph(.3),hairM); sideL.scale.set(.28,.7,.62); const sideR=sideL.clone();
+ sideL.position.set(-.3,-.04,.04); sideR.position.set(.3,-.04,.04); head.add(sideL,sideR);  // пряди по бокам
+ const earL=new THREE.Mesh(new THREE.ConeGeometry(.07,.22,5),skinM),earR=earL.clone();      // эльфы уши
+ earL.rotation.z=1.25;earR.rotation.z=-1.25;earL.position.set(.3,.06,0);earR.position.set(-.3,.06,0);head.add(earL,earR);
+ const eyeL=box(.07,.11,.05,M(0x2A4A1E,.6)); eyeL.position.set(-.13,.02,.31); const eyeR=eyeL.clone(); eyeR.position.x=.13; head.add(eyeL,eyeR);
+ const nose=new THREE.Mesh(new THREE.ConeGeometry(.045,.12,5),skinM); nose.rotation.x=Math.PI/2; nose.position.set(0,-.06,.33); head.add(nose);
+ const hat=new THREE.Mesh(new THREE.CylinderGeometry(.3,.36,.15,10),hatM); hat.position.set(0,.32,0); head.add(hat);
+ tip=new THREE.Mesh(new THREE.ConeGeometry(.28,.62,6),hatM); tip.position.set(0,.62,-.12); tip.rotation.set(-.55,Math.PI/4,0); head.add(tip); // загнутый кончик назад
+ const body=new THREE.Mesh(new THREE.CylinderGeometry(.21,.28,.55,8),tunicM); body.position.set(0,.3,0); rig.add(body);
+ const collar=new THREE.Mesh(new THREE.TorusGeometry(.2,.05,6,10),M(0xF2EFE2,.8)); collar.rotation.x=Math.PI/2; collar.position.set(0,.58,.02); rig.add(collar);
+ const belt=new THREE.Mesh(new THREE.CylinderGeometry(.29,.29,.1,10),beltM); belt.position.set(0,.08,0); rig.add(belt);
+ const buckle=box(.1,.09,.05,M(0xFFD24A,.5,.3)); buckle.position.set(0,.08,.28); rig.add(buckle);
+ armL=limb(.17,.52,tunicM,.58); armR=limb(.17,.52,tunicM,.58); armL.position.set(-.32,.28,0); armR.position.set(.32,.28,0); rig.add(armL,armR);
+ const handL=new THREE.Mesh(sph(.085,8,6),skinM); const handR=handL.clone(); handL.position.y=-.56; handR.position.y=-.56; armL.add(handL); armR.add(handR);
+ legL=limb(.23,.6,tunicM,.0); legR=limb(.23,.6,tunicM,.0); legL.position.set(-.14,-.26,0); legR.position.set(.14,-.26,0); rig.add(legL,legR);
+ const bootL=new THREE.Mesh(sph(.14,8,6),bootM); bootL.scale.set(1,.6,1.25); const bootR=bootL.clone();
+ bootL.position.set(-.14,-.58,.03); bootR.position.set(.14,-.58,.03); rig.add(bootL,bootR);
  // carried sword on the back
  sword=new THREE.Group();
  const blade=box(.08,.62,.04,M(0xC4CBD2,.35,.75)); blade.position.y=.27;
@@ -255,8 +261,10 @@ function update(dt){
  if(S.y<=0){if(S.air)burst(S.x,.1,0,0x6B4E2E,6);S.y=0;S.vy=0;S.air=false;}
  if(S.roll>0)S.roll-=dt;
  S.anim+=dt*(S.air||S.roll>0?4:S.speed*.32);
- for(const o of S.obs){o.z+=dz;o.m.position.z=o.z;o.m.position.x=(o.lane-1)*LANE+bend(o.z);
-  if(o.type==='wall')o.m.userData.spin.rotation.x-=dz/o.m.userData.R;} // валун катится со скоростью сцены
+ for(const o of S.obs){
+  const vz=dz+(o.type==='wall'?5.5*dt:0); // валун катится НАВСТРЕЧУ: свой ход поверх скролла сцены
+  o.z+=vz;o.m.position.z=o.z;o.m.position.x=(o.lane-1)*LANE+bend(o.z);
+  if(o.type==='wall')o.m.userData.spin.rotation.x-=vz/o.m.userData.R*.08;} // спин ×.08: честный качение на 30+ м/с = мясорубка, визуально крутим медленно
  for(const c of S.coinsArr){c.z+=dz;c.m.position.z=c.z;c.m.position.x=(c.lane-1)*LANE+bend(c.z);c.m.rotation.y+=dt*.9;} // медленное вращение - клинок можно разглядеть
  S.obs=S.obs.filter(o=>o.z<DESPAWN_Z||(scene.remove(o.m),false));
  S.coinsArr=S.coinsArr.filter(c=>c.z<DESPAWN_Z&&!c.taken||(scene.remove(c.m),false));
