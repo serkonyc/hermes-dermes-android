@@ -53,13 +53,26 @@ for(const side of[-1,1]){
   for(let t=0;t<3;t++)towerPos.push({x:cx+(t-1)*5.5,z:cz+(t%2)*2.5,w:2+vr()*.8,h:7+vr()*4});
   for(let t=0;t<2;t++)wallPos.push({x:cx-2.75-t*5.5,z:cz+1.2+w(t),w:5.8,h:3.6});}}
 function w(t){return t%2;} // кривизна стены повторяет шахматный сдвиг башен
+// ---------- детали окружения: горы, камни, заборы, стога ----------
+const YAX=new THREE.Vector3(0,1,0);
+const NMtn=12,mtnMesh=new THREE.InstancedMesh(new THREE.ConeGeometry(1,1,5),noFog(M(0x60748A,.95)),NMtn),mtnPos=[];
+for(let i=0;i<NMtn;i++){const s=i%2?1:-1;mtnPos.push({x:s*(85+Math.random()*95),z:Math.random()*680,r:26+Math.random()*42,h:20+Math.random()*28,ry:Math.random()*3});}
+const NStone=160,stoneMesh=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),noFog(M(0x8A8578,.95)),NStone),stonePos=[];
+for(let i=0;i<NStone;i++){const s=Math.random()<.5?-1:1;
+ stonePos.push({x:s*(LANE*1.7+.6+Math.random()*13),z:Math.random()*320,w:.16+Math.random()*.4,ry:Math.random()*3});}
+const NFen=144,fenceMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),noFog(M(0x7A5A38,.95)),NFen),fencePos=[];
+for(let r=0;r<18;r++){const s=r%2?1:-1,x0=s*(24+Math.random()*54),z0=Math.random()*340,ang=(Math.random()-.5)*.7;
+ for(let k=0;k<8;k++)fencePos.push({x:x0+Math.cos(ang)*k*1.15,z:z0+Math.sin(ang)*k*1.15});}
+const NHay=24,hayMesh=new THREE.InstancedMesh(new THREE.CylinderGeometry(.8,1,1,8),noFog(M(0xD9A94E,.95)),NHay),hayPos=[];
+for(let i=0;i<NHay;i++){const s=i%2?1:-1;hayPos.push({x:s*(26+Math.random()*50),z:Math.random()*340,w:.9+Math.random()*1.1,h:.8+Math.random()*1});}
+scene.add(mtnMesh,stoneMesh,fenceMesh,hayMesh);
 // ---------- ground + dirt path ----------
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(300,320),M(0x3E7A2A,.95)); ground.rotation.x=-Math.PI/2; ground.position.set(0,-.02,-110); scene.add(ground);
 // ---------- forest ----------
 const TREE_PALETTE=[0x3C7A2B,0x4C9C37,0x2F6B22,0x5CBA47];
 const trunkM=M(0x5A3A1F,.95);trunkM.flatShading=true;
 const canopyM=M(0xffffff,.85);canopyM.flatShading=true;
-const NTree=72, trunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.35,.5,1,6),trunkM,NTree), canopies=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),canopyM,NTree), treePos=[];
+const NTree=150, trunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.35,.5,1,6),trunkM,NTree), canopies=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),canopyM,NTree), treePos=[];
 const tCol=new THREE.Color();
 for(let i=0;i<NTree;i++){const s=Math.random()<.5?-1:1; const h=4+Math.random()*6;
  treePos.push({x:s*(LANE*1.8+.8+Math.random()*16),z:Math.random()*320,h,w:1+Math.random()*.5,canopyH:h*.6,canopyW:2+Math.random()*1.5});
@@ -71,7 +84,7 @@ const treeSh=new THREE.InstancedMesh(tShGeo,new THREE.MeshBasicMaterial({color:0
 treeSh.renderOrder=1;scene.add(treeSh);
 // ---------- bushes ----------
 const bushM=M(0x3E8A26,.9);
-const NBush=48, bushes=new THREE.InstancedMesh(new THREE.BoxGeometry(.8,.6,.8),bushM,NBush), bushPos=[];
+const NBush=96, bushes=new THREE.InstancedMesh(new THREE.BoxGeometry(.8,.6,.8),bushM,NBush), bushPos=[];
 for(let i=0;i<NBush;i++){const s=Math.random()<.5?-1:1;
  bushPos.push({x:s*(LANE*1.6+.35+Math.random()*.5),z:Math.random()*220,h:.5+Math.random()*.45});}
 scene.add(bushes);
@@ -231,15 +244,15 @@ stars.renderOrder=2; scene.add(stars);
  for(let i=0;i<64;i++){stars.setColorAt(i,i%3?cA:cB);}}
 const starP=[],ZAX=new THREE.Vector3(0,0,1);
 function sparkle(x,y,z){
- for(let i=0;i<24;i++){const a=Math.random()*6.283,v=1.8+Math.random()*2.8;
-  starP.push({x,y,z,vx:Math.cos(a)*v,vy:1.6+Math.random()*3.6,vz:Math.sin(a)*v*.7,rot:Math.random()*6.283,vr:(Math.random()-.5)*16,t:0,life:.55+Math.random()*.4});}
+ for(let i=0;i<24;i++){const a=Math.random()*6.283,v=2.4+Math.random()*3.2;
+  starP.push({x,y,z,vx:Math.cos(a)*v,vy:1.4+Math.random()*3.4,vz:Math.sin(a)*v*.3,rot:Math.random()*6.283,vr:(Math.random()-.5)*16,t:0,life:.45+Math.random()*.3});}
  while(starP.length>64)starP.shift();}
 function updPickFx(dt){
  for(let j=starP.length-1;j>=0;j--){const p=starP[j];p.t+=dt;if(p.t>=p.life){starP.splice(j,1);continue;}
-  p.vy-=6.5*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=(p.vz+S.speed)*dt;p.rot+=p.vr*dt;if(p.y<.04)p.y=.04;}
+  p.vy-=7.5*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;p.rot+=p.vr*dt;if(p.y<.04)p.y=.04;}
  for(let i=0;i<64;i++){const p=starP[i];
   if(!p){V0.set(0,0,0);M4.compose(V1.set(0,-50,0),Q0.identity(),V0);}
-  else{const k=1-p.t/p.life,s=.45+k*.55;Q0.setFromAxisAngle(ZAX,p.rot);V1.set(p.x,p.y,p.z);V0.set(s,s,1);M4.compose(V1,Q0,V0);}
+  else{const k=1-p.t/p.life,s=k*k*1.1;Q0.setFromAxisAngle(ZAX,p.rot);V1.set(p.x,p.y,p.z);V0.set(s,s,1);M4.compose(V1,Q0,V0);}
   stars.setMatrixAt(i,M4);}
  stars.instanceMatrix.needsUpdate=true;}
 function burst(x,y,z,col,n){const c=new THREE.Color(col).convertSRGBToLinear();
@@ -294,8 +307,11 @@ function updInst(){
  for(let i=0;i<10;i++){const c=cloudPos[i],z=-260+(((c.z+S.dist*.35)%320)+320)%320;
   for(let k=0;k<3;k++){const f=CLOUD_P[k];
    V1.set(c.x+f[0]*c.s,c.y+f[1]*c.s,z+f[2]*c.s*.5);V0.set(c.s*.6*f[2],c.s*.32*f[2],c.s*.45*f[2]);
-   M4.compose(V1,Q0,V0);clouds.setMatrixAt(i*3+k,M4);}}
+   M4.compose(V1,Q0.identity(),V0);clouds.setMatrixAt(i*3+k,M4);}}
  clouds.instanceMatrix.needsUpdate=true;
+ {for(let i=0;i<NMtn;i++){const v=mtnPos[i],z=-560+(((v.z+S.dist*.2)%680)+680)%680; // горы: самый дальний слой
+  Q0.setFromAxisAngle(YAX,v.ry);V1.set(v.x,v.h/2,z);V0.set(v.r,v.h,v.r);M4.compose(V1,Q0,V0);mtnMesh.setMatrixAt(i,M4);}
+  mtnMesh.instanceMatrix.needsUpdate=true;}
  {const AXY=new THREE.Vector3(0,1,0); // дальние поселения: параллакс .55 (медленнее деревьев - дальше), цикл 340
   for(let i=0;i<18;i++){const v=housePos[i],z=-300+(((v.z+S.dist*.55)%340)+340)%340;
    Q0.setFromAxisAngle(AXY,v.ry);V1.set(v.x,v.h/2,z);V0.set(v.w,v.h,v.w);M4.compose(V1,Q0,V0);houseBody.setMatrixAt(i,M4);
@@ -312,7 +328,12 @@ function updInst(){
   for(let i=0;i<4;i++){const v=wallPos[i],z=-300+(((v.z+S.dist*.55)%340)+340)%340;
    V1.set(v.x,v.h/2,z);V0.set(v.w,v.h,1);M4.compose(V1,Q0.identity(),V0);castleWall.setMatrixAt(i,M4);
    for(let k=0;k<5;k++){V1.set(v.x+(k-2)*v.w/5,v.h+.16,z);V0.set(v.w/9,.32,.55);M4.compose(V1,Q0,V0);merlon.setMatrixAt(i*5+k,M4);}}
+  for(let i=0;i<NHay;i++){const v=hayPos[i],z=-300+(((v.z+S.dist*.55)%340)+340)%340;
+   Q0.identity();V1.set(v.x,v.h/2,z);V0.set(v.w,v.h,v.w);M4.compose(V1,Q0,V0);hayMesh.setMatrixAt(i,M4);}
+  for(let i=0;i<NFen;i++){const v=fencePos[i],z=-300+(((v.z+S.dist*.55)%340)+340)%340;
+   Q0.identity();V1.set(v.x,.45,z);V0.set(.13,.9,.13);M4.compose(V1,Q0,V0);fenceMesh.setMatrixAt(i,M4);}
   houseBody.instanceMatrix.needsUpdate=houseRoof.instanceMatrix.needsUpdate=true;
+  hayMesh.instanceMatrix.needsUpdate=fenceMesh.instanceMatrix.needsUpdate=true;
   houseWin.instanceMatrix.needsUpdate=merlon.instanceMatrix.needsUpdate=true;
   poleMesh.instanceMatrix.needsUpdate=flagMesh.instanceMatrix.needsUpdate=true;
   towerMesh.instanceMatrix.needsUpdate=towerTop.instanceMatrix.needsUpdate=castleWall.instanceMatrix.needsUpdate=true;}
@@ -322,6 +343,9 @@ function updInst(){
   V1.set(b.x+bend(z)+b.canopyW*.35,.025,z);V0.set(b.canopyW*1.15,1,b.canopyW*1.15);M4.compose(V1,Q0,V0);treeSh.setMatrixAt(i,M4);}
  treeSh.instanceMatrix.needsUpdate=true;
  trunks.instanceMatrix.needsUpdate=true;canopies.instanceMatrix.needsUpdate=true;V0.set(1,1,1);
+ for(let i=0;i<NStone;i++){const v=stonePos[i],z=-260+(((v.z+S.dist*.85)%320)+320)%320; // камни у дороги
+  Q0.setFromAxisAngle(YAX,v.ry);V1.set(v.x+bend(z),v.w*.5,z);V0.set(v.w,v.w*.7,v.w);M4.compose(V1,Q0,V0);stoneMesh.setMatrixAt(i,M4);}
+ stoneMesh.instanceMatrix.needsUpdate=true;Q0.identity();
  for(let i=0;i<NBush;i++){const b=bushPos[i],z=-200+(((b.z+S.dist)%220)+220)%220;
   V1.set(b.x+bend(z),b.h/2,z);V0.set(.9,b.h,.9);M4.compose(V1,Q0,V0);bushes.setMatrixAt(i,M4);}
  bushes.instanceMatrix.needsUpdate=true;V0.set(1,1,1);}
