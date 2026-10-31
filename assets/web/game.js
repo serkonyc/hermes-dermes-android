@@ -38,7 +38,13 @@ const houseRoof=new THREE.InstancedMesh(new THREE.ConeGeometry(.8,1,4),noFog(M(0
 const towerMesh=new THREE.InstancedMesh(new THREE.CylinderGeometry(.7,.95,1,8),noFog(M(0xB6B1A6,.95)),6);
 const towerTop=new THREE.InstancedMesh(new THREE.ConeGeometry(.95,1,6),noFog(M(0x44607F,.9)),6);
 const castleWall=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,.5),noFog(M(0xC6C0B2,.95)),4);
+// детали: светящиеся окна, зубцы стены, флагштоки с флагами
+const houseWin=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,.1),noFog(M(0xFFCE6B,.4)),36);
+const merlon=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),noFog(M(0xCDC7BA,.95)),20);
+const poleMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),noFog(M(0x4A382A,.95)),6);
+const flagMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),noFog(M(0xC23B3B,.9)),6);
 scene.add(houseBody,houseRoof,towerMesh,towerTop,castleWall);
+scene.add(houseWin,merlon,poleMesh,flagMesh);
 const housePos=[],towerPos=[],wallPos=[];
 for(const side of[-1,1]){
  for(let k=0;k<3;k++){const cx=side*(30+vr()*48),cz=vr()*340; // деревенька: 3 разнокалиберных дома
@@ -216,23 +222,26 @@ let pPts;
  pPts.geometry.attributes.position.needsUpdate=true;
  scene.add(pPts);}
 let pCur=0;
- // вспышка-ореол при подборе меча: expanding ring + sparkle + звёздочка
-const pickFx=[];
-const pickRing=new THREE.InstancedMesh(new THREE.RingGeometry(.08,.14,24),new THREE.MeshBasicMaterial({color:0xFFE6A0,transparent:true,fog:false,side:THREE.DoubleSide,depthWrite:false}),10); pickRing.renderOrder=2; scene.add(pickRing);
-const pickGlow=new THREE.InstancedMesh(new THREE.CircleGeometry(.25,18),new THREE.MeshBasicMaterial({color:0xFFF3C0,transparent:true,fog:false,depthWrite:false}),10); pickGlow.renderOrder=1; scene.add(pickGlow);
+ // звёзды при подборе меча: пучокInstanced-звёздочек с разлётом и гравитацией
+const starGeo=(()=>{const s=new THREE.Shape();for(let i=0;i<10;i++){const r=i%2?.11:.27,a=i/10*Math.PI*2-Math.PI/2;
+ const px=Math.cos(a)*r,py=Math.sin(a)*r;i?s.lineTo(px,py):s.moveTo(px,py);}return new THREE.ShapeGeometry(s);})();
+const stars=new THREE.InstancedMesh(starGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,fog:false,side:THREE.DoubleSide,depthWrite:false}),64);
+stars.renderOrder=2; scene.add(stars);
+{const cA=new THREE.Color(0xFFD75E).convertSRGBToLinear(),cB=new THREE.Color(0xFFF2C0).convertSRGBToLinear();
+ for(let i=0;i<64;i++){stars.setColorAt(i,i%3?cA:cB);}}
+const starP=[],ZAX=new THREE.Vector3(0,0,1);
 function sparkle(x,y,z){
- pickFx.push({x,y,z,t:0});
- burst(x,y,z,0xFFD24A,8); burst(x,y,z,0xFFF6D8,5); // золото + белая искра
- S.flash=Math.max(S.flash,.10);}
+ for(let i=0;i<24;i++){const a=Math.random()*6.283,v=1.8+Math.random()*2.8;
+  starP.push({x,y,z,vx:Math.cos(a)*v,vy:1.6+Math.random()*3.6,vz:Math.sin(a)*v*.7,rot:Math.random()*6.283,vr:(Math.random()-.5)*16,t:0,life:.55+Math.random()*.4});}
+ while(starP.length>64)starP.shift();}
 function updPickFx(dt){
- for(let i=0;i<10;i++){const f=pickFx[i];if(!f){V0.set(0,0,0);M4.compose(V1.set(0,-50,0),Q0,V0);pickRing.setMatrixAt(i,M4);pickGlow.setMatrixAt(i,M4);continue;}
-  f.t+=dt;const k=f.t/.45; // 450 мс
-  if(k>=1){pickFx.splice(i,1);i--;continue;}
-  const g=1-k, r=.1+k*.95;
-  V1.set(f.x,f.y,f.z);Q0.identity();
-  V0.set(r,r,1);M4.compose(V1,Q0,V0);pickRing.setMatrixAt(i,M4);
-  V0.set(g*.55,g*.55,1);M4.compose(V1,Q0,V0);pickGlow.setMatrixAt(i,M4);}
- pickRing.instanceMatrix.needsUpdate=true;pickGlow.instanceMatrix.needsUpdate=true;}
+ for(let j=starP.length-1;j>=0;j--){const p=starP[j];p.t+=dt;if(p.t>=p.life){starP.splice(j,1);continue;}
+  p.vy-=6.5*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=(p.vz+S.speed)*dt;p.rot+=p.vr*dt;if(p.y<.04)p.y=.04;}
+ for(let i=0;i<64;i++){const p=starP[i];
+  if(!p){V0.set(0,0,0);M4.compose(V1.set(0,-50,0),Q0.identity(),V0);}
+  else{const k=1-p.t/p.life,s=.45+k*.55;Q0.setFromAxisAngle(ZAX,p.rot);V1.set(p.x,p.y,p.z);V0.set(s,s,1);M4.compose(V1,Q0,V0);}
+  stars.setMatrixAt(i,M4);}
+ stars.instanceMatrix.needsUpdate=true;}
 function burst(x,y,z,col,n){const c=new THREE.Color(col).convertSRGBToLinear();
  for(let i=0;i<n;i++){const k=pCur++%NP;ppos[k*3]=x;ppos[k*3+1]=y;ppos[k*3+2]=z;
   pvel[k*3]=(Math.random()-.5)*6;pvel[k*3+1]=Math.random()*5+1;pvel[k*3+2]=(Math.random()-.5)*6;
@@ -290,13 +299,22 @@ function updInst(){
  {const AXY=new THREE.Vector3(0,1,0); // дальние поселения: параллакс .55 (медленнее деревьев - дальше), цикл 340
   for(let i=0;i<18;i++){const v=housePos[i],z=-300+(((v.z+S.dist*.55)%340)+340)%340;
    Q0.setFromAxisAngle(AXY,v.ry);V1.set(v.x,v.h/2,z);V0.set(v.w,v.h,v.w);M4.compose(V1,Q0,V0);houseBody.setMatrixAt(i,M4);
-   V1.y=v.h+v.rh/2;V0.set(v.w*1.25,v.rh,v.w*1.25);M4.compose(V1,Q0,V0);houseRoof.setMatrixAt(i,M4);}
+   V1.y=v.h+v.rh/2;V0.set(v.w*1.25,v.rh,v.w*1.25);M4.compose(V1,Q0,V0);houseRoof.setMatrixAt(i,M4);
+   for(let k=0;k<2;k++){const ox=-Math.sign(v.x)*v.w*.52,oz=(k-.5)*v.w*.5,ca=Math.cos(v.ry),sa=Math.sin(v.ry);
+    Q0.setFromAxisAngle(AXY,v.ry);V1.set(v.x+ox*ca+oz*sa,v.h*.55,z-ox*sa+oz*ca);
+    V0.set(v.w*.2,v.h*.28,1);M4.compose(V1,Q0,V0);houseWin.setMatrixAt(i*2+k,M4);}}
   for(let i=0;i<6;i++){const v=towerPos[i],z=-300+(((v.z+S.dist*.55)%340)+340)%340;
    Q0.identity();V1.set(v.x,v.h/2,z);V0.set(v.w,v.h,v.w);M4.compose(V1,Q0,V0);towerMesh.setMatrixAt(i,M4);
-   V1.y=v.h+v.w*.55;M4.compose(V1,Q0.setFromAxisAngle(AXY,.5),V0.set(v.w*1.15,v.w*1.1,v.w*1.15));towerTop.setMatrixAt(i,M4);}
+   V1.y=v.h+v.w*.55;M4.compose(V1,Q0.setFromAxisAngle(AXY,.5),V0.set(v.w*1.15,v.w*1.1,v.w*1.15));towerTop.setMatrixAt(i,M4);
+   const apex=v.h+v.w*1.1; // флагшток из-под верхушки шатра
+   V1.set(v.x,apex+.7,z);V0.set(.07,1.4,.07);M4.compose(V1,Q0.identity(),V0);poleMesh.setMatrixAt(i,M4);
+   V1.set(v.x+.48,apex+1.15,z);V0.set(.9,.5,.06);M4.compose(V1,Q0.identity(),V0);flagMesh.setMatrixAt(i,M4);}
   for(let i=0;i<4;i++){const v=wallPos[i],z=-300+(((v.z+S.dist*.55)%340)+340)%340;
-   V1.set(v.x,v.h/2,z);V0.set(v.w,v.h,1);M4.compose(V1,Q0.identity(),V0);castleWall.setMatrixAt(i,M4);}
+   V1.set(v.x,v.h/2,z);V0.set(v.w,v.h,1);M4.compose(V1,Q0.identity(),V0);castleWall.setMatrixAt(i,M4);
+   for(let k=0;k<5;k++){V1.set(v.x+(k-2)*v.w/5,v.h+.16,z);V0.set(v.w/9,.32,.55);M4.compose(V1,Q0,V0);merlon.setMatrixAt(i*5+k,M4);}}
   houseBody.instanceMatrix.needsUpdate=houseRoof.instanceMatrix.needsUpdate=true;
+  houseWin.instanceMatrix.needsUpdate=merlon.instanceMatrix.needsUpdate=true;
+  poleMesh.instanceMatrix.needsUpdate=flagMesh.instanceMatrix.needsUpdate=true;
   towerMesh.instanceMatrix.needsUpdate=towerTop.instanceMatrix.needsUpdate=castleWall.instanceMatrix.needsUpdate=true;}
  for(let i=0;i<NTree;i++){const b=treePos[i],z=-260+(((b.z+S.dist*.85)%320)+320)%320;
   V1.set(b.x+bend(z),b.h/2,z);V0.set(b.w,b.h,b.w);M4.compose(V1,Q0,V0);trunks.setMatrixAt(i,M4);
