@@ -72,7 +72,7 @@ scene.add(bushes);
 // ---------- audio ----------
 const AU={m:new Audio('audio/music.m4a'),pick:new Audio('audio/pickup.m4a'),
  bump:new Audio('audio/bump.m4a'),jump:new Audio('audio/jump.m4a')};
-AU.m.loop=true; AU.m.volume=.35; AU.pick.volume=.55; AU.bump.volume=.7; AU.jump.volume=.35;
+AU.m.loop=true; AU.m.volume=.25; AU.pick.volume=.55; AU.bump.volume=.7; AU.jump.volume=.35;
 let audioOn=false;
 function unlockAudio(){
  if(audioOn)return; audioOn=true;
