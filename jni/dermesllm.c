@@ -115,7 +115,7 @@ Java_ai_serge_dermes_ChatActivity_nativeGenerate(JNIEnv *env, jclass cls, jlong 
             char buf[128];
             int len = llama_token_to_piece(h->vocab, tok, buf, sizeof(buf), 0, true);
             if (len > 0 && outLen + len < 16000) {
-                memcpy(out + outLen, buf, (size_t)len); outLen += len; out[outLen] = 0;
+                memcpy(out + outLen, buf, (size_t)len); outLen += len; out[outLen] = 0; if (outLen >= 10 && strcmp(out + outLen - 10, "<|im_end|>") == 0) { outLen -= 10; out[outLen] = 0; break; }
                 if (cb && mid) {   // one-shot summarize() passes no token callback
                     jstring js = (*env)->NewStringUTF(env, out);
                     (*env)->CallVoidMethod(env, cb, mid, js);

@@ -197,6 +197,10 @@ public class ChatActivity extends Activity {
 
     static String stripThink(String s) {
         if (s == null) return "";
+        int e = s.lastIndexOf("<|im_end|>"); if (e >= 0) s = s.substring(0, e);
+        int o = s.indexOf("<|think|>"), cl = s.indexOf("<|/think|>");
+        while (o >= 0 && cl > o) { s = s.substring(0, o) + s.substring(cl + "<|/think|>".length()); o = s.indexOf("<|think|>"); cl = s.indexOf("<|/think|>"); }
+        if (o >= 0) s = s.substring(0, o); // think ещё открыт – не показываем хвост
         String r = s.replaceAll("(?is)<[^>/]*think[^>/]*>.*?<[^>]*?/[^>]*think[^>]*>", "");
         return r.replaceAll("(?is)</?[^>]*think[^>]*>", "").trim();
     }
@@ -241,7 +245,8 @@ public class ChatActivity extends Activity {
     }
 
     private void trimHistory() { int total = 0, i = hist.size(); while (i > 1 && total < 5000) total += hist.get(--i)[1].length(); if (i > 0) { for (int j=0;j<i;j++) msgs.removeViewAt(0); hist.subList(0,i).clear(); persist(); } }
-    private String buildPrompt() { StringBuilder sb = new StringBuilder(); for (String[] m : hist) sb.append("<|im_start|>").append(m[0]).append('\n').append(m[1]).append('\n'); sb.append("<|im_start|>assistant\n"); return sb.toString(); }
+    private static final String SYSTEM = "Отвечай коротко и по делу на русском, без перевода запроса и без размышлений – только финальный ответ.";
+        private String buildPrompt() { StringBuilder sb = new StringBuilder(); sb.append("<|im_start|>system\n"+SYSTEM+"<|im_end|>\n"); for (String[] m : hist) sb.append("<|im_start|>").append(m[0]).append('\n').append(m[1]).append('\n'); sb.append("<|im_start|>assistant\n"); return sb.toString(); }
 
     private void showHistory() {
         android.widget.PopupMenu menu = new android.widget.PopupMenu(this, historyButton);
