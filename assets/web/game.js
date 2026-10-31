@@ -33,8 +33,9 @@ scene.add(clouds);
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(300,320),M(0x3E7A2A,.95)); ground.rotation.x=-Math.PI/2; ground.position.set(0,-.02,-110); scene.add(ground);
 // ---------- forest ----------
 const TREE_PALETTE=[0x3C7A2B,0x4C9C37,0x2F6B22,0x5CBA47];
-const trunkM=M(0x5A3A1F,.95);
-const NTree=72, trunks=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),trunkM,NTree), canopies=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),M(0xffffff,.85),NTree), treePos=[];
+const trunkM=M(0x5A3A1F,.95);trunkM.flatShading=true;
+const canopyM=M(0xffffff,.85);canopyM.flatShading=true;
+const NTree=72, trunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.35,.5,1,6),trunkM,NTree), canopies=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),canopyM,NTree), treePos=[];
 const tCol=new THREE.Color();
 for(let i=0;i<NTree;i++){const s=Math.random()<.5?-1:1; const h=4+Math.random()*6;
  treePos.push({x:s*(LANE*1.8+.8+Math.random()*16),z:Math.random()*320,h,w:1+Math.random()*.5,canopyH:h*.6,canopyW:2+Math.random()*1.5});
@@ -100,25 +101,39 @@ const LIFT=.86*HERO_K; // ноги уходят на -0.86 локально; м�
  const grip=box(.06,.14,.06,M(0x6B3E2A,.8)); grip.position.y=-.1;
  sword.add(blade,guard,grip); sword.position.set(0,.3,-.3); sword.rotation.x=.42; rig.add(sword); // на спине; в подкате прижимается (animRig)
 }
-// ---------- templates: forest obstacles ----------
-function tLow(){ // low bush
- const g=new THREE.Group();const b=box(1.02,.7,.6,M(0x3E8A26,.9));b.position.y=.35;
- const s=box(1.06,.16,.66,M(0x5CBA47,.9));s.position.y=.74;
- const f1=box(.1,.6,.66,M(0x2F6B22,.9)),f2=f1.clone();f1.position.set(-.46,.3,0);f2.position.set(.46,.3,0);
- g.add(b,s,f1,f2);return g;}
-function tBar(){ // fallen branch gantry: wood beam + leaves plate
- const g=new THREE.Group();const b=box(1.12,.5,.5,M(0x8A5A30,.95));b.position.y=1.32;
- const s=box(1.06,.2,.54,M(0x4C9C37,.9));s.position.y=1.06;
- const l1=box(.09,1.06,.09,M(0x5A3A1F,.9)),l2=l1.clone();l1.position.set(-.53,.53,0);l2.position.set(.53,.53,0);
- g.add(b,s,l1,l2);return g;}
-function tWall(){ // big boulder block
+// ---------- templates: Korok Forest obstacles (BotW lore) ----------
+// low-poly камень: икосаэдр с детерминированным дрожжем вершин (тот же seed = та же форма)
+function rockGeo(seed){const g=new THREE.IcosahedronGeometry(1,1);const p=g.attributes.position;
+ let s=seed; const rnd=()=>((s=(s*16807)%2147483647)/2147483647);
+ for(let i=0;i<p.count;i++){const k=1+(rnd()-.5)*.38;p.setXYZ(i,p.getX(i)*k,p.getY(i)*k,p.getZ(i)*k);}
+ g.computeVertexNormals();return g;}
+const rockMs=[M(0x8F8D89,.9),M(0x7A7875,.9),M(0x9E9C98,.9)];rockMs.forEach(m=>m.flatShading=true);
+const rockGeos=[rockGeo(11),rockGeo(777),rockGeo(31337)];
+const leafM=M(0x5CBA47,.85),rootM=M(0x6B4A2F,.9),vineM=M(0x3FAE5A,.85);
+leafM.flatShading=rootM.flatShading=vineM.flatShading=true;
+const icoG=new THREE.IcosahedronGeometry(1,0);icoG.computeVertexNormals();
+function tLow(){ // Deku burr: кочка репьев у земли (прыжок)
  const g=new THREE.Group();
- const b=box(1.06,2.35,4.2,M(0x7A7875,.9));b.position.y=1.42;
- const w1=box(1.1,.45,.9,M(0x9E9E9E,.9)),w2=w1.clone();w1.position.set(0,1.9,-1);w2.position.set(0,1.9,1);
- const st=box(1.1,.16,4.25,M(0x6A6A6A,.85));st.position.y=1.35;
- const rf=box(.94,.12,4.2,M(0x606060,.85));rf.position.y=2.62;
- const nose=box(1.0,.5,.25,M(0x5A5A5A,.85));nose.position.set(0,.5,-2.12);
- g.add(b,w1,w2,st,rf,nose);return g;}
+ const b=new THREE.Mesh(new THREE.IcosahedronGeometry(.5,1),M(0x3E8A26,.9));b.scale.set(1,.7,.6);b.position.y=.3;b.flatShading=true;g.add(b);
+ for(let i=0;i<3;i++){const s=new THREE.Mesh(icoG,leafM);s.scale.set(.26,.1,.26);
+  s.position.set((i-1)*.32,.62,(i%2?-.1:.1));s.rotation.y=i*1.3;g.add(s);}
+ return g;}
+function tBar(){ // корень Великого Дерека над тропой + лианы (подкат)
+ const g=new THREE.Group();
+ const b=new THREE.Mesh(new THREE.CylinderGeometry(.2,.24,1.24,8),rootM);b.rotation.z=Math.PI/2;b.position.y=1.32;g.add(b);
+ const s=new THREE.Mesh(icoG,leafM);s.scale.set(1.1,.16,.5);s.position.y=1.06;g.add(s);
+ for(let i=0;i<3;i++){const v=new THREE.Mesh(new THREE.CylinderGeometry(.02,.03,.5,5),vineM);
+  v.position.set((i-1)*.34,.82,.05);v.rotation.z=(i-1)*.15;g.add(v);}
+ const l1=new THREE.Mesh(new THREE.CylinderGeometry(.07,.09,1.06,6),rootM),l2=l1.clone();
+ l1.position.set(-.53,.53,0);l2.position.set(.53,.53,0);g.add(l1,l2);return g;}
+function tWall(){ // катящийся валун (BotW rolling rock) - взамен стога "вагонов"
+ const g=new THREE.Group();const R=1.15;
+ const core=new THREE.Mesh(rockGeos[(Math.random()*3)|0],rockMs[(Math.random()*3)|0]);
+ core.scale.setScalar(R);core.position.y=R;core.rotation.set(Math.random()*2,Math.random()*2,0);g.add(core);
+ g.userData.spin=core;g.userData.R=R;
+ for(let i=0;i<2;i++){const p=new THREE.Mesh(rockGeos[(i+1)%3],rockMs[i]);p.scale.setScalar(.28);
+  p.position.set((i?1:-1)*.85,.25,.5);p.rotation.y=i*2;g.add(p);}
+ return g;}
 function tCoin(){ // sword pickup
  const g=new THREE.Group();
  const blade=box(.08,.7,.05,M(0xC4CBD2,.35,.75)); blade.position.y=.65;
@@ -166,7 +181,7 @@ function burst(x,y,z,col,n){const c=new THREE.Color(col).convertSRGBToLinear();
 const laneHit=o=>o.lane===S.lane&&Math.abs(S.x-(o.lane-1)*LANE)<LANE*.6;
 function collide(){const h=S.roll>0?.8:1.62,feet=S.y,top=S.y+h;
  for(const o of S.obs){if(!laneHit(o))continue;
-  const near=o.type==='wall'?(o.z+2.1>-0.4&&o.z-2.1<0.4):Math.abs(o.z)<0.95;   // boulder is 4.2 long
+  const near=Math.abs(o.z)<(o.type==='wall'?1.35:.95); // валун круглый R1.15, а не вагон 4.2 длиной
   if(!near)continue;
   if(o.type==='low'&&feet<.7)return die();
   if(o.type==='bar'&&top>1.05)return die();
@@ -233,7 +248,8 @@ function update(dt){
  if(S.y<=0){if(S.air)burst(S.x,.1,0,0x6B4E2E,6);S.y=0;S.vy=0;S.air=false;}
  if(S.roll>0)S.roll-=dt;
  S.anim+=dt*(S.air||S.roll>0?4:S.speed*.32);
- for(const o of S.obs){o.z+=dz;o.m.position.z=o.z;o.m.position.x=(o.lane-1)*LANE+bend(o.z);}
+ for(const o of S.obs){o.z+=dz;o.m.position.z=o.z;o.m.position.x=(o.lane-1)*LANE+bend(o.z);
+  if(o.type==='wall')o.m.userData.spin.rotation.x-=dz/o.m.userData.R;} // валун катится со скоростью сцены
  for(const c of S.coinsArr){c.z+=dz;c.m.position.z=c.z;c.m.position.x=(c.lane-1)*LANE+bend(c.z);c.m.rotation.y+=dt*4;}
  S.obs=S.obs.filter(o=>o.z<DESPAWN_Z||(scene.remove(o.m),false));
  S.coinsArr=S.coinsArr.filter(c=>c.z<DESPAWN_Z&&!c.taken||(scene.remove(c.m),false));
@@ -243,19 +259,20 @@ function update(dt){
 function animRig(){
  if(S.roll>0){const s=Math.min(1,Math.min(S.roll,.45-S.roll)*10); // плавный вход/выход позы
   player.position.set(S.x,S.y+LIFT*(1-s),0); // на входе в позу ещё стоим (ступни на земле), в позе таз ведёт rig.position.y
-  rig.rotation.x=-1.25*s;rig.position.y=.48*s; // подкат-подсед: таз 0.37 мира, ноги вперёд; полный оборот не влезаёт под ветку (шляпа R=1.05+pivot)
+  rig.rotation.x=-1.25*s;rig.position.y=.48*s;rig.rotation.z=-.08*s; // подкат-подсед: таз 0.37 мира, ноги вперёд; полный оборот не влезаёт под ветку (шляпа R=1.05+pivot)
   armL.rotation.x=armR.rotation.x=1.4*s;legL.rotation.x=legR.rotation.x=-1.2*s;
   head.rotation.x=-.4*s; // подбородок к груди: шляпа не уходит вверх
   tip.rotation.x=-.55-.9*s; // кончик шапки догибается назад-вниз
   sword.rotation.x=.42+1.3*s; // меч прижимается назад-вниз, не торчит в ветку
   return;}
  player.position.set(S.x,S.y+LIFT,0);
- rig.rotation.x=0;rig.position.y=0;sword.rotation.x=.42;head.rotation.x=0;tip.rotation.x=-.55;
+ rig.rotation.x=0;rig.position.y=0;rig.rotation.z=0;sword.rotation.x=.42;head.rotation.x=0;tip.rotation.x=-.55;
  if(S.air){rig.rotation.x=-.12;armL.rotation.x=armR.rotation.x=-2.1;legL.rotation.x=-.9;legR.rotation.x=.5;return;}
  const a=S.anim*2,sw=Math.sin(a);
  rig.position.y=Math.abs(Math.sin(a))*.03;
  legL.rotation.x=sw*.9;legR.rotation.x=-sw*.9;
  armL.rotation.x=-sw*.8;armR.rotation.x=sw*.8;
+ rig.rotation.z=Math.sin(a)*.04; // покачивание корпуса в беге
  head.rotation.y=Math.sin(S.t*.8)*.06;}
 let camX=0,camF=70;
 function animCam(dt){
