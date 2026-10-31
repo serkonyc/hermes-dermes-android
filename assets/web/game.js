@@ -91,7 +91,7 @@ scene.add(bushes);
 // ---------- audio ----------
 const AU={m:new Audio('audio/music.m4a'),pick:new Audio('audio/pickup.m4a'),
  bump:new Audio('audio/bump.m4a'),jump:new Audio('audio/jump.m4a')};
-AU.m.loop=true; AU.m.volume=.25; AU.pick.volume=.55; AU.bump.volume=.7; AU.jump.volume=.35;
+AU.m.loop=true; AU.m.volume=.13; AU.pick.volume=.55; AU.bump.volume=.7; AU.jump.volume=.35;
 let audioOn=false;
 function unlockAudio(){
  if(audioOn)return; audioOn=true;
@@ -174,7 +174,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.35.5';
+const VER='4.36.0';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0);
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -231,20 +231,19 @@ function driveHero(dt){
   heroM.rotation.x=-x; heroM.rotation.z=0;
   heroM.rotation.x=-x;                            // голова вперёд по бегу (-z); знак проверен пробом
   heroM.rotation.z=0;
-  heroM.scale.set(1,1,1);                         // без squash: геометрия клубка честная
+  const sq=.50*tk;heroM.scale.set(1-.05*tk,1-sq,1-sq); // squash: клубок 0.90м по замеру во всех фазах оборота
   j.rig.position.y=0;                              // (pivot компенсирован на root)
-  j.rig.rotation.x=1.2*tk;j.head.rotation.x=.5*tk; // подбородок к груди - без этого клубок не круглый
-  j.rig.rotation.x=1.2*tk;j.head.rotation.x=.5*tk;
-  j.hat.rotation.x=-2.1*tk;                       // колпак вдоль спины: хвост в габарите клубка
-  j.armL.rotation.x=-1.6*tk;j.armR.rotation.x=-1.6*tk;j.elbowL.rotation.x=1.5*tk;j.elbowR.rotation.x=1.5*tk;
-  j.armL.rotation.z=.45*tk;j.armR.rotation.z=-.45*tk;
-  j.legL.rotation.x=-1.5*tk;j.legR.rotation.x=-1.5*tk;j.kneeL.rotation.x=1.9*tk;j.kneeR.rotation.x=1.9*tk;
-  j.ankleL.rotation.x=-.6*tk;j.ankleR.rotation.x=-.6*tk;
+  j.rig.rotation.x=1.6*tk;j.head.rotation.x=1.1*tk; // подбородок к груди - без этого клубок не круглый
+  j.hat.rotation.x=-3.0*tk;                       // колпак вдоль спины: хвост в габарите клубка
+  j.armL.rotation.x=-2.5*tk;j.armR.rotation.x=-2.5*tk;j.elbowL.rotation.x=2.2*tk;j.elbowR.rotation.x=2.2*tk; // обхват коленей
+  j.armL.rotation.z=.55*tk;j.armR.rotation.z=-.55*tk;
+  j.legL.rotation.x=-2.4*tk;j.legR.rotation.x=-2.25*tk;j.kneeL.rotation.x=2.6*tk;j.kneeR.rotation.x=2.5*tk; // колени к груди
+  j.ankleL.rotation.x=-.9*tk;j.ankleR.rotation.x=-.9*tk;
   if(p>.8){ // выкат: ноги под себя, ладони к земле
    const w=Math.min(1,(p-.8)/.2);
-   j.legL.rotation.x=-1.5*(1-w)-.3*w;j.legR.rotation.x=-1.5*(1-w)+.5*w;
-   j.kneeL.rotation.x=1.9*(1-w)+.2*w;j.kneeR.rotation.x=1.9*(1-w)+.1*w;
-   j.armL.rotation.x=-1.6*(1-w)-.4*w;j.armR.rotation.x=-1.6*(1-w)+.2*w;}
+   j.legL.rotation.x=-2.4*(1-w)-.3*w;j.legR.rotation.x=-2.25*(1-w)+.5*w;
+   j.kneeL.rotation.x=2.6*(1-w)+.2*w;j.kneeR.rotation.x=2.5*(1-w)+.1*w;
+   j.armL.rotation.x=-2.5*(1-w)-.4*w;j.armR.rotation.x=-2.5*(1-w)+.2*w;}
   // измеренная опора: подъём = -min.y позы (как у прыжка) - мяч катится касанием, асимметрия даёт честную закачку
   heroM.updateMatrixWorld(true);
   if(!heroM.__lb)heroM.__lb=new THREE.Box3();
@@ -393,7 +392,8 @@ function burst(x,y,z,col,n){const c=new THREE.Color(col).convertSRGBToLinear();
  pPts.geometry.attributes.position.needsUpdate=pPts.geometry.attributes.color.needsUpdate=true;}
 // ---------- collision ----------
 const laneHit=o=>o.lane===S.lane&&Math.abs(S.x-(o.lane-1)*LANE)<LANE*.6;
-function collide(dt){const h=S.roll>0?.85:1.62,feet=S.roll>0?S.rollY:S.y,top=feet+h; // под кувырком прогибаемся (как подкатом v4.34): bar закрывает щель, не ломая физику прыжка
+function collide(dt){const h=S.roll>0?.95:1.62, // хитбокс = измеренный клубок .90 + зазор
+ feet=S.roll>0?S.rollY:S.y,top=feet+h; // под кувырком прогибаемся (как подкатом v4.34): bar закрывает щель, не ломая физику прыжка
  for(const o of S.obs){if(!laneHit(o))continue;
   const near=Math.abs(o.z)<(o.type==='wall'?1.35:.95); // валун круглый R1.15, а не вагон 4.2 длиной
   if(!near)continue;
