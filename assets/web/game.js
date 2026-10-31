@@ -66,33 +66,34 @@ addEventListener('mousedown',unlockAudio);
 addEventListener('touchend',()=>{if(!audioOn)unlockAudio();},{passive:true});
 
 // ---------- player: blocky forest hero ----------
-const skinM=M(0xF4D0B0,.8), tunicM=M(0x3FAE5A,.8), beltM=M(0x6B3E2A,.85), bootM=M(0x6B4A2F,.85), hatM=M(0x41C05E,.8), hairM=M(0x2E2E2E,.9);
+const skinM=M(0xF4D0B0,.8), tunicM=M(0x3FAE5A,.8), beltM=M(0x6B3E2A,.85), bootM=M(0x6B4A2F,.85), hatM=M(0x41C05E,.8), hairM=M(0xD9B45B,.9); // светлые волосы
 const player=new THREE.Group(), rig=new THREE.Group(); player.add(rig); scene.add(player);
 function limb(w,h,m,pivotY){const p=new THREE.Group();const b=box(w,h,w,m);b.position.y=-h/2;p.add(b);p.position.y=pivotY;return p;}
 var armL,armR,legL,legR, head, sword;
+const LIFT=.86; // ноги юнифона уходят на -0.86 от рига; поднимаем, чтобы ступни стояли на земле
 {head=new THREE.Group(); head.position.set(0,.84,0); rig.add(head);
- const face=box(.6,.6,.6,skinM); head.add(face);
- const hair=box(.62,.42,.08,hairM); hair.position.set(0,.16,.34); head.add(hair);
- const eyeL=box(.1,.12,.08,M(0x1A2E14,.6)); eyeL.position.set(-.14,.04,.28); const eyeR=eyeL.clone(); eyeR.position.x=.14; head.add(eyeL,eyeR);
- const hat=new THREE.Mesh(new THREE.ConeGeometry(.44,.36,4),hatM); hat.position.set(0,.5,0); hat.rotation.y=Math.PI/4; head.add(hat);
+ const face=box(.66,.62,.6,skinM); head.add(face);
+ const hair=box(.7,.3,.1,hairM); hair.position.set(0,.28,.31); head.add(hair);            // чёлка
+ const hairB=box(.7,.5,.12,hairM); hairB.position.set(0,.06,-.31); head.add(hairB);        // затылок
+ const sideL=box(.1,.36,.5,hairM); const sideR=sideL.clone(); sideL.position.set(-.36,.02,0); sideR.position.set(.36,.02,0); head.add(sideL,sideR);
+ const eyeL=box(.09,.14,.06,M(0x2A4A1E,.6)); eyeL.position.set(-.15,0,.29); const eyeR=eyeL.clone(); eyeR.position.x=.15; head.add(eyeL,eyeR);
+ const hat=box(.62,.14,.58,hatM); hat.position.set(0,.4,0); head.add(hat);                // основание шапки
+ const tip=new THREE.Mesh(new THREE.ConeGeometry(.3,.6,4),hatM); tip.position.set(0,.72,-.12); tip.rotation.set(-.55,Math.PI/4,0); head.add(tip); // загнутый кончик назад
  const body=box(.64,.56,.32,tunicM); body.position.set(0,.3,0); rig.add(body);
+ const collar=box(.4,.1,.34,M(0xF2EFE2,.8)); collar.position.set(0,.6,.02); rig.add(collar);
  const belt=box(.68,.08,.36,beltM); belt.position.set(0,.08,0); rig.add(belt);
+ const buckle=box(.1,.09,.05,M(0xFFD24A,.5,.3)); buckle.position.set(0,.08,.2); rig.add(buckle);
  armL=limb(.18,.52,tunicM,.58); armR=limb(.18,.52,tunicM,.58); armL.position.set(-.4,.28,0); armR.position.set(.4,.28,0); rig.add(armL,armR);
+ const handL=box(.16,.14,.16,skinM); const handR=handL.clone(); handL.position.y=-.56; handR.position.y=-.56; armL.add(handL); armR.add(handR);
  legL=limb(.24,.6,tunicM,.0); legR=limb(.24,.6,tunicM,.0); legL.position.set(-.15,-.26,0); legR.position.set(.15,-.26,0); rig.add(legL,legR);
- const bootL=box(.26,.16,.26,bootM); const bootR=bootL.clone(); bootL.position.set(-.15,-.58,0); bootR.position.set(.15,-.58,0); rig.add(bootL,bootR);
+ const bootL=box(.26,.16,.3,bootM); const bootR=bootL.clone(); bootL.position.set(-.15,-.58,.03); bootR.position.set(.15,-.58,.03); rig.add(bootL,bootR);
  // carried sword on the back
  sword=new THREE.Group();
- const blade=box(.08,.78,.04,M(0xC4CBD2,.35,.75)); blade.position.y=.34;
- const guard=box(.22,.05,.05,M(0x6B3E2A,.8)); guard.position.y=.02;
- const grip=box(.06,.16,.06,M(0x6B3E2A,.8)); grip.position.y=-.08;
- sword.add(blade,guard,grip); sword.position.set(0,.28,-.32); sword.rotation.x=.48; rig.add(sword);
+ const blade=box(.08,.62,.04,M(0xC4CBD2,.35,.75)); blade.position.y=.27;
+ const guard=box(.22,.05,.05,M(0x6B3E2A,.8));
+ const grip=box(.06,.14,.06,M(0x6B3E2A,.8)); grip.position.y=-.1;
+ sword.add(blade,guard,grip); sword.position.set(0,.3,-.3); sword.rotation.x=.42; rig.add(sword); // вертикально на спине; при подкате кончик максимум ~1.03, под ветку не попадает
 }
-const shCv=document.createElement('canvas');shCv.width=shCv.height=64;{const g=shCv.getContext('2d');
- const rg=g.createRadialGradient(32,32,4,32,32,30);rg.addColorStop(0,'rgba(30,22,12,.55)');rg.addColorStop(1,'rgba(30,22,12,0)');
- g.fillStyle=rg;g.fillRect(0,0,64,64);}
- const shadow=new THREE.Mesh(new THREE.PlaneGeometry(1.2,1.2),
-  new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(shCv),transparent:true,depthWrite:false}));
-shadow.rotation.x=-Math.PI/2;shadow.position.y=.04;shadow.renderOrder=1;scene.add(shadow);
 // ---------- templates: forest obstacles ----------
 function tLow(){ // low bush
  const g=new THREE.Group();const b=box(1.02,.7,.6,M(0x3E8A26,.9));b.position.y=.35;
@@ -231,10 +232,10 @@ function update(dt){
  collide();}
 // ---------- rig + camera ----------
 function animRig(){
- player.position.set(S.x,S.y,0);
- shadow.position.set(S.x,.04,0);const k=Math.max(.3,1-S.y*.22);shadow.scale.setScalar(k);
- if(S.roll>0){const p=1-S.roll/.5;rig.rotation.x=-p*TAU;rig.position.y=.42;
+ if(S.roll>0){const p=1-S.roll/.5;player.position.set(S.x,S.y+LIFT+.08,0);
+  rig.rotation.x=-p*TAU;rig.position.y=.78; // центр кувырка над землёй по радиусу rigs, катится по поверхности
   armL.rotation.x=armR.rotation.x=-1.2;legL.rotation.x=legR.rotation.x=1.0;return;}
+ player.position.set(S.x,S.y+LIFT,0);
  rig.rotation.x=0;rig.position.y=0;
  if(S.air){rig.rotation.x=-.12;armL.rotation.x=armR.rotation.x=-2.1;legL.rotation.x=-.9;legR.rotation.x=.5;return;}
  const a=S.anim*2,sw=Math.sin(a);
@@ -246,7 +247,7 @@ let camX=0,camF=70;
 function animCam(dt){
  camX+=(S.x*.55-camX)*Math.min(1,dt*6);
  camera.position.set(camX+(Math.random()-.5)*.5*S.shake,2.45+S.y*.22+(Math.random()-.5)*.5*S.shake,7.1);
- camera.lookAt(S.x*.7,1.15,-9);
+ camera.lookAt(S.x*.7,1.5,-9);
  camera.rotation.z+=(S.x*.55-camera.position.x)*.04-camera.rotation.z;
  const tf=70+(S.speed-26)*.5;camF+=(tf-camF)*Math.min(1,dt*3);
  if(Math.abs(camera.fov-camF)>.05){camera.fov=camF;camera.updateProjectionMatrix();}}
