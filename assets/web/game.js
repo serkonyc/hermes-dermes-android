@@ -184,7 +184,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.38.0';
+const VER='4.38.1';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -282,26 +282,27 @@ function driveHero(dt){
  const lp=legPh(0),rp=legPh(Math.PI);
  const armPh=ph=>{const s0=Math.sin(a+ph);return{shoulder:-s0*.85-.1,elbow:-.35-.3*Math.max(0,s0)};};
  const alp=armPh(Math.PI),arp=armPh(0); // руки в противофазе с ногами
- // шаг в сторону при смене полосы: перенос корпуса, маховая нога, баланс руками, микро-подскок
- const st=S.stepT>0?Math.sin(Math.PI*(1-S.stepT/.3)):0,sd=S.stepD||0;
- if(st>0){const lead=sd>0?j.legR:j.legL,leadK=sd>0?j.kneeR:j.kneeL,other=sd>0?j.legL:j.legR;
-  const lt=sd>0?rp:lp,ot=sd>0?lp:rp; // маховая - дальняя от направления? ближняя: ведущей становится нога в сторону движения
-  T(lead,'x',-1.0*st+lt.thigh*(1-st));T(leadK,'x',1.1*st+Math.max(0,lt.knee)*(1-st));T(other,'x',.4*st+ot.thigh*(1-st));
-  T(j.armL,'z',(sd<0?.55:-.25)*st);T(j.armR,'z',(sd>0?-.55:.25)*st);}
+ const st=S.stepT>0?Math.sin(Math.PI*(1-S.stepT/.36)):0,sd=S.stepD||0; // шаг в сторону: применение после базовой походки
  heroM.scale.set(1+.09*land,sq,1+.09*land); // squash при приземлении
  T(j.rig,'x',.12+spd*.04+Math.sin(a*2+Math.PI*.2)*.03); // наклон вперёд + дыхание
  j.rig.position.y=-.02+Math.abs(sw)*.045+Math.sin(a)*.018; // осциллятор таза
- T(j.rig,'z',Math.sin(a)*.05-sd*.17*st);T(j.rig,'y',Math.sin(a)*.09+sd*.22*st);
+ T(j.rig,'z',Math.sin(a)*.05-sd*.24*st);T(j.rig,'y',Math.sin(a)*.09+sd*.3*st);
  T(j.legL,'x',lp.thigh);T(j.kneeL,'x',lp.knee);T(j.ankleL,'x',lp.ankle);
  T(j.legR,'x',rp.thigh);T(j.kneeR,'x',rp.knee);T(j.ankleR,'x',rp.ankle);
  T(j.armL,'x',alp.shoulder);T(j.armR,'x',arp.shoulder);
  T(j.elbowL,'x',alp.elbow);T(j.elbowR,'x',arp.elbow);
  T(j.armL,'z',.12-Math.max(0,alp.shoulder)*.08);T(j.armR,'z',-.12+Math.max(0,arp.shoulder)*.08);
+ if(st>0){ // приставной шаг: маховая нога отводится и переносится, толчковая отталкивается, руки врозь для баланса
+  const lead=sd>0?j.legR:j.legL,leadK=sd>0?j.kneeR:j.kneeL,other=sd>0?j.legL:j.legR;
+  const lt=sd>0?rp:lp,ot=sd>0?lp:rp;
+  T(lead,'x',-1.0*st+lt.thigh*(1-st));T(lead,'z',-sd*.75*st);T(leadK,'x',1.1*st+Math.max(0,lt.knee)*(1-st));
+  T(other,'x',.4*st+ot.thigh*(1-st));T(other,'z',sd*.22*st);
+  T(j.armL,'z',(sd>0?.6:-.15)*st);T(j.armR,'z',(sd<0?-.6:.15)*st);}
  T(j.head,'z',-Math.sin(a)*.03);T(j.head,'y',Math.sin(a)*.09+Math.sin(S.t*.8)*.06); // стабилизация взгляда
  T(j.head,'x',.04+Math.sin(a*2+Math.PI*.3)*.025);
  tipV+=Math.sin(a*2+Math.PI*.3)*dt*24; // импульс колпака от ускорения головы
  T(j.hat,'x',-.05+Math.sin(a*2)*.03+tipQ*.5);
- heroM.position.y+=st*.075; // подскок шага
+ heroM.position.y+=st*.16; // подскок приставного шага
  // кукла-марионетка: корпус ведёт жёстко, конечности догоняют мягче - цепь читается связанной, а не 13 шарниров
  // тряпичность: всё догоняет с запаздыванием, жёсткость ниже - силуэт «дышит», а не щёлкает позам
  springs(dt,165,14,[j.rig,j.head]); springs(dt,78,9.5,[j.armL,j.armR,j.elbowL,j.elbowR,j.legL,j.legR,j.kneeL,j.kneeR,j.ankleL,j.ankleR]);
@@ -411,40 +412,53 @@ function burst(x,y,z,col,n){const c=new THREE.Color(col).convertSRGBToLinear();
   pvel[k*3]=(Math.random()-.5)*6;pvel[k*3+1]=Math.random()*5+1;pvel[k*3+2]=(Math.random()-.5)*6;
   pcol[k*3]=c.r;pcol[k*3+1]=c.g;pcol[k*3+2]=c.b;plife[k]=.7;}
  pPts.geometry.attributes.position.needsUpdate=pPts.geometry.attributes.color.needsUpdate=true;}
-// ---------- цикл дня/ночи + погода ----------
-const DCY=700; // метров на полные сутки
-const KF=[[0,0xffffff,0xBFE6FA,0xFFF3D6,1.15,.9,0],[.45,0xffffff,0xBFE6FA,0xFFF3D6,1.15,.9,0],
- [.55,0xff9a66,0xcf8f6b,0xff9c50,.5,.5,.35],[.62,0x39466e,0x26324f,0x8fb0ff,.16,.3,1],
- [.88,0x39466e,0x26324f,0x8fb0ff,.16,.3,1],[.95,0xffcf9e,0xcaa07b,0xffb576,.75,.6,.3],
- [1,0xffffff,0xBFE6FA,0xFFF3D6,1.15,.9,0]]
-.map(k=>[k[0],new THREE.Color(k[1]).convertSRGBToLinear(),new THREE.Color(k[2]).convertSRGBToLinear(),new THREE.Color(k[3]).convertSRGBToLinear(),k[4],k[5],k[6]]);
-const WX={st:0,next:140,night:0},GRAY=new THREE.Color(.62,.62,.6);
-const _cA=new THREE.Color(),_cB=new THREE.Color();
+// ---------- открытая дорога <-> тоннели + погода ----------
+const SEG={in:0,m:0,next:260};   // in: в тоннеле; m: 0..1 смешение света/стенок
+const WX={st:0,next:150,night:0},GRAY=new THREE.Color(.62,.62,.6);
+const _cA=new THREE.Color();
+const _SKY_D=new THREE.Color(1,1,1),_SKY_C=new THREE.Color(.05,.04,.035);
+const _FOG_D=new THREE.Color(HZ).convertSRGBToLinear(),_FOG_C=new THREE.Color(0x171310).convertSRGBToLinear();
+const _SL_D=new THREE.Color(0xFFF3D6).convertSRGBToLinear(),_SL_C=new THREE.Color(0x7d8fc0).convertSRGBToLinear();
+// каменные кольца тоннеля: фасетчатая труба по 3 м, следует за изгибом дороги
+const NT=11,tun=new THREE.InstancedMesh(new THREE.CylinderGeometry(4.4,4.4,3.02,9,1,true),
+ new THREE.MeshStandardMaterial({color:new THREE.Color(0x6b5a48).convertSRGBToLinear(),roughness:.95,flatShading:true,side:THREE.DoubleSide}),NT);
+{const rc=[0x6b5a48,0x5d4d3e,0x776552];for(let i=0;i<NT;i++)tun.setColorAt(i,new THREE.Color(rc[i%3]).convertSRGBToLinear());}
+scene.add(tun);
+const TUNAX=new THREE.Vector3(1,0,0);
+const OFFC=new THREE.Color(.34,.26,.17),ONC=new THREE.Color(1,.78,.42);
 function dayFx(dt){
- const t=(S.dist%DCY)/DCY;let i=0;while(i<KF.length-2&&KF[i+1][0]<t)i++;
- const a=KF[i],b=KF[i+1],f=Math.min(1,Math.max(0,(t-a[0])/(b[0]-a[0])));
- _cA.lerpColors(a[1],b[1],f);sunL.color.lerpColors(a[3],b[3],f);
- let si=a[4]+(b[4]-a[4])*f, hi=a[5]+(b[5]-a[5])*f;
- WX.night=a[6]+(b[6]-a[6])*f;
+ if(S.dist>SEG.next){SEG.in=SEG.in?0:1;SEG.next=S.dist+(SEG.in?110+Math.random()*90:220+Math.random()*240);
+  if(SEG.in)WX.st=0;else WX.next=S.dist;}
+ SEG.m+=((SEG.in?1:0)-SEG.m)*Math.min(1,dt*2.4);
+ const m=SEG.m;WX.night=m;
  if(S.dist>WX.next){const r=Math.random();WX.st=r<.55?0:r<.85?1:2;WX.next=S.dist+120+Math.random()*180;}
+ let si=1.15*(1-m)+.14*m,hi=.9*(1-m)+.3*m;
+ _cA.copy(_SKY_D).lerp(_SKY_C,m);sunL.color.copy(_SL_D).lerp(_SL_C,m);
  if(WX.st===1){si*=.6;_cA.lerp(GRAY,.35);}
- if(WX.st===2){si*=.35;hi*=.8;_cA.lerp(GRAY,.55);
+ if(WX.st===2&&!SEG.in){si*=.35;hi*=.8;_cA.lerp(GRAY,.55);
   for(let n=dt*80|0;n>0;n--){const k=pCur++%NP,ix=k*3;
    ppos[ix]=S.x+(Math.random()-.5)*16;ppos[ix+1]=6+Math.random()*3;ppos[ix+2]=-14+Math.random()*22;
    pvel[ix]=0;pvel[ix+1]=-16;pvel[ix+2]=0;
    pcol[ix]=.66;pcol[ix+1]=.78;pcol[ix+2]=.88;plife[k]=.5;}
   pPts.geometry.attributes.position.needsUpdate=pPts.geometry.attributes.color.needsUpdate=true;}
- SKYDOME.material.color.copy(_cA);scene.fog.color.lerpColors(a[2],b[2],f);
+ SKYDOME.material.color.copy(_cA);scene.fog.color.copy(_FOG_D).lerp(_FOG_C,m);
+ scene.fog.near=45-33*m;scene.fog.far=120-70*m;
  sunL.intensity=si;HEMI.intensity=hi;
- const on=WX.night,OFF=new THREE.Color(.34,.26,.17),ON=new THREE.Color(1,.78,.42),GL=new THREE.Color(1,.72,.35);
- flameMat.color.copy(OFF).lerp(ON,on);glowMat.opacity=on*.55;
+ const on=Math.min(1,m*1.6);
+ flameMat.color.copy(OFFC).lerp(ONC,on);glowMat.opacity=on*.6;
  houseWin.material.color.setHex(0xFFCE6B).convertSRGBToLinear().multiplyScalar(.6+on*.9);
  for(let i2=0;i2<NL;i2++){const b2=lanP[i2],z=-150+(((b2.z+S.dist)%220)+220)%220,x=b2.x+bend(z);
   V1.set(x,1.15,z);V0.set(1,1,1);Q0.identity();M4.compose(V1,Q0,V0);poles.setMatrixAt(i2,M4);
   V1.set(x,2.3,z);M4.compose(V1,Q0,V0);flame.setMatrixAt(i2,M4);
   const fl=.9+.18*Math.sin(S.t*7+i2*2.7);V0.set(fl*(.6+on*.7),fl*(.6+on*.7),fl*(.6+on*.7));
   M4.compose(V1,Q0,V0);glow.setMatrixAt(i2,M4);}
- poles.instanceMatrix.needsUpdate=flame.instanceMatrix.needsUpdate=glow.instanceMatrix.needsUpdate=true;}
+ poles.instanceMatrix.needsUpdate=flame.instanceMatrix.needsUpdate=glow.instanceMatrix.needsUpdate=true;
+ // кольца тоннеля: наезд из-под земли при входе, масштаб=смешение
+ for(let i=0;i<NT;i++){const z=-((S.dist%3))-i*3,x=bend(z);
+  Q0.setFromAxisAngle(TUNAX,Math.PI/2);V1.set(x,1.6,z);const s=SEG.m;V0.set(s,s,s);
+  M4.compose(V1,Q0,V0);tun.setMatrixAt(i,M4);}
+ tun.instanceMatrix.needsUpdate=true;
+ tun.visible=SEG.m>.02;}
 // ---------- collision ----------
 const laneHit=o=>o.lane===S.lane&&Math.abs(S.x-(o.lane-1)*LANE)<LANE*.6;
 function collide(dt){const h=S.roll>0?1.0:1.62, // хитбокс = измеренный клубок .90 + зазор
@@ -463,7 +477,7 @@ function die(){if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);if(rollRoot){rollRoot.ro
  S.bestC=Math.max(S.bestC,S.coins);localStorage.setItem('nr_bestc',S.bestC);
  burst(S.x+bend(0),S.y+.8,0,0xF5F5F5,30);showOver();}
 // ---------- input ----------
-function move(d){const l=Math.max(0,Math.min(2,S.lane+d));if(l!==S.lane&&S.mode==='run'){S.stepT=.3;S.stepD=Math.sign(l-S.lane);}S.lane=l;}
+function move(d){const l=Math.max(0,Math.min(2,S.lane+d));if(l!==S.lane&&S.mode==='run'){S.stepT=.36;S.stepD=Math.sign(l-S.lane);}S.lane=l;}
 function jump(){if(!S.air&&S.roll<=0){S.vy=JUMP_V;S.air=true;sfx('jump');}}
 function doRoll(){if(S.roll>0)return;S.roll=.62;S.rollAir=S.air;if(S.air){S.rollY=S.y;S.rollV=Math.min(S.vy,-2);S.vy=0;sfx('jump');}else{S.rollY=0;S.rollV=0;}}
 function act(a){if(window.dlog&&a!=='T'&&a!=='O')dlog.swipe();
@@ -561,7 +575,7 @@ function update(dt){
   if(Math.random()<dt*20&&S.rollY<.06)burst(S.x,.03,.2,0x6B4E2E,1);
   S.roll-=dt;if(S.roll<=0)S.roll=0;}
  else if(S.roll>0)S.roll-=dt;
- S.anim+=dt*(S.air||S.roll>0?4:S.speed*.32);
+ S.anim+=(S.air||S.roll>0)?4*dt:dz*(Math.PI*2/3); // шаг привязан к грунту: 3 м на цикл, темп растёт со скоростью
  for(const o of S.obs){
   const vz=dz+(o.type==='wall'?5.5*dt:0); // валун катится НАВСТРЕЧУ: свой ход поверх скролла сцены
   o.z+=vz;o.m.position.z=o.z;o.m.position.x=(o.lane-1)*LANE+bend(o.z);
