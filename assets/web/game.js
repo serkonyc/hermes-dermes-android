@@ -193,7 +193,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.39.1';
+const VER='4.39.2';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -445,8 +445,8 @@ tunG.setAttribute('position',new THREE.BufferAttribute(tunV,3));
 {const idx=[];for(let i=0;i<TSEG-1;i++)for(let k=0;k<TRING;k++){const a0=i*TRING+k,b0=i*TRING+(k+1)%TRING,c0=(i+1)*TRING+k,d0=(i+1)*TRING+(k+1)%TRING;idx.push(a0,c0,b0,b0,c0,d0);}tunG.setIndex(idx);}
 const tun=new THREE.Mesh(tunG,new THREE.MeshStandardMaterial({color:new THREE.Color(0x6b5a48).convertSRGBToLinear(),roughness:.95,flatShading:true,side:THREE.DoubleSide}));
 scene.add(tun);
-// гряда валунов поверх пещеры: снаружи читается как каменистая горка на горизонте
-const NRK=28,tunRidge=new THREE.InstancedMesh(rockGeos[1],new THREE.MeshStandardMaterial({color:new THREE.Color(0x5d4d3e).convertSRGBToLinear(),roughness:.95,flatShading:true}),NRK);
+// грудa валунов вокруг трубы: снаружи читается как каменистая насыпь, а не труба
+const NRK=64,tunRidge=new THREE.InstancedMesh(rockGeos[1],new THREE.MeshStandardMaterial({color:new THREE.Color(0x5d4d3e).convertSRGBToLinear(),roughness:.95,flatShading:true}),NRK);
 scene.add(tunRidge);
 let tunSeed=Math.random()*97+3;
 const OFFC=new THREE.Color(.34,.26,.17),ONC=new THREE.Color(1,.78,.42);
@@ -480,10 +480,19 @@ function dayFx(dt){
   const fl=.9+.18*Math.sin(S.t*7+i2*2.7);V0.set(fl*(.6+on*.7),fl*(.6+on*.7),fl*(.6+on*.7));
   M4.compose(V1,Q0,V0);glow.setMatrixAt(i2,M4);
   V1.set(x-Math.sign(b2.x)*1.6,.02,z);V0.set(1.55+on*1.3,1,1.55+on*1.3);lampPool.instanceMatrix.needsUpdate=true;lampPool.setMatrixAt(i2,M4);
-  if(z<0&&z>-9&&z>lampZ){lampZ=z;lampX=x;lampY=2.2;}}
- lampPL.position.set(lampX,lampY,lampZ);lampPL.intensity=on*4.5;
+  if(z<1&&z>-24&&z>lampZ){lampZ=z;lampX=x;lampY=2.2;}}
+ // огибающая: разгорается за 5м до, гаснет за 4.5м до прохождений - с перекрытием соседних ламп
+ const envZ=z16=>Math.max(0,Math.min((-z16-1)/4,(z16+19)/6,1));
+ // сглаживание: цель выбирается дискретно (ближайший фонарь), а позиция/яркость догоняют - никаких щелчков при смене
+ {const k=Math.min(1,dt*7);const tx=lampX,ty=lampY,tz=lampZ,ti=on*4.5*envZ(lampZ);
+  lampPL.position.set(lampPL.position.x+(tx-lampPL.position.x)*k,ty,lampPL.position.z+(tz-lampPL.position.z)*k);
+  lampPL.intensity+=(ti-lampPL.intensity)*k;}
  // вторая лампа: следующий фонарь — чтобы тропы между ними не были пустыми
- for(let j=0;j<NL;j++){const b2=lanP[j],z=-150+(((b2.z+S.dist)%220)+220)%220;if(z<=lampZ&&z>lampZ-16){lampPL2.position.set(b2.x+bend(z)-Math.sign(b2.x)*.5,2.2,z);lampPL2.intensity=on*3.8;break;}}
+ lampPL2.__ti=0;
+ for(let j=0;j<NL;j++){const b2=lanP[j],z=-150+(((b2.z+S.dist)%220)+220)%220;if(z<=lampZ-2&&z>lampZ-20){lampPL2.__tx=b2.x+bend(z)-Math.sign(b2.x)*.5;lampPL2.__tz=z;lampPL2.__ti=on*3.8*envZ(z);break;}}
+ {const k=Math.min(1,dt*7);
+  lampPL2.position.set(lampPL2.position.x+((lampPL2.__tx||lampPL2.position.x)-lampPL2.position.x)*k,2.2,lampPL2.position.z+((lampPL2.__tz!==undefined?lampPL2.__tz:lampPL2.position.z)-lampPL2.position.z)*k);
+  lampPL2.intensity+=((lampPL2.__ti||0)-lampPL2.intensity)*k;}
  poles.instanceMatrix.needsUpdate=flame.instanceMatrix.needsUpdate=glow.instanceMatrix.needsUpdate=lampPool.instanceMatrix.needsUpdate=tunRidge.instanceMatrix.needsUpdate=true;
  // сечения пещеры: радиус и центр «дышат» вдоль длины, раструб у входов
  for(let i=0;i<TSEG;i++){const s=i/(TSEG-1)*SEG.len,zw=SEG.start+s,z=S.dist-zw; // вперёд = -z
@@ -492,8 +501,10 @@ function dayFx(dt){
   const cx=bend(z),cy=1.75+.4*Math.sin(s*.06+tunSeed*5)*e; // центр строго по тропе: неровность только в радиусе, стены не лезут на дорогу
   for(let k=0;k<TRING;k++){const ang=k/TRING*6.2832,ix=(i*TRING+k)*3;
    tunV[ix]=cx+r*Math.cos(ang);tunV[ix+1]=cy+r*.92*Math.sin(ang);tunV[ix+2]=z;}
-  const ri=i>>1;if(ri<NRK){Q0.identity();V1.set(cx+Math.sin(ri*2.1)*2.4,cy+r*.9+1.1,z);
-   const sc=1.6+((ri*73)%17)/17*1.8;V0.set(sc,sc*.8,sc);M4.compose(V1,Q0,V0);tunRidge.setMatrixAt(ri,M4);}}
+  const ri=i>>1;if(ri*2<NRK)for(let q=0;q<2;q++){const n=ri*2+q,h=((n*53)%29)/29,h2=((n*17)%11)/11;
+   const ang=Math.PI*(.05+.9*h),rO=r+.25+h2*1.2; // валуны по верхней дуге и бокам, частично вросшие
+   Q0.setFromAxisAngle(YAX,h*6.28);V1.set(cx+rO*Math.cos(ang),cy+rO*.92*Math.sin(ang)-.25,z);
+   const sc=1.4+h2*2.1;V0.set(sc,sc*.85,sc);M4.compose(V1,Q0,V0);tunRidge.setMatrixAt(n,M4);}}
  tunG.attributes.position.needsUpdate=true;tunG.computeVertexNormals();
  tun.visible=true;tunRidge.visible=true;}
 // ---------- collision ----------
