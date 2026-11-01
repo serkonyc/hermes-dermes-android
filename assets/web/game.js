@@ -207,7 +207,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.42.1';
+const VER='4.42.2';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -223,7 +223,7 @@ let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),
    const b2=new THREE.Box3().setFromObject(root); root.position.y=-b2.min.y;
    root.rotation.y=Math.PI;     // лицом вперёд по тропе
    rollRoot=new THREE.Group(); rollRoot.add(root); heroM.add(rollRoot); heroCOM.set((b2.max.x+b2.min.x)/2,(b2.max.y+b2.min.y)/2,(b2.max.z+b2.min.z)/2); mReady=true; player.visible=false;
-  heroBow=makeBow(); heroBow.position.set(0,-.24,.02); heroBow.scale.setScalar(.85); MJ.elbowR.add(heroBow); // на предплечье: local scale .85 -> мир ~1.1 м, рост героя 1.7 м
+  heroBow=makeBow(); heroBow.position.set(0,-.24,0); heroBow.scale.setScalar(.85); MJ.elbowR.add(heroBow); // на предплечье; ориентацию задаёт driveHero (rotation.y=PI/2: нормаль дуги local x -> world -z, в цель)
    const fb=document.getElementById('gfail');if(fb)fb.remove();
    if($('ver'))$('ver').textContent='v'+VER+' · GLB';
   });
@@ -333,9 +333,11 @@ function driveHero(dt){
  T(j.head,'z',-Math.sin(a)*.03);T(j.head,'y',Math.sin(a)*.09+Math.sin(S.t*.8)*.06); // стабилизация взгляда
  T(j.head,'x',.04+Math.sin(a*2+Math.PI*.3)*.025);
  if(heroBow){bowT=Math.max(0,bowT-dt);const b=Math.min(1,bowT/.22); // bowT: прицел-выпуск 0.22с
-  heroBow.visible=true;heroBow.rotation.set(-1.57+b*.12,.1*b,-.25); // в кисти: дуга смотрит вперёд; прицел/выпуск задаются рукой armR
-  bowStr.position.z=-.29+.25*b;bowStr.scale.x=1+.45*b; // тетива оттянута к лицу и проседает на выпуске
-  bowArr.visible=b>0;bowArr.position.set(0,.16,.22-.55*(1-b)); // стрела вкладывается и уходит с релизом
+  heroBow.visible=true;heroBow.rotation.set(-(MJ.armR.rotation.x+MJ.elbowR.rotation.x),1.57,0); // плоскость дуги вертикальна в мире при любом взмахе (local y->world y, local x->world -z)
+  for(const ss of bowStr){const sg=ss.userData.sg,nx=.14+.26*b,d=new THREE.Vector3(nx-(-.10),sg*.72,0); // тяча: полочка уходит ОТ цели (local -x к лицу), нить кончик->полочка пересобирается
+   ss.scale.y=d.length()/ss.userData.L0;ss.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.clone().normalize());
+   ss.position.set((nx+(-.10))/2,sg*.36,0);}
+  bowArr.visible=b>0;bowArr.position.set(.14-.5*(1-b),0,0); // стрела на полочке, уходит с релизом вдоль local -x (world -z)
   T(j.armR,'x',-1.35*b+arp.shoulder*(1-b));T(j.armR,'z',.62*b+(-.12+Math.max(0,arp.shoulder)*.08)*(1-b));
   T(j.elbowR,'x',-1.05*b+arp.elbow*(1-b));} // правая: в беге качается с луком, при выстреле - полная тяча
  tipV+=Math.sin(a*2+Math.PI*.3)*dt*24; // импульс колпака от ускорения головы
@@ -382,18 +384,29 @@ function tWall(){ // катящийся валун (BotW rolling rock) - вза�
   p.position.set((i?1:-1)*.85,.25,.5);p.rotation.y=i*2;g.add(p);}
  return g;}
 // ---------- лук Link'а: появляется в вытянутой руке на выстрел ----------
-function makeBow(){const g=new THREE.Group(); // локальная система: Y вверх, -z вперёд; дуга в вертикальной плоскости XY, тетива вдоль Y, стрела вдоль Z
- const arc=new THREE.Mesh(new THREE.TorusGeometry(.42,.028,6,14,Math.PI*1.15),M(0x3E6B2F,.8));arc.rotation.z=Math.PI*.925;g.add(arc); // тора в XY: дуга открывается вперёд (-z), концы по ±x
- const str=new THREE.Mesh(new THREE.CylinderGeometry(.008,.008,.86,4),M(0xE8E1CE,.6));str.position.z=-.29;g.add(str);bowStr=str;
- const na=new THREE.Group();const sh=new THREE.Mesh(new THREE.CylinderGeometry(.014,.014,.7,5),M(0x6B4A2F,.9));sh.rotation.x=Math.PI/2;na.add(sh);
- const hd=new THREE.Mesh(new THREE.ConeGeometry(.03,.12,4),M(0xC4CBD2,.3,.8));hd.rotation.x=-Math.PI/2;hd.position.z=-.4;na.add(hd);
- const fm=new THREE.Mesh(new THREE.BoxGeometry(.1,.008,.14),M(0xC43A3A,.6));
- const f1=fm.clone();f1.position.z=.34;const f2=fm.clone();f2.position.z=.34;f2.rotation.z=1.57;na.add(f1);na.add(f2);
- na.position.set(0,.16,.22);na.visible=false;g.add(na);bowArr=na; // линия стрелы над рукоятью, у большого пальца, и вынесена вперёд - не тонет в кисти
- const grip=box(.07,.2,.07,M(0x6B3E2A,.85));g.add(grip);
- const tipA=new THREE.Mesh(new THREE.ConeGeometry(.03,.1,4),M(0xC9B06B,.5));tipA.position.set(.26,0,-.33);tipA.rotation.x=1.4;g.add(tipA);
- const tipB=tipA.clone();tipB.position.set(-.26,0,-.33);tipB.rotation.x=-1.4;g.add(tipB);
- g.rotation.z=0;return g;}
+function makeBow(){const g=new THREE.Group(); // локальные оси лука: y=высота дуги, x=нормаль плоскости (в цель), z=вдоль рукояти; в сцену ставится rotation.y=PI/2 (x->world -z)
+ // рекурв-лук ломаной прямых сегментов (тора+струна читалась арбалетом). Силуэт в плоскости XY: концы загнуты к цели (-? x=нормаль) ... концы к +x, пузо от цели: выпуклость дуги ОТ цели, тетива вогнута к цели? НЕТ: тетива между концами, пузо смотрит В цель, тетива сзади.
+ const wdM=M(0x5A3B22,.85); // тёмная вощёная древесина
+ const UP=new THREE.Vector3(0,1,0);
+ const P=[[.72,-.10],[.46,.04],[.20,.11],[0,.14]]; // кончик -> плечо -> пузо (y,x): пузо на +x (к цели: local x->world -z), концы загнуты на -x (рекурв, назад)
+ const limb=(a,b)=>{const L=Math.hypot(b[0]-a[0],b[1]-a[1]);
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(.024,.024,L+.018,6),wdM);
+  m.position.set((a[1]+b[1])/2,(a[0]+b[0])/2,0);
+  m.quaternion.setFromUnitVectors(UP,new THREE.Vector3(b[1]-a[1],b[0]-a[0],0).normalize());g.add(m);};
+ for(let k=0;k<P.length-1;k++){limb(P[k],P[k+1]);limb([-P[k][0],P[k][1]],[-P[k+1][0],P[k+1][1]]);}
+ // тетива: полочка на рукояти (x=-.14+полка .02=-.12?) в покое прямые хорды кончик->полочка; тяча = полочка к лучнику (-? лучник за спиной: -x? x в цель => тяча на... пузо смотрит в цель (-x значит к цели). лучник сзади тетивы: тетива между концами (+x), пузо вперёд. полочка покоится у пуза? нет: тетива натянута между КОНЦАМИ (x=+.10), середина тетивы стоит на линии концы-концы x=+.10, а пузо x=-.14 выступает вперёд. полочка на тетиве в покое x=+.10; тяча: x растёт (к лучнику).
+ const half=sg=>{const m=new THREE.Mesh(new THREE.CylinderGeometry(.008,.008,Math.hypot(.72,.24),4),M(0xE8E1CE,.6)); // кончик(±.72,-.10) -> полочка (0,+.14)
+  m.position.set(.02,sg*.36,0);m.quaternion.setFromUnitVectors(UP,new THREE.Vector3(.24,sg*.72,0).normalize());
+  m.userData={sg,L0:m.geometry.parameters.height};g.add(m);return m;};
+ bowStr=[half(1),half(-1)];
+ const grip=box(.05,.15,.05,wdM);grip.position.set(.14,0,0);g.add(grip); // рукоять на пузе
+ const wrap=box(.045,.06,.05,M(0x2E5A24,.8));wrap.position.set(.14,.105,0);g.add(wrap); // зелёная обмотка-полочка
+ const na=new THREE.Group();const sh=new THREE.Mesh(new THREE.CylinderGeometry(.014,.014,.7,5),M(0x6B4A2F,.9));sh.rotation.z=Math.PI/2;na.add(sh); // стрела вдоль x, летит -x
+ const hd=new THREE.Mesh(new THREE.ConeGeometry(.03,.12,4),M(0xC4CBD2,.3,.8));hd.rotation.z=-Math.PI/2;hd.position.x=-.42;na.add(hd);
+ const fm=new THREE.Mesh(new THREE.BoxGeometry(.14,.008,.1),M(0xC43A3A,.6));
+ const f1=fm.clone();f1.position.x=.34;const f2=fm.clone();f2.position.x=.34;f2.rotation.x=1.57;na.add(f1);na.add(f2);
+ na.position.set(-.05,0,0);na.visible=false;g.add(na);bowArr=na;
+ return g;}
 var heroBow=null,bowT=0,bowStr=null,bowArr=null;
 // лук цепляется к rig при готовности GLB (см. loader): heroBow=makeBow();rig.add(heroBow)
 function tCoin(){ // sword pickup
@@ -734,6 +747,7 @@ addEventListener('keydown',e=>act({ArrowLeft:'L',ArrowRight:'R',ArrowUp:'U',Arro
 // ---------- HUD ----------
 const fmt=n=>(''+n).padStart(6,'0');
 $('mbest').textContent='РЕКОРД '+fmt(S.best)+' · ⚔ '+S.bestC;
+function renderMenuIdle(){scene.userData.iv=1;scene.traverse(o=>{if(o.isInstancedMesh)o.visible=false;});} // до первого rAF-кадра мир не собран: инстансы-валуны в identity стоят кучей под героем; прячем их до первого кадра loop()
 function showMenu(){$('menu').style.display='flex';$('over').style.display='none';$('hud').style.display='none';$('meta').style.display='none';
  let v=$('ver');if(!v){v=document.createElement('div');v.id='ver';v.style.cssText='position:fixed;bottom:6px;left:0;right:0;text-align:center;font-size:11px;opacity:.5';document.body.appendChild(v);}
  v.style.display='block';v.textContent='v'+VER+' · '+(mReady?'GLB':'FALLBACK');}
@@ -961,6 +975,7 @@ addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);
 // ---------- loop ----------
 let last=performance.now();
 function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;
+ if(scene.userData.iv){scene.userData.iv=0;scene.traverse(o=>{if(o.isInstancedMesh)o.visible=true;});} // мир собран первым кадром - инстансы снова нужны
  update(dt*S.ts);updInst();if(mReady)driveHero(dt);else animRig(dt);animCam(dt);
  $('score').textContent=fmt(Math.floor(S.score));
  $('coins').textContent='⚔ '+S.coins;
@@ -968,4 +983,5 @@ function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;
  $('meta').textContent=Math.floor(S.dist)+' м \u00b7 '+Math.floor(S.speed)+' км/ч';
  renderer.render(scene,camera);
  requestAnimationFrame(loop);}
+renderMenuIdle(); // старт до первого rAF-кадра
 requestAnimationFrame(loop);
