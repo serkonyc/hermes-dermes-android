@@ -174,7 +174,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.37.0';
+const VER='4.37.1';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -223,13 +223,13 @@ function driveHero(dt){
   const w=p>.82?Math.min(1,(p-.82)/.18):0;
   j.rig.position.set(0,0,0);
   j.rig.rotation.x=1.4*tk;
-  j.head.rotation.x=(1.7*tk)*(1-w)+.1*w;
-  j.hat.rotation.x=(-4.5*tk)*(1-w)-.25*w;j.hat.rotation.z=.25*tk;
-  j.armL.rotation.x=(-3.0*tk)*(1-w)-.35*w;j.armR.rotation.x=(-2.9*tk)*(1-w)+.18*w;
-  j.elbowL.rotation.x=2.6*tk;j.elbowR.rotation.x=2.55*tk;
-  j.armL.rotation.z=.85*tk;j.armR.rotation.z=-.85*tk;
-  j.legL.rotation.x=(-3.2*tk)*(1-w)-.28*w;j.legR.rotation.x=(-3.1*tk)*(1-w)+.45*w;
-  j.kneeL.rotation.x=(3.2*tk)*(1-w)+.22*w;j.kneeR.rotation.x=(3.15*tk)*(1-w)+.12*w;
+  j.head.rotation.x=(1.2*tk)*(1-w)+.1*w;
+  j.hat.rotation.x=(-3.2*tk)*(1-w)-.25*w;j.hat.rotation.z=.12*tk;
+  j.armL.rotation.x=(-2.45*tk)*(1-w)-.35*w;j.armR.rotation.x=(-2.35*tk)*(1-w)+.18*w;
+  j.elbowL.rotation.x=2.15*tk;j.elbowR.rotation.x=2.1*tk;
+  j.armL.rotation.z=.5*tk;j.armR.rotation.z=-.5*tk;
+  j.legL.rotation.x=(-2.9*tk)*(1-w)-.28*w;j.legR.rotation.x=(-2.8*tk)*(1-w)+.45*w;
+  j.kneeL.rotation.x=(2.9*tk)*(1-w)+.22*w;j.kneeR.rotation.x=(2.85*tk)*(1-w)+.12*w;
   j.ankleL.rotation.x=-1.3*tk*(1-w)+.1*w;j.ankleR.rotation.x=-1.2*tk*(1-w)+.05*w;
   root.rotation.set(0,0,0); root.scale.set(1,1,1); root.position.set(0,0,0);
   heroM.position.set(S.x,S.rollY,0);
@@ -245,7 +245,7 @@ function driveHero(dt){
   heroM.position.set(S.x,S.rollY+dy,0);
   root.rotation.set(-x,0,0);
   // visual tuck: компактный масштаб только в собранной фазе, чтобы колпак/конечности не растягивали габарит на повороте
-  heroM.scale.setScalar(1-(1-.76)*tk);
+  heroM.scale.setScalar(1-(1-.84)*tk);
   heroM.updateMatrixWorld(true);
   heroM.__lb.setFromObject(heroM);
   heroM.position.y+=Math.max(0,-heroM.__lb.min.y)+.012;
@@ -402,7 +402,7 @@ function collide(dt){const h=S.roll>0?1.0:1.62, // хитбокс = измере
   if(o.type==='bar'&&top>1.05)return die();
   if(o.type==='wall')return die();}
  for(const c of S.coinsArr){if(!c.taken&&Math.abs(c.z)<.9&&c.lane===S.lane&&Math.abs(S.y+.6-c.y)<.9){
-  c.taken=true;scene.remove(c.m);S.coins++;sfx('pick');sparkle((c.lane-1)*LANE,c.y,0);S.coinsArr=S.coinsArr.filter(x=>x!==c);}}
+  c.taken=true;scene.remove(c.m);S.coins++;sfx('pick');S.coinsArr=S.coinsArr.filter(x=>x!==c);}}
  updPickFx(dt);}
 function die(){if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);if(rollRoot){rollRoot.rotation.set(0,0,0);rollRoot.position.set(0,0,0);}const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}S.mode='over';S.dead=.001;S.dz=(Math.random()<.5?-1:1)*(.35+Math.random()*.3);S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
