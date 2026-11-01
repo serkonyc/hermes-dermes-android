@@ -174,7 +174,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.36.8';
+const VER='4.36.9';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -217,7 +217,7 @@ function driveHero(dt){
   springs(dt,88,8.5,ML); return;}
  if(S.roll>0){ // КУВЫРОК: собираем компактную позу, центрируем её вокруг COM, затем вращаем вокруг точки касания
   const p=1-S.roll/.62;
-  const tk=Math.min(1,p*8,Math.max(0,(.86-p)/.14)), q=Math.min(1,Math.max(0,(p-.14)/.68)), x=q*Math.PI*2;
+  const tk=Math.min(1,p*8,Math.max(0,(.86-p)/.14)), q=Math.min(1,Math.max(0,(p-.12)/.78)), x=q*Math.PI*2; // оборот завершается к p=.9: кувырок докручивается в стойку
   const rt=j.rig.parent; if(rt.__by===undefined)rt.__by=rt.position.y;
   rt.position.y=rt.__by;
   const a=(v,w)=>v*(1-w);
@@ -255,7 +255,7 @@ function driveHero(dt){
   heroM.position.y+=Math.max(0,-heroM.__lb.min.y)+.012;
   return;}
  heroM.position.set(S.x,S.y,0);
- if(root&&root.rotation.x!==0){root.rotation.set(0,0,0);const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}
+ if(root&&root.rotation.x!==0||root.position.lengthSq()>1e-9){root.rotation.set(0,0,0);root.position.set(0,0,0);const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}
  if(S.air){const up=S.vy>0; // отрыв - группировка, снижение - распластка
   j.rig.position.y=0;
   T(j.rig,'x',up?.14:-.08);
@@ -408,7 +408,7 @@ function collide(dt){const h=S.roll>0?1.0:1.62, // хитбокс = измере
  for(const c of S.coinsArr){if(!c.taken&&Math.abs(c.z)<.9&&c.lane===S.lane&&Math.abs(S.y+.6-c.y)<.9){
   c.taken=true;scene.remove(c.m);S.coins++;sfx('pick');sparkle((c.lane-1)*LANE,c.y,0);S.coinsArr=S.coinsArr.filter(x=>x!==c);}}
  updPickFx(dt);}
-function die(){if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}S.mode='over';S.dead=.001;S.dz=(Math.random()<.5?-1:1)*(.35+Math.random()*.3);S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
+function die(){if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);if(rollRoot){rollRoot.rotation.set(0,0,0);rollRoot.position.set(0,0,0);}const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}S.mode='over';S.dead=.001;S.dz=(Math.random()<.5?-1:1)*(.35+Math.random()*.3);S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
  S.bestC=Math.max(S.bestC,S.coins);localStorage.setItem('nr_bestc',S.bestC);
  burst(S.x+bend(0),S.y+.8,0,0xF5F5F5,30);showOver();}
