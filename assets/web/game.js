@@ -207,7 +207,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.40.1';
+const VER='4.40.2';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -422,7 +422,7 @@ let pCur=0;
  // звёзды при подборе меча: пучокInstanced-звёздочек с разлётом и гравитацией
 const starGeo=(()=>{const s=new THREE.Shape();for(let i=0;i<10;i++){const r=i%2?.11:.27,a=i/10*Math.PI*2-Math.PI/2;
  const px=Math.cos(a)*r,py=Math.sin(a)*r;i?s.lineTo(px,py):s.moveTo(px,py);}return new THREE.ShapeGeometry(s);})();
-const stars=new THREE.InstancedMesh(starGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,fog:false,side:THREE.DoubleSide,depthWrite:false}),64);
+const stars=new THREE.InstancedMesh(starGeo,new THREE.MeshBasicMaterial({color:0xFFD879,transparent:true,fog:false,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}),64);
 stars.renderOrder=2; scene.add(stars);
 {const cA=new THREE.Color(0xFFD75E).convertSRGBToLinear(),cB=new THREE.Color(0xFFF2C0).convertSRGBToLinear();
  for(let i=0;i<64;i++){stars.setColorAt(i,i%3?cA:cB);}}
@@ -435,7 +435,7 @@ function updPickFx(dt){
  for(let j=starP.length-1;j>=0;j--){const p=starP[j];p.t+=dt;if(p.t>=p.life){starP.splice(j,1);continue;}
   p.vy-=7.5*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;p.rot+=p.vr*dt;if(p.y<.04)p.y=.04;}
  for(let i=0;i<64;i++){const p=starP[i];
-  if(!p){V0.set(0,0,0);M4.compose(V1.set(0,-50,0),Q0.identity(),V0);}
+  if(!p){V0.set(0,0,0);M4.compose(V1.set(0,-9999,0),Q0.identity(),V0);}
   else{const k=1-p.t/p.life,s=k*k*1.1;Q0.setFromAxisAngle(ZAX,p.rot);V1.set(p.x,p.y,p.z);V0.set(s,s,1);M4.compose(V1,Q0,V0);}
   stars.setMatrixAt(i,M4);}
  stars.instanceMatrix.needsUpdate=true;}
@@ -532,7 +532,7 @@ function collide(dt){const h=S.roll>0?1.0:1.62, // хитбокс = измере
   if(o.type==='bar'&&top>1.05)return die();
   if(o.type==='wall')return die();}
  for(const c of S.coinsArr){if(!c.taken&&Math.abs(c.z)<.9&&c.lane===S.lane&&Math.abs(S.y+.6-c.y)<.9){
-  c.taken=true;scene.remove(c.m);S.coins++;sfx('pick');S.coinsArr=S.coinsArr.filter(x=>x!==c);}}
+  c.taken=true;scene.remove(c.m);S.coins++;sfx('pick');sparkle(S.x+bend(0),S.y+.7,0);burst(S.x+bend(0),S.y+.7,0,0xFFD879,8);S.coinsArr=S.coinsArr.filter(x=>x!==c);}}
  updPickFx(dt);}
 function die(){if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);if(rollRoot){rollRoot.rotation.set(0,0,0);rollRoot.position.set(0,0,0);}const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}S.mode='over';S.dead=.001;S.dz=(Math.random()<.5?-1:1)*(.35+Math.random()*.3);S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
