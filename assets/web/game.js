@@ -174,7 +174,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.36.9';
+const VER='4.37.0';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -220,7 +220,6 @@ function driveHero(dt){
   const tk=Math.min(1,p*8,Math.max(0,(.86-p)/.14)), q=Math.min(1,Math.max(0,(p-.12)/.78)), x=q*Math.PI*2; // оборот завершается к p=.9: кувырок докручивается в стойку
   const rt=j.rig.parent; if(rt.__by===undefined)rt.__by=rt.position.y;
   rt.position.y=rt.__by;
-  const a=(v,w)=>v*(1-w);
   const w=p>.82?Math.min(1,(p-.82)/.18):0;
   j.rig.position.set(0,0,0);
   j.rig.rotation.x=1.4*tk;
@@ -232,21 +231,18 @@ function driveHero(dt){
   j.legL.rotation.x=(-3.2*tk)*(1-w)-.28*w;j.legR.rotation.x=(-3.1*tk)*(1-w)+.45*w;
   j.kneeL.rotation.x=(3.2*tk)*(1-w)+.22*w;j.kneeR.rotation.x=(3.15*tk)*(1-w)+.12*w;
   j.ankleL.rotation.x=-1.3*tk*(1-w)+.1*w;j.ankleR.rotation.x=-1.2*tk*(1-w)+.05*w;
-  heroM.position.set(S.x,S.rollY,0);
   root.rotation.set(0,0,0); root.scale.set(1,1,1); root.position.set(0,0,0);
   heroM.position.set(S.x,S.rollY,0);
   if(!heroM.__lb)heroM.__lb=new THREE.Box3();
   if(!heroM.__com)heroM.__com=new THREE.Vector3();
   heroM.updateMatrixWorld(true);
   heroM.__lb.setFromObject(heroM); heroM.__lb.getCenter(heroM.__com);
-  // фиксируем pivot: переносим child так, чтобы его COM попал в origin heroM.
-  // после этого rotation.x вокруг heroM вращает центр масс, а не стопы.
-  root.position.set(-heroM.__com.x,-heroM.__com.y,-heroM.__com.z);
+  // фиксируем pivot: смещение локальное (мировой центр содержит x полосы - иначе кувырок телепортирует на центральную полосу)
+  root.position.set(-(heroM.__com.x-S.x),-(heroM.__com.y-S.rollY),-heroM.__com.z);
   heroM.updateMatrixWorld(true);
   heroM.__lb.setFromObject(heroM);
   const dy=(heroM.__lb.max.y-heroM.__lb.min.y)*.5;
   heroM.position.set(S.x,S.rollY+dy,0);
-  heroM.scale.set(1,1,1);
   root.rotation.set(-x,0,0);
   // visual tuck: компактный масштаб только в собранной фазе, чтобы колпак/конечности не растягивали габарит на повороте
   heroM.scale.setScalar(1-(1-.76)*tk);
