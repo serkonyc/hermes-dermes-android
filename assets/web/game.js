@@ -174,8 +174,8 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.36.6';
-let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0);
+const VER='4.36.8';
+let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
  const loadGLB=()=>{const L=(typeof THREE.GLTFLoader==='function')&&new THREE.GLTFLoader();
@@ -189,7 +189,7 @@ let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0);
    root.scale.setScalar(1.7/H); // рост с колпаком; тело ~1.45 как у примитива
    const b2=new THREE.Box3().setFromObject(root); root.position.y=-b2.min.y;
    root.rotation.y=Math.PI;     // лицом вперёд по тропе
-   heroM.add(root); heroCOM.set((b2.max.x+b2.min.x)/2,(b2.max.y+b2.min.y)/2,(b2.max.z+b2.min.z)/2); mReady=true; player.visible=false;
+   rollRoot=new THREE.Group(); rollRoot.add(root); heroM.add(rollRoot); heroCOM.set((b2.max.x+b2.min.x)/2,(b2.max.y+b2.min.y)/2,(b2.max.z+b2.min.z)/2); mReady=true; player.visible=false;
    const fb=document.getElementById('gfail');if(fb)fb.remove();
    if($('ver'))$('ver').textContent='v'+VER+' · GLB';
   });
@@ -198,20 +198,16 @@ let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0);
  function b64buf(s){const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;}
  loadGLB();
 }
-// контактная тень бегуна: та же «лепёшка», что у деревьев; с высотой прыжка тает и сжимается
-const heroSh=new THREE.Mesh(new THREE.CircleGeometry(.42,12),new THREE.MeshBasicMaterial({color:0x14300E,transparent:true,opacity:.34,depthWrite:false}));
-heroSh.geometry.rotateX(-Math.PI/2);heroSh.renderOrder=1;scene.add(heroSh);
+
 function driveHero(dt){
- const j=MJ, ML=[j.rig,j.head,j.hat,j.armL,j.armR,j.elbowL,j.elbowR,j.legL,j.legR,j.kneeL,j.kneeR,j.ankleL,j.ankleR];
+ const root=rollRoot||heroM; const j=MJ, ML=[j.rig,j.head,j.hat,j.armL,j.armR,j.elbowL,j.elbowR,j.legL,j.legR,j.kneeL,j.kneeR,j.ankleL,j.ankleR];
  if(!j.__cl){j.__cl=[-.35,1.62];}
- heroSh.position.set(S.x,.012,0);
- const hs=1-Math.min(.65,S.y*.35); heroSh.scale.setScalar(hs); heroSh.material.opacity=.34*hs;
  springTip(0,dt); j.hat.rotation.x=tipQ*.6; // колпак: пружинный наклон
  const T=tgt;
  if(S.mode==='over'){ // рогдолл смерти: limp-суставы, ничком, болтанка
   if(S.y>0){S.vy-=GRAV*dt;S.y+=S.vy*dt;if(S.y<0){S.y=0;S.vy=Math.abs(S.vy)*.3;if(S.vy<.6)S.vy=0;}}
   heroM.position.set(S.x,S.y,0);
-  const q=Math.min(1,S.t*2%1+0.75); heroM.scale.set(1,0.82,1);
+  heroM.scale.set(1,.82,1);
   for(const o of ML)for(const ax of['x','y','z'])T(o,ax,0);
   T(j.rig,'x',.8);T(j.rig,'z',S.dz||.4);j.rig.position.y=.1;
   T(j.armL,'x',-2.1);T(j.armR,'x',-1.7);T(j.armL,'z',1.1);T(j.armR,'z',-1.3);
@@ -219,39 +215,47 @@ function driveHero(dt){
   T(j.legL,'x',.9);T(j.legR,'x',.5);T(j.kneeL,'x',-1.2);T(j.kneeR,'x',-.8);
   T(j.head,'x',.5);T(j.hat,'x',-1.9);
   springs(dt,88,8.5,ML); return;}
- if(S.roll>0){ // КУВЫРОК ВПЕРЁД: оборот вокруг X (поперечной оси), ось качения постоянна - мяч, не прыжок
+ if(S.roll>0){ // КУВЫРОК: собираем компактную позу, центрируем её вокруг COM, затем вращаем вокруг точки касания
   const p=1-S.roll/.62;
-  const tk=Math.min(1,p*8,Math.max(0,(.9-p)/.12));  // группировка: клубок к p~.125, держим до выката
-  const q=Math.min(1,Math.max(0,(p-.12)/.6));       // оборот стартует ПОСЛЕ сборки в клубок
-  const x=q*Math.PI*2;
-  const R=.52;                                      // радиус клубка и высота центра (замер Box3)
+  const tk=Math.min(1,p*8,Math.max(0,(.86-p)/.14)), q=Math.min(1,Math.max(0,(p-.14)/.68)), x=q*Math.PI*2;
   const rt=j.rig.parent; if(rt.__by===undefined)rt.__by=rt.position.y;
-  heroM.position.set(S.x,S.rollY,0);
   rt.position.y=rt.__by;
-  heroM.rotation.x=-x; heroM.rotation.z=0;
-  heroM.rotation.x=-x;                            // голова вперёд по бегу (-z); знак проверен пробом
-  heroM.rotation.z=0;
-  const sq=.50*tk;heroM.scale.set(1-.05*tk,1-sq,1-sq); // squash: клубок 0.90м по замеру во всех фазах оборота
-  j.rig.position.y=0;                              // (pivot компенсирован на root)
-  j.rig.rotation.x=1.6*tk;j.head.rotation.x=1.1*tk; // подбородок к груди - без этого клубок не круглый
-  j.hat.rotation.x=-3.0*tk;                       // колпак вдоль спины: хвост в габарите клубка
-  j.armL.rotation.x=-2.5*tk;j.armR.rotation.x=-2.5*tk;j.elbowL.rotation.x=2.2*tk;j.elbowR.rotation.x=2.2*tk; // обхват коленей
-  j.armL.rotation.z=.55*tk;j.armR.rotation.z=-.55*tk;
-  j.legL.rotation.x=-2.4*tk;j.legR.rotation.x=-2.25*tk;j.kneeL.rotation.x=2.6*tk;j.kneeR.rotation.x=2.5*tk; // колени к груди
-  j.ankleL.rotation.x=-.9*tk;j.ankleR.rotation.x=-.9*tk;
-  if(p>.8){ // выкат: ноги под себя, ладони к земле
-   const w=Math.min(1,(p-.8)/.2);
-   j.legL.rotation.x=-2.4*(1-w)-.3*w;j.legR.rotation.x=-2.25*(1-w)+.5*w;
-   j.kneeL.rotation.x=2.6*(1-w)+.2*w;j.kneeR.rotation.x=2.5*(1-w)+.1*w;
-   j.armL.rotation.x=-2.5*(1-w)-.4*w;j.armR.rotation.x=-2.5*(1-w)+.2*w;}
-  // измеренная опора: подъём = -min.y позы (как у прыжка) - мяч катится касанием, асимметрия даёт честную закачку
-  heroM.updateMatrixWorld(true);
+  const a=(v,w)=>v*(1-w);
+  const w=p>.82?Math.min(1,(p-.82)/.18):0;
+  j.rig.position.set(0,0,0);
+  j.rig.rotation.x=1.4*tk;
+  j.head.rotation.x=(1.7*tk)*(1-w)+.1*w;
+  j.hat.rotation.x=(-4.5*tk)*(1-w)-.25*w;j.hat.rotation.z=.25*tk;
+  j.armL.rotation.x=(-3.0*tk)*(1-w)-.35*w;j.armR.rotation.x=(-2.9*tk)*(1-w)+.18*w;
+  j.elbowL.rotation.x=2.6*tk;j.elbowR.rotation.x=2.55*tk;
+  j.armL.rotation.z=.85*tk;j.armR.rotation.z=-.85*tk;
+  j.legL.rotation.x=(-3.2*tk)*(1-w)-.28*w;j.legR.rotation.x=(-3.1*tk)*(1-w)+.45*w;
+  j.kneeL.rotation.x=(3.2*tk)*(1-w)+.22*w;j.kneeR.rotation.x=(3.15*tk)*(1-w)+.12*w;
+  j.ankleL.rotation.x=-1.3*tk*(1-w)+.1*w;j.ankleR.rotation.x=-1.2*tk*(1-w)+.05*w;
+  heroM.position.set(S.x,S.rollY,0);
+  root.rotation.set(0,0,0); root.scale.set(1,1,1); root.position.set(0,0,0);
+  heroM.position.set(S.x,S.rollY,0);
   if(!heroM.__lb)heroM.__lb=new THREE.Box3();
+  if(!heroM.__com)heroM.__com=new THREE.Vector3();
+  heroM.updateMatrixWorld(true);
+  heroM.__lb.setFromObject(heroM); heroM.__lb.getCenter(heroM.__com);
+  // фиксируем pivot: переносим child так, чтобы его COM попал в origin heroM.
+  // после этого rotation.x вокруг heroM вращает центр масс, а не стопы.
+  root.position.set(-heroM.__com.x,-heroM.__com.y,-heroM.__com.z);
+  heroM.updateMatrixWorld(true);
   heroM.__lb.setFromObject(heroM);
-  heroM.position.y+=Math.max(0,-heroM.__lb.min.y)+.015;
+  const dy=(heroM.__lb.max.y-heroM.__lb.min.y)*.5;
+  heroM.position.set(S.x,S.rollY+dy,0);
+  heroM.scale.set(1,1,1);
+  root.rotation.set(-x,0,0);
+  // visual tuck: компактный масштаб только в собранной фазе, чтобы колпак/конечности не растягивали габарит на повороте
+  heroM.scale.setScalar(1-(1-.76)*tk);
+  heroM.updateMatrixWorld(true);
+  heroM.__lb.setFromObject(heroM);
+  heroM.position.y+=Math.max(0,-heroM.__lb.min.y)+.012;
   return;}
  heroM.position.set(S.x,S.y,0);
- if(heroM.rotation.x!==0||heroM.rotation.z!==0){heroM.rotation.set(0,0,0);const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;} // кувырок закончен - корпус прямо, root на место
+ if(root&&root.rotation.x!==0){root.rotation.set(0,0,0);const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}
  if(S.air){const up=S.vy>0; // отрыв - группировка, снижение - распластка
   j.rig.position.y=0;
   T(j.rig,'x',up?.14:-.08);
@@ -286,6 +290,7 @@ function driveHero(dt){
  // кукла-марионетка: корпус ведёт жёстко, конечности догоняют мягче - цепь читается связанной, а не 13 шарниров
  springs(dt,230,18,[j.rig,j.head]); springs(dt,120,13,[j.armL,j.armR,j.elbowL,j.elbowR,j.legL,j.legR,j.kneeL,j.kneeR,j.ankleL,j.ankleR]);
 }
+
 // ---------- templates: Korok Forest obstacles (BotW lore) ----------
 // low-poly камень: икосаэдр с детерминированным дрожжем вершин (тот же seed = та же форма)
 function rockGeo(seed){const g=new THREE.IcosahedronGeometry(1,1);const p=g.attributes.position;
@@ -392,7 +397,7 @@ function burst(x,y,z,col,n){const c=new THREE.Color(col).convertSRGBToLinear();
  pPts.geometry.attributes.position.needsUpdate=pPts.geometry.attributes.color.needsUpdate=true;}
 // ---------- collision ----------
 const laneHit=o=>o.lane===S.lane&&Math.abs(S.x-(o.lane-1)*LANE)<LANE*.6;
-function collide(dt){const h=S.roll>0?.95:1.62, // хитбокс = измеренный клубок .90 + зазор
+function collide(dt){const h=S.roll>0?1.0:1.62, // хитбокс = измеренный клубок .90 + зазор
  feet=S.roll>0?S.rollY:S.y,top=feet+h; // под кувырком прогибаемся (как подкатом v4.34): bar закрывает щель, не ломая физику прыжка
  for(const o of S.obs){if(!laneHit(o))continue;
   const near=Math.abs(o.z)<(o.type==='wall'?1.35:.95); // валун круглый R1.15, а не вагон 4.2 длиной
