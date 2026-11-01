@@ -207,7 +207,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.40.3';
+const VER='4.41.0';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -223,6 +223,7 @@ let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),
    const b2=new THREE.Box3().setFromObject(root); root.position.y=-b2.min.y;
    root.rotation.y=Math.PI;     // лицом вперёд по тропе
    rollRoot=new THREE.Group(); rollRoot.add(root); heroM.add(rollRoot); heroCOM.set((b2.max.x+b2.min.x)/2,(b2.max.y+b2.min.y)/2,(b2.max.z+b2.min.z)/2); mReady=true; player.visible=false;
+  heroBow=makeBow(); heroBow.position.set(.42,.72,.32); heroBow.scale.setScalar(HERO_K); j.rig.add(heroBow);
    const fb=document.getElementById('gfail');if(fb)fb.remove();
    if($('ver'))$('ver').textContent='v'+VER+' · GLB';
   });
@@ -331,6 +332,9 @@ function driveHero(dt){
   T(lead,'y',sd*.65*lift); /* local +y = world +x после root rotY=pi; lift и side идут вместе, не через thigh */ }
  T(j.head,'z',-Math.sin(a)*.03);T(j.head,'y',Math.sin(a)*.09+Math.sin(S.t*.8)*.06); // стабилизация взгляда
  T(j.head,'x',.04+Math.sin(a*2+Math.PI*.3)*.025);
+ if(heroBow){bowT=Math.max(0,bowT-dt);const b=Math.min(1,bowT/.22); // bowT: прицел-выпуск 0.22с
+  heroBow.visible=b>0;T(j.armR,'x',-1.15*b+arp.shoulder*(1-b));T(j.armR,'z',.5*b+(-.12+Math.max(0,arp.shoulder)*.08)*(1-b));
+  T(j.elbowR,'x',-.1*b+arp.elbow*(1-b));} // правая рука тянется с луком, остальные в беговой фазе
  tipV+=Math.sin(a*2+Math.PI*.3)*dt*24; // импульс колпака от ускорения головы
  T(j.hat,'x',-.05+Math.sin(a*2)*.03+tipQ*.5);
  heroM.position.y+=st*.16; // подскок приставного шага
@@ -374,6 +378,16 @@ function tWall(){ // катящийся валун (BotW rolling rock) - вза�
  for(let i=0;i<2;i++){const p=new THREE.Mesh(rockGeos[(i+1)%3],rockMs[i]);p.scale.setScalar(.28);
   p.position.set((i?1:-1)*.85,.25,.5);p.rotation.y=i*2;g.add(p);}
  return g;}
+// ---------- лук Link'а: появляется в вытянутой руке на выстрел ----------
+function makeBow(){const g=new THREE.Group();
+ const arc=new THREE.Mesh(new THREE.TorusGeometry(.42,.028,6,12,Math.PI*1.15),M(0x3E6B2F,.8));arc.rotation.y=Math.PI/2;arc.rotation.z=Math.PI*.42;g.add(arc);
+ const str=new THREE.Mesh(new THREE.CylinderGeometry(.008,.008,.78,4),M(0xE8E1CE,.6));str.rotation.z=Math.PI/2;str.position.z=-.12;g.add(str);
+ const grip=box(.07,.2,.07,M(0x6B3E2A,.85));grip.position.z=.02;g.add(grip);
+ const tipA=new THREE.Mesh(new THREE.ConeGeometry(.03,.1,4),M(0xC9B06B,.5));tipA.position.set(0,.44,-.12);tipA.rotation.x=1.4;g.add(tipA);
+ const tipB=tipA.clone();tipB.position.y=-.44;tipB.rotation.x=-1.4;g.add(tipB);
+ g.visible=false;return g;}
+var heroBow=null,bowT=0;
+// лук цепляется к rig при готовности GLB (см. loader): heroBow=makeBow();rig.add(heroBow)
 function tCoin(){ // sword pickup
  const g=new THREE.Group();
  const blade=box(.08,.7,.05,M(0xC4CBD2,.35,.75)); blade.position.y=.65;
@@ -381,25 +395,76 @@ function tCoin(){ // sword pickup
  const grip=box(.06,.16,.06,M(0x6B3E2A,.85)); grip.position.y=.12;
  const pommel=new THREE.Mesh(new THREE.SphereGeometry(.05,8,6),M(0xFFD24A,.5,.2)); pommel.position.y=.04;
  g.add(blade,guard,grip,pommel); return g;}
-const TPL={low:tLow,bar:tBar,wall:tWall};
+// ---------- враги: Bokoblin (гоблин с дубиной), Magta (ящер-копьеносец в черепе), Phantom (красный фантом-капля) — тот же low-poly, что Link
+const skinM2=M(0x9B6B4A,.8),bokuM=M(0x7B4A2F,.9),bokuDark=M(0x3E2415,.9),eyeM=M(0xFF3B30,.3),bokuHorn=M(0xD9CDB6,.8),magM=M(0x2E7A4A,.85),magDark=M(0x1A4A2A,.9),magicM=M(0x7A1225,.9),glowM=M(0xFF1A2E,.15),woodM=M(0x5B4632,.9);
+function tMob(){ // Bokoblin: маленький горбун с рожками и дубиной
+ const g=new THREE.Group();const H=1.15;
+ const head=new THREE.Mesh(new THREE.BoxGeometry(.34,.26,.28),skinM2);head.position.y=H;head.rotation.x=.1;g.add(head);
+ const snout=new THREE.Mesh(new THREE.ConeGeometry(.09,.2,4),skinM2);snout.rotation.x=-1.2;snout.position.set(0,H-.03,.18);g.add(snout);
+ for(let i=0;i<2;i++){const h=new THREE.Mesh(new THREE.ConeGeometry(.05,.16,5),bokuHorn);h.position.set((i?.08:-.08),H+.14,-.06);h.rotation.set(-.45,i?.2:-.2,0);g.add(h);}
+ const eL=new THREE.Mesh(new THREE.SphereGeometry(.04,6,4),eyeM);eL.position.set(.09,H+.02,.15);const eR=eL.clone();eR.position.x=-.09;g.add(eL,eR);
+ const body=new THREE.Mesh(new THREE.BoxGeometry(.3,.4,.24),bokuM);body.position.y=H-.3;g.add(body);
+ const loincloth=new THREE.Mesh(new THREE.BoxGeometry(.36,.14,.26),bokuDark);loincloth.position.y=H-.46;g.add(loincloth);
+ const armL=new THREE.Mesh(new THREE.BoxGeometry(.09,.24,.09),skinM2);armL.position.set(-.21,H-.26,.04);const armR=armL.clone();armR.position.x=.21;g.add(armL,armR);
+ const club=new THREE.Mesh(new THREE.CylinderGeometry(.06,.1,.52,6),woodM);club.position.set(.28,H-.2,.1);club.rotation.set(.45,0,-.25);
+ const knot=new THREE.Mesh(new THREE.IcosahedronGeometry(.11,0),woodM);knot.position.set(.02,.3,0);club.add(knot);g.add(club);
+ const legL=new THREE.Mesh(new THREE.BoxGeometry(.1,.3,.1),skinM2);legL.position.set(-.12,H-.58,0);const legR=legL.clone();legR.position.x=.12;g.add(legL,legR);
+ const fL=new THREE.Mesh(new THREE.BoxGeometry(.1,.06,.12),bokuDark);fL.position.set(-.12,H-.72,.02);const fR=fL.clone();fR.position.x=.12;g.add(fL,fR);
+ return g;}
+function tBomb(){ // Magta: бронированный ящер с черепом-шлемом и копьем
+ const g=new THREE.Group();const H=1.5;
+ const skull=new THREE.Mesh(new THREE.IcosahedronGeometry(.24,0),M(0xE8E1CE,.9));skull.position.y=H;skull.scale.set(1,1.2,1);g.add(skull);
+ const jaw=new THREE.Mesh(new THREE.BoxGeometry(.32,.06,.3),M(0xE8E1CE,.9));jaw.position.set(0,H-.24,.05);g.add(jaw);
+ for(let i=0;i<4;i++){const t=new THREE.Mesh(new THREE.ConeGeometry(.03,.1,4),M(0xCFC7B0,.85));t.position.set((i%2?.08:-.08),H-.22,(i<2?.1:-.05));g.add(t);}
+ const eL=new THREE.Mesh(new THREE.SphereGeometry(.045,6,4),eyeM);eL.position.set(.1,H+.03,.18);const eR=eL.clone();eR.position.x=-.1;g.add(eL,eR);
+ const body=new THREE.Mesh(new THREE.BoxGeometry(.42,.52,.28),magM);body.position.y=H-.42;g.add(body);
+ const shell=new THREE.Mesh(new THREE.IcosahedronGeometry(.31,0),magDark);shell.position.y=H-.3;shell.scale.set(.9,.7,.5);g.add(shell);
+ const armL=new THREE.Mesh(new THREE.BoxGeometry(.1,.36,.1),magM);armL.position.set(-.25,H-.34,.04);const armR=armL.clone();armR.position.set(.25,H-.38,.08);g.add(armL,armR);
+ const spear=new THREE.Mesh(new THREE.CylinderGeometry(.02,.025,.9,6),woodM);spear.position.set(.28,H-.2,.16);spear.rotation.x=-.5;
+ const tip=new THREE.Mesh(new THREE.ConeGeometry(.05,.15,5),M(0xC4CBD2,.35,.75));tip.position.set(0,.48,0);spear.add(tip);g.add(spear);
+ const tail=new THREE.Mesh(new THREE.ConeGeometry(.1,.5,5),magM);tail.rotation.x=1.4;tail.position.set(0,H-.5,-.14);g.add(tail);
+ const legL=new THREE.Mesh(new THREE.BoxGeometry(.12,.4,.12),magDark);legL.position.set(-.14,H-.88,0);const legR=legL.clone();legR.position.x=.14;g.add(legL,legR);
+ const fL=new THREE.Mesh(new THREE.BoxGeometry(.13,.07,.15),magDark);fL.position.set(-.14,H-1.08,.03);const fR=fL.clone();fR.position.x=.14;g.add(fL,fR);
+ return g;}
+function tBoss(){ // Phantom: красная капля-фантом с горящим глазом, быстрее других
+ const g=new THREE.Group();const H=.85;
+ const body=new THREE.Mesh(new THREE.ConeGeometry(.5,.9,6),magicM);body.position.y=H-.05;body.scale.set(.8,1,.7);g.add(body);
+ const core=new THREE.Mesh(new THREE.IcosahedronGeometry(.34,0),glowM);core.position.y=H;g.add(core);
+ for(let i=0;i<3;i++){const s=new THREE.Mesh(new THREE.ConeGeometry(.08,.36,4),magicM);const a=i/3*6.283+.4;
+  s.position.set(Math.sin(a)*.4,H+.1,Math.cos(a)*.28);s.rotation.z=Math.sin(a)*.7;g.add(s);}
+ const eye=new THREE.Mesh(new THREE.SphereGeometry(.1,8,6),M(0xFFEE88,.2));eye.position.set(0,H+.1,.32);g.add(eye);
+ const pupil=new THREE.Mesh(new THREE.SphereGeometry(.045,6,5),M(0x110A05,.9));pupil.position.set(0,H+.1,.42);g.add(pupil);
+ for(let i=0;i<3;i++){const sp=new THREE.Mesh(new THREE.ConeGeometry(.05,.18,5),magicM);
+  sp.position.set((i-1)*.12,H+.4,-.06);sp.rotation.x=-.3;g.add(sp);}
+ return g;}
+
+const TPL={low:tLow,bar:tBar,wall:tWall,mob:tMob,bomb:tBomb,boss:tBoss};
+const SHOOTABLE={low:1,wall:1,mob:1,bomb:1,boss:1}; // стрела сбивает репьи, валуны и всю нечисть
 // ---------- state ----------
 const S={mode:'menu',t:0,dist:0,speed:26,coins:0,score:0,
  best:+(localStorage.getItem('nr_best')||0),bestC:+(localStorage.getItem('nr_bestc')||0),
  lane:1,x:0,y:0,vy:0,air:false,roll:0,anim:0,dead:0,shake:0,flash:0,ts:1};
-let nextSpawn=30; S.obs=[];S.coinsArr=[];
+let nextSpawn=30; S.obs=[];S.coinsArr=[];S.arrows=[];S.arrowsMade=0;
 function reset(){S.mode='run';S.t=0;S.dist=0;S.speed=18;S.coins=0;S.score=0;S.lane=1;S.x=0;S.y=0;S.vy=0;S.stepT=0;S.stepPh=null;
  S.air=false;S.roll=0;S.rollY=0;S.rollV=0;S.anim=0;S.dead=0;S.shake=0;S.flash=0;S.ts=1;
  for(const o of S.obs)scene.remove(o.m);for(const c of S.coinsArr)scene.remove(c.m);
- S.obs=[];S.coinsArr=[];nextSpawn=30;S.missed=0;deathPlayed=false;}
+ for(const a of S.arrows)scene.remove(a.m);
+ S.obs=[];S.coinsArr=[];S.arrows=[];S.arrowsMade=0;nextSpawn=30;S.missed=0;deathPlayed=false;}
 function addObs(type,lane){const m=TPL[type]();m.position.set((lane-1)*LANE,0,SPAWN_Z);scene.add(m);S.obs.push({type,lane,z:SPAWN_Z,m});}
 function spawn(){
  const diff=Math.min(1,S.dist/3000), r=Math.random();
  const p=Math.random()<.45; // мечи не к каждому препятствию (частота снижена в ~1.5 раза)
- if(r<.3){const l=(Math.random()*3)|0;addObs('low',l);
+ if(r<.12){ // бокoblin: идет НА героя в своей полосе (замедленный скролл - «живое» сближение)
+  const l=(Math.random()*3)|0;addObs('mob',l);if(p&&Math.random()<.5)swordRun(l,3,SPAWN_Z-9,()=>.95);}
+ else if(r<.2){ // Magta: бронированный, валун-череп - стреляй дважды
+  const l=(Math.random()*3)|0;addObs('bomb',l);}
+ else if(r<.27){ // Лик-нечисть: красное пятно, быстрее других
+  const l=(Math.random()*3)|0;addObs('boss',l);}
+ else if(r<.45){const l=(Math.random()*3)|0;addObs('low',l);
   if(p)swordRun(l,4,SPAWN_Z-3.3,i=>.95+Math.sin((i+.5)/4*Math.PI)*.8);} // арка над репьем - собирай в прыжке
- else if(r<.54){const l=(Math.random()*3)|0;addObs('bar',l);
+ else if(r<.62){const l=(Math.random()*3)|0;addObs('bar',l);
   if(p)swordRun(l,3,SPAWN_Z-6.6,()=>.45);} // низкая линия за корнем - собирается в подкате
- else if(r<.84){const bl=new Set();const n=diff>.4&&Math.random()<.5?2:1;   // валуны чаще
+ else if(r<.88){const bl=new Set();const n=diff>.4&&Math.random()<.5?2:1;   // валуны чаще
   while(bl.size<n)bl.add((Math.random()*3)|0);bl.forEach(l=>addObs('wall',l));
   const free=[0,1,2].find(l=>!bl.has(l)); // рядом, но в заведомо свободной полосе
   if(p&&free!==undefined)swordRun(free,4,SPAWN_Z,()=>.95);}
@@ -525,16 +590,18 @@ function dayFx(dt){
 const laneHit=o=>o.lane===S.lane&&Math.abs(S.x-(o.lane-1)*LANE)<LANE*.6;
 function collide(dt){const h=S.roll>0?1.0:1.62, // хитбокс = измеренный клубок .90 + зазор
  feet=S.roll>0?S.rollY:S.y,top=feet+h; // под кувырком прогибаемся (как подкатом v4.34): bar закрывает щель, не ломая физику прыжка
- for(const o of S.obs){if(!laneHit(o))continue;
+ for(const o of S.obs){if(o.dead||!laneHit(o))continue;
   const near=Math.abs(o.z)<(o.type==='wall'?1.35:.95); // валун круглый R1.15, а не вагон 4.2 длиной
   if(!near)continue;
   if(o.type==='low'&&feet<.7)return die();
   if(o.type==='bar'&&top>1.05)return die();
-  if(o.type==='wall')return die();}
+  if(o.type==='wall')return die();
+  if((o.type==='mob'||o.type==='bomb'||o.type==='boss')&&feet<(o.type==='boss'?1.9:1.5))return die();}
  for(const c of S.coinsArr){if(!c.taken&&Math.abs(c.z)<.9&&c.lane===S.lane&&Math.abs(S.y+.6-c.y)<.9){
   c.taken=true;scene.remove(c.m);S.coins++;sfx('pick');sparkle(S.x+bend(0),S.y+.7,0);burst(S.x+bend(0),S.y+.7,0,0xFFD879,8);S.coinsArr=S.coinsArr.filter(x=>x!==c);}}
  updPickFx(dt);}
-function die(){if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);if(rollRoot){rollRoot.rotation.set(0,0,0);rollRoot.position.set(0,0,0);}const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}S.mode='over';S.dead=.001;S.dz=(Math.random()<.5?-1:1)*(.35+Math.random()*.3);S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
+// отладка: лог причин смерти в console (для боевого автотеста)
+function die(){ if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);if(rollRoot){rollRoot.rotation.set(0,0,0);}const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}S.mode='over';S.dead=.001;S.dz=(Math.random()<.5?-1:1)*(.35+Math.random()*.3);S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
  S.bestC=Math.max(S.bestC,S.coins);localStorage.setItem('nr_bestc',S.bestC);
  burst(S.x+bend(0),S.y+.8,0,0xF5F5F5,30);showOver();}
@@ -542,14 +609,47 @@ function die(){if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);if(rollRoot){rollRoot.ro
 function move(d){const l=Math.max(0,Math.min(2,S.lane+d));if(l!==S.lane&&S.mode==='run'){S.stepPh=S.anim;S.stepT=5.5/S.speed;S.stepD=Math.sign(l-S.lane);}S.lane=l;}
 function jump(){if(!S.air&&S.roll<=0){S.vy=JUMP_V;S.air=true;sfx('jump');}}
 function doRoll(){if(S.roll>0)return;S.roll=.62;S.rollAir=S.air;if(S.air){S.rollY=S.y;S.rollV=Math.min(S.vy,-2);S.vy=0;sfx('jump');}else{S.rollY=0;S.rollV=0;}}
+// ---------- выстрел из лука: стрела мгновенно летит вперед по полосе, сбивает камень/врага ----------
+function arrowGeo(){const g=new THREE.Group();
+ const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.016,.016,.8,5),M(0x6B4A2F,.9));shaft.rotation.x=Math.PI/2;g.add(shaft);
+ const head=new THREE.Mesh(new THREE.ConeGeometry(.035,.14,4),M(0xC4CBD2,.3,.8));head.rotation.x=-Math.PI/2;head.position.z=-.44;g.add(head);
+ for(let i=0;i<2;i++){const f=new THREE.Mesh(new THREE.BoxGeometry(.11,.01,.16),M(0xE8E1CE,.6));f.position.set(0,0,.32);f.rotation.z=i?1.57:0;g.add(f);}
+ return g;}
+function shoot(){if(S.mode!=='run')return;
+ const m=arrowGeo();m.position.set(S.x+bend(0),S.y+.95,0); // вперед = -z
+ scene.add(m);S.arrows.push({x:S.lane,z:0,m,hit:0});S.arrowsMade++;
+ bowT=.22;sfx('jump');}
+function updArrows(dt){
+ for(let i=S.arrows.length-1;i>=0;i--){const a=S.arrows[i];
+  if(a.hit){a.hit+=dt; // поражающая стрела замирает в цели и кувыркается, затем исчезает
+   a.m.rotation.z=a.hit*10;a.m.position.z+=S.speed*dt*.4; // втыкается в поток и утекает назад
+   if(a.hit>.35){scene.remove(a.m);S.arrows.splice(i,1);}continue;}
+  a.z-=34*dt;if(a.z<-34){scene.remove(a.m);S.arrows.splice(i,1);continue;}
+  a.m.position.z=a.z;a.m.position.x=(a.lane-1)*LANE+bend(a.z);
+  for(const o of S.obs){if(o.dead||o.lane!==a.x)continue; // у стрелы полоса в .x
+   const R=o.type==='wall'?1.35:1.0; // радиус цели: валун крупнее
+   if(Math.abs(o.z-a.z)<R+.5){ // поражение
+    if(!SHOOTABLE[o.type])continue;
+    a.hit=.001;
+    if(o.type==='bomb'){o.hp=(o.hp||0)+1; // Magta в броне: первый выстрел лишь отбрасывает назад, второй добивает
+     if(o.hp>1){o.dead=true;killFx(o);}else{o.z+=2.2;o.m.position.z=o.z;burst(o.m.position.x,1.2,o.z,0xCFC7B0,8);S.shake=Math.max(S.shake,.15);sfx('bump');}
+    }else{o.dead=true;killFx(o);}
+    break;}}}
+ // мертвые удаляются только здесь - в update их filter уже не увидит (фильтр идет раньше)
+ S.obs=S.obs.filter(o=>o.dead?(scene.remove(o.m),false):true);}
+function killFx(o){const p=new THREE.Vector3();o.m.getWorldPosition(p);
+ const col=o.type==='boss'?0xFF1A2E:o.type==='mob'?0x7B4A2F:o.type==='bomb'?0x2E7A4A:0x8F8D89;
+ burst(p.x,p.y+.7,p.z,col,18);sparkle(p.x,p.y+.7,p.z);S.score+=60;S.shake=Math.max(S.shake,.18);sfx('bump');}
 function act(a){if(window.dlog&&a!=='T'&&a!=='O')dlog.swipe();
  if(S.mode==='menu'){reset();showRun();if(window.dlog)dlog.run();return;}
- if(S.mode==='over'){if(S.dead>1.05)reset(),showRun();return;}
- if(a==='L')move(-1);else if(a==='R')move(1);else if(a==='U')jump();else if(a==='D')doRoll();}
+ if(S.mode==='over'){if(S.dead>1.05){reset(),showRun();return;}return;} // до respawn-задержки любые клавиши молчат
+ if(S.mode!=='run')return;
+ if(a==='L')move(-1);else if(a==='R')move(1);else if(a==='U')jump();else if(a==='D')doRoll();else if(a==='F')shoot();
+ if(a==='U'||a==='F')window.__lastTap=a;}
 let tsx=0,tsy=0;
 addEventListener('touchstart',e=>{tsx=e.touches[0].clientX;tsy=e.touches[0].clientY;},{passive:true});
 addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tsx,dy=e.changedTouches[0].clientY-tsy;
- if(Math.abs(dx)<24&&Math.abs(dy)<24)return act(S.mode==='run'?'U':'T');
+ if(Math.abs(dx)<24&&Math.abs(dy)<24)return act(S.mode==='run'?'F':'T'); // тап = выстрел из лука
  if(Math.abs(dx)>Math.abs(dy))act(dx>0?'R':'L');else act(dy>0?'D':'U');},{passive:true});
 addEventListener('keydown',e=>act({ArrowLeft:'L',ArrowRight:'R',ArrowUp:'U',ArrowDown:'D',' ':'U'}[e.key]));
 // ---------- HUD ----------
@@ -645,6 +745,13 @@ function update(dt){
   o.z+=vz;o.m.position.z=o.z;o.m.position.x=(o.lane-1)*LANE+bend(o.z);
   if(o.type==='wall')o.m.userData.spin.rotation.x+=vz/o.m.userData.R*.08;} // валун катится К игроку: верх камня едет в +z; спин ×.08 - на 30+ м/с честное вращение = мясорубка
  for(const c of S.coinsArr){c.z+=dz;c.m.position.z=c.z;c.m.position.x=(c.lane-1)*LANE+bend(c.z);c.m.rotation.y+=dt*.9;} // медленное вращение - клинок можно разглядеть
+ for(const o of S.obs){ // враги идут НА героя: свой ход поверх скролла; boss самый быстрый
+  const crawl=o.type==='mob'?3.2:o.type==='boss'?6.5:o.type==='bomb'?1.4:0;
+  if(!crawl)continue;
+  o.z+=crawl*dt;o.m.position.z=o.z;o.m.position.x=(o.lane-1)*LANE+bend(o.z);
+  if(o.type==='mob'||o.type==='boss'){o.m.position.y=Math.abs(Math.sin(S.t*9))*(o.type==='boss'?.18:.08);} // перевалка в ходьбе
+ }
+ updArrows(dt);
  S.obs=S.obs.filter(o=>o.z<DESPAWN_Z||(scene.remove(o.m),false));
  S.coinsArr=S.coinsArr.filter(c=>c.z<DESPAWN_Z&&!c.taken||(scene.remove(c.m),false));
  if(S.dist>=nextSpawn)spawn();
