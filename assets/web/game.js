@@ -184,7 +184,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.38.1';
+const VER='4.38.2';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -282,7 +282,8 @@ function driveHero(dt){
  const lp=legPh(0),rp=legPh(Math.PI);
  const armPh=ph=>{const s0=Math.sin(a+ph);return{shoulder:-s0*.85-.1,elbow:-.35-.3*Math.max(0,s0)};};
  const alp=armPh(Math.PI),arp=armPh(0); // руки в противофазе с ногами
- const st=S.stepT>0?Math.sin(Math.PI*(1-S.stepT/.36)):0,sd=S.stepD||0; // шаг в сторону: применение после базовой походки
+ // боковой шаг = полноценный шаг: половина цикла ног (5.5 м пути), перенос ноги по фазе, а не таймером
+ const sp=(S.stepPh!==undefined&&S.stepPh!==null)?1-Math.min(1,(S.anim-S.stepPh)/Math.PI):0,st=sp>0&&sp<1?Math.sin(Math.PI*(1-sp)):0,sd=S.stepD||0;
  heroM.scale.set(1+.09*land,sq,1+.09*land); // squash при приземлении
  T(j.rig,'x',.12+spd*.04+Math.sin(a*2+Math.PI*.2)*.03); // наклон вперёд + дыхание
  j.rig.position.y=-.02+Math.abs(sw)*.045+Math.sin(a)*.018; // осциллятор таза
@@ -355,7 +356,7 @@ const S={mode:'menu',t:0,dist:0,speed:26,coins:0,score:0,
  best:+(localStorage.getItem('nr_best')||0),bestC:+(localStorage.getItem('nr_bestc')||0),
  lane:1,x:0,y:0,vy:0,air:false,roll:0,anim:0,dead:0,shake:0,flash:0,ts:1};
 let nextSpawn=30; S.obs=[];S.coinsArr=[];
-function reset(){S.mode='run';S.t=0;S.dist=0;S.speed=26;S.coins=0;S.score=0;S.lane=1;S.x=0;S.y=0;S.vy=0;
+function reset(){S.mode='run';S.t=0;S.dist=0;S.speed=18;S.coins=0;S.score=0;S.lane=1;S.x=0;S.y=0;S.vy=0;S.stepT=0;S.stepPh=null;
  S.air=false;S.roll=0;S.rollY=0;S.rollV=0;S.anim=0;S.dead=0;S.shake=0;S.flash=0;S.ts=1;
  for(const o of S.obs)scene.remove(o.m);for(const c of S.coinsArr)scene.remove(c.m);
  S.obs=[];S.coinsArr=[];nextSpawn=30;S.missed=0;deathPlayed=false;}
@@ -413,29 +414,31 @@ function burst(x,y,z,col,n){const c=new THREE.Color(col).convertSRGBToLinear();
   pcol[k*3]=c.r;pcol[k*3+1]=c.g;pcol[k*3+2]=c.b;plife[k]=.7;}
  pPts.geometry.attributes.position.needsUpdate=pPts.geometry.attributes.color.needsUpdate=true;}
 // ---------- открытая дорога <-> тоннели + погода ----------
-const SEG={in:0,m:0,next:260};   // in: в тоннеле; m: 0..1 смешение света/стенок
+const SEG={start:260,len:140,m:0}; // ближайший тоннель: окно [start,start+len]; стоит на дороге заранее - виден с горизонта
 const WX={st:0,next:150,night:0},GRAY=new THREE.Color(.62,.62,.6);
 const _cA=new THREE.Color();
 const _SKY_D=new THREE.Color(1,1,1),_SKY_C=new THREE.Color(.05,.04,.035);
 const _FOG_D=new THREE.Color(HZ).convertSRGBToLinear(),_FOG_C=new THREE.Color(0x171310).convertSRGBToLinear();
 const _SL_D=new THREE.Color(0xFFF3D6).convertSRGBToLinear(),_SL_C=new THREE.Color(0x7d8fc0).convertSRGBToLinear();
 // каменные кольца тоннеля: фасетчатая труба по 3 м, следует за изгибом дороги
-const NT=11,tun=new THREE.InstancedMesh(new THREE.CylinderGeometry(4.4,4.4,3.02,9,1,true),
+const NT=70,tun=new THREE.InstancedMesh(new THREE.CylinderGeometry(4.6,4.6,3.02,9,1,true),
  new THREE.MeshStandardMaterial({color:new THREE.Color(0x6b5a48).convertSRGBToLinear(),roughness:.95,flatShading:true,side:THREE.DoubleSide}),NT);
 {const rc=[0x6b5a48,0x5d4d3e,0x776552];for(let i=0;i<NT;i++)tun.setColorAt(i,new THREE.Color(rc[i%3]).convertSRGBToLinear());}
 scene.add(tun);
 const TUNAX=new THREE.Vector3(1,0,0);
 const OFFC=new THREE.Color(.34,.26,.17),ONC=new THREE.Color(1,.78,.42);
 function dayFx(dt){
- if(S.dist>SEG.next){SEG.in=SEG.in?0:1;SEG.next=S.dist+(SEG.in?110+Math.random()*90:220+Math.random()*240);
-  if(SEG.in)WX.st=0;else WX.next=S.dist;}
- SEG.m+=((SEG.in?1:0)-SEG.m)*Math.min(1,dt*2.4);
+ if(S.dist>SEG.start+SEG.len){SEG.start=S.dist+260+Math.random()*260; // следующий портал выставляется впереди, чтобы расти из горизонта
+  SEG.len=110+Math.random()*90;WX.next=S.dist;}
+ const d=S.dist-SEG.start; let mt;
+ if(d<0)mt=Math.max(0,1+d/14);else if(d<SEG.len)mt=1;else mt=0;
+ SEG.m+=(mt-SEG.m)*Math.min(1,dt*8);
  const m=SEG.m;WX.night=m;
  if(S.dist>WX.next){const r=Math.random();WX.st=r<.55?0:r<.85?1:2;WX.next=S.dist+120+Math.random()*180;}
  let si=1.15*(1-m)+.14*m,hi=.9*(1-m)+.3*m;
  _cA.copy(_SKY_D).lerp(_SKY_C,m);sunL.color.copy(_SL_D).lerp(_SL_C,m);
  if(WX.st===1){si*=.6;_cA.lerp(GRAY,.35);}
- if(WX.st===2&&!SEG.in){si*=.35;hi*=.8;_cA.lerp(GRAY,.55);
+ if(WX.st===2&&m<.3){si*=.35;hi*=.8;_cA.lerp(GRAY,.55);
   for(let n=dt*80|0;n>0;n--){const k=pCur++%NP,ix=k*3;
    ppos[ix]=S.x+(Math.random()-.5)*16;ppos[ix+1]=6+Math.random()*3;ppos[ix+2]=-14+Math.random()*22;
    pvel[ix]=0;pvel[ix+1]=-16;pvel[ix+2]=0;
@@ -454,11 +457,13 @@ function dayFx(dt){
   M4.compose(V1,Q0,V0);glow.setMatrixAt(i2,M4);}
  poles.instanceMatrix.needsUpdate=flame.instanceMatrix.needsUpdate=glow.instanceMatrix.needsUpdate=true;
  // кольца тоннеля: наезд из-под земли при входе, масштаб=смешение
- for(let i=0;i<NT;i++){const z=-((S.dist%3))-i*3,x=bend(z);
-  Q0.setFromAxisAngle(TUNAX,Math.PI/2);V1.set(x,1.6,z);const s=SEG.m;V0.set(s,s,s);
+ for(let i=0;i<NT;i++){const zw=SEG.start-3+i*3,z=S.dist-zw; // вперёд = -z, как у препятствий
+  if(z>12||z<-NT*3){V0.set(0,0,0);M4.compose(V1.set(0,-50,0),Q0.identity(),V0);tun.setMatrixAt(i,M4);continue;}
+  const s=z<0?1:Math.max(0,1-z/14);
+  Q0.setFromAxisAngle(TUNAX,Math.PI/2);V1.set(bend(z),1.6,z);V0.set(s,s,s);
   M4.compose(V1,Q0,V0);tun.setMatrixAt(i,M4);}
  tun.instanceMatrix.needsUpdate=true;
- tun.visible=SEG.m>.02;}
+ tun.visible=S.dist<SEG.start+SEG.len+14&&S.dist>SEG.start-NT*3-30;}
 // ---------- collision ----------
 const laneHit=o=>o.lane===S.lane&&Math.abs(S.x-(o.lane-1)*LANE)<LANE*.6;
 function collide(dt){const h=S.roll>0?1.0:1.62, // хитбокс = измеренный клубок .90 + зазор
@@ -477,7 +482,7 @@ function die(){if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);if(rollRoot){rollRoot.ro
  S.bestC=Math.max(S.bestC,S.coins);localStorage.setItem('nr_bestc',S.bestC);
  burst(S.x+bend(0),S.y+.8,0,0xF5F5F5,30);showOver();}
 // ---------- input ----------
-function move(d){const l=Math.max(0,Math.min(2,S.lane+d));if(l!==S.lane&&S.mode==='run'){S.stepT=.36;S.stepD=Math.sign(l-S.lane);}S.lane=l;}
+function move(d){const l=Math.max(0,Math.min(2,S.lane+d));if(l!==S.lane&&S.mode==='run'){S.stepPh=S.anim;S.stepT=5.5/S.speed;S.stepD=Math.sign(l-S.lane);}S.lane=l;}
 function jump(){if(!S.air&&S.roll<=0){S.vy=JUMP_V;S.air=true;sfx('jump');}}
 function doRoll(){if(S.roll>0)return;S.roll=.62;S.rollAir=S.air;if(S.air){S.rollY=S.y;S.rollV=Math.min(S.vy,-2);S.vy=0;sfx('jump');}else{S.rollY=0;S.rollV=0;}}
 function act(a){if(window.dlog&&a!=='T'&&a!=='O')dlog.swipe();
@@ -560,7 +565,7 @@ function update(dt){
  S.shake=Math.max(0,S.shake-dt*2.5);S.flash=Math.max(0,S.flash-dt*1.8);$('flash').style.opacity=S.flash;
  if(S.mode==='over'){S.dead+=dt;S.ts+=(1-S.ts)*Math.min(1,dt*2);}
  if(S.mode!=='run')return;
- S.speed=Math.min(52,26+S.dist/220);
+ S.speed=Math.min(44,18+S.dist/240);
  const dz=S.speed*dt;S.dist+=dz;S.score+=dz;
  dayFx(dt);
  S.stepT=Math.max(0,(S.stepT||0)-dt);
@@ -575,7 +580,7 @@ function update(dt){
   if(Math.random()<dt*20&&S.rollY<.06)burst(S.x,.03,.2,0x6B4E2E,1);
   S.roll-=dt;if(S.roll<=0)S.roll=0;}
  else if(S.roll>0)S.roll-=dt;
- S.anim+=(S.air||S.roll>0)?4*dt:dz*(Math.PI*2/3); // шаг привязан к грунту: 3 м на цикл, темп растёт со скоростью
+ S.anim+=(S.air||S.roll>0)?4*dt:dz*(Math.PI*2/11); // цикл ног = 5.5 м грунта: 3.3 шага/с на 18 м/с, без «бегства на месте»
  for(const o of S.obs){
   const vz=dz+(o.type==='wall'?5.5*dt:0); // валун катится НАВСТРЕЧУ: свой ход поверх скролла сцены
   o.z+=vz;o.m.position.z=o.z;o.m.position.x=(o.lane-1)*LANE+bend(o.z);
