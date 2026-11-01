@@ -57,6 +57,7 @@ const YAX=new THREE.Vector3(0,1,0);
 const NMtn=12,mtnMesh=new THREE.InstancedMesh(new THREE.ConeGeometry(1,1,5),noFog(M(0x60748A,.95)),NMtn),mtnPos=[];
 for(let i=0;i<NMtn;i++){const s=i%2?1:-1;mtnPos.push({x:s*(85+Math.random()*95),z:Math.random()*680,r:26+Math.random()*42,h:20+Math.random()*28,ry:Math.random()*3});}
 const NStone=160,stoneMesh=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),noFog(M(0x8A8578,.95)),NStone),stonePos=[];
+// камни только за тропой: |x| >= LANE*1.7+0.6 иначе катятся по полосам вместе с игроком
 for(let i=0;i<NStone;i++){const s=Math.random()<.5?-1:1;
  stonePos.push({x:s*(LANE*1.7+.6+Math.random()*13),z:Math.random()*320,w:.16+Math.random()*.4,ry:Math.random()*3});}
 const NFen=144,fenceMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),noFog(M(0x7A5A38,.95)),NFen),fencePos=[];
@@ -81,11 +82,24 @@ scene.add(trunks); scene.add(canopies);
 const tShGeo=new THREE.CircleGeometry(1,10);tShGeo.rotateX(-Math.PI/2);
 const treeSh=new THREE.InstancedMesh(tShGeo,new THREE.MeshBasicMaterial({color:0x14300E,transparent:true,opacity:.3,depthWrite:false}),NTree);
 treeSh.renderOrder=1;scene.add(treeSh);
-// ---------- bushes ----------
-const bushM=M(0x3E8A26,.9);
-const NBush=96, bushes=new THREE.InstancedMesh(new THREE.BoxGeometry(.8,.6,.8),bushM,NBush), bushPos=[];
+// ---------- трава: пучки из трёх травяных лезвий (пирамидки), не кубики ----------
+const bushM=M(0x3E8A26,.9);bushM.flatShading=true;
+const bladeG=new THREE.ConeGeometry(.09,.85,3); // узкая пирамида-травинка
+{const grp=new THREE.Group();
+ for(let q=0;q<3;q++){const m=new THREE.Mesh(bladeG);m.position.set((Math.random()-.5)*.28,.42,(Math.random()-.5)*.2);m.rotation.set((Math.random()-.5)*.5,q*2.1,(Math.random()-.5)*.35);grp.add(m);}
+ // слить в одну геометрию
+ const g=new THREE.BufferGeometry();const pos=[],nor=[],idx=[];let base=0;
+ grp.updateMatrixWorld(true);
+ grp.children.forEach(m=>{m.updateMatrix();const pg=m.geometry.attributes.position,ng=m.geometry.attributes.normal;
+  const v=new THREE.Vector3(),nn=new THREE.Vector3();const nm=new THREE.Matrix3().setFromMatrix4(m.matrix);
+  for(let i=0;i<pg.count;i++){pos.push(v.fromBufferAttribute(pg,i).applyMatrix4(m.matrix).x,v.y,v.z);nor.push(nn.fromBufferAttribute(ng,i).applyMatrix3(nm).normalize().x,nn.y,nn.z);}
+  const ix=m.geometry.index;for(let i=0;i<ix.count;i++)idx.push(base+ix.getX(i));base+=pg.count;});
+ g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+ g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));g.setIndex(idx);
+ var bushG=g;}
+const NBush=140, bushes=new THREE.InstancedMesh(bushG,bushM,NBush), bushPos=[];bushes.frustumCulled=false; // пучки гуляют за bounds - не отсекать пачкой
 for(let i=0;i<NBush;i++){const s=Math.random()<.5?-1:1;
- bushPos.push({x:s*(LANE*1.6+.35+Math.random()*.5),z:Math.random()*220,h:.5+Math.random()*.45});}
+ bushPos.push({x:s*(LANE*1.6+.35+Math.random()*.5),z:Math.random()*220,h:.5+Math.random()*.45,ry:Math.random()*6.28,sw:Math.random()*6.28});}
 scene.add(bushes);
 // ---------- фонари вдоль дороги: загораются вечером ----------
 const NL=26,lanP=[];
@@ -193,7 +207,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.39.2';
+const VER='4.40.0';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -484,13 +498,13 @@ function dayFx(dt){
  // огибающая: разгорается за 5м до, гаснет за 4.5м до прохождений - с перекрытием соседних ламп
  const envZ=z16=>Math.max(0,Math.min((-z16-1)/4,(z16+19)/6,1));
  // сглаживание: цель выбирается дискретно (ближайший фонарь), а позиция/яркость догоняют - никаких щелчков при смене
- {const k=Math.min(1,dt*7);const tx=lampX,ty=lampY,tz=lampZ,ti=on*4.5*envZ(lampZ);
+ {const k=Math.min(1,dt*2.8);const tx=lampX,ty=lampY,tz=lampZ,ti=on*4.5*envZ(lampZ);
   lampPL.position.set(lampPL.position.x+(tx-lampPL.position.x)*k,ty,lampPL.position.z+(tz-lampPL.position.z)*k);
   lampPL.intensity+=(ti-lampPL.intensity)*k;}
  // вторая лампа: следующий фонарь — чтобы тропы между ними не были пустыми
  lampPL2.__ti=0;
  for(let j=0;j<NL;j++){const b2=lanP[j],z=-150+(((b2.z+S.dist)%220)+220)%220;if(z<=lampZ-2&&z>lampZ-20){lampPL2.__tx=b2.x+bend(z)-Math.sign(b2.x)*.5;lampPL2.__tz=z;lampPL2.__ti=on*3.8*envZ(z);break;}}
- {const k=Math.min(1,dt*7);
+ {const k=Math.min(1,dt*2.8);
   lampPL2.position.set(lampPL2.position.x+((lampPL2.__tx||lampPL2.position.x)-lampPL2.position.x)*k,2.2,lampPL2.position.z+((lampPL2.__tz!==undefined?lampPL2.__tz:lampPL2.position.z)-lampPL2.position.z)*k);
   lampPL2.intensity+=((lampPL2.__ti||0)-lampPL2.intensity)*k;}
  poles.instanceMatrix.needsUpdate=flame.instanceMatrix.needsUpdate=glow.instanceMatrix.needsUpdate=lampPool.instanceMatrix.needsUpdate=tunRidge.instanceMatrix.needsUpdate=true;
@@ -551,7 +565,7 @@ function showOver(){$('over').style.display='flex';$('hud').style.display='none'
  setTimeout(()=>{$('ogo').style.visibility='visible';},800);}
 showMenu();
 // ---------- update ----------
-const M4=new THREE.Matrix4(),Q0=new THREE.Quaternion(),V1=new THREE.Vector3(),V0=new THREE.Vector3(1,1,1);
+const M4=new THREE.Matrix4(),Q0=new THREE.Quaternion(),Q1=new THREE.Quaternion(),V1=new THREE.Vector3(),V0=new THREE.Vector3(1,1,1);
 function updInst(){
  bendStrip(ground);bendStrip(path);
  for(let i=0;i<10;i++){const c=cloudPos[i],z=-260+(((c.z+S.dist*.35)%320)+320)%320;
@@ -597,8 +611,10 @@ function updInst(){
   Q0.setFromAxisAngle(YAX,v.ry);V1.set(v.x+bend(z),v.w*.5,z);V0.set(v.w,v.w*.7,v.w);M4.compose(V1,Q0,V0);stoneMesh.setMatrixAt(i,M4);}
  stoneMesh.instanceMatrix.needsUpdate=true;Q0.identity();
  for(let i=0;i<NBush;i++){const b=bushPos[i],z=-200+(((b.z+S.dist)%220)+220)%220;
-  V1.set(b.x+bend(z),b.h/2,z);V0.set(.9,b.h,.9);M4.compose(V1,Q0,V0);bushes.setMatrixAt(i,M4);}
- bushes.instanceMatrix.needsUpdate=true;V0.set(1,1,1);}
+  const tilt=Math.sin(S.t*1.6+b.sw+b.x)*.13; // ветер по траве
+  Q0.makeRotationY(b.ry);Q1.makeRotationX(tilt);Q0.multiply(Q1);
+  V1.set(b.x+bend(z),b.h*.42,z);V0.set(.95,b.h*1.15,.95);M4.compose(V1,Q0,V0);bushes.setMatrixAt(i,M4);}
+ bushes.instanceMatrix.needsUpdate=true;V0.set(1,1,1);Q0.identity();}
 function update(dt){
  S.t+=dt;
  for(let i=0;i<NP;i++){if(plife[i]>0){plife[i]-=dt;const k=i*3;
