@@ -104,7 +104,7 @@ const lpCv=document.createElement('canvas');lpCv.width=lpCv.height=64;
  g2.fillStyle=rg;g2.fillRect(0,0,64,64);}
 const lampPool=new THREE.InstancedMesh(lpGeo,new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(lpCv),transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,fog:false}),NL);
 lampPool.renderOrder=2;scene.add(lampPool);
-const lampPL=new THREE.PointLight(0xFFB25E,0,9,2);scene.add(lampPL);
+const lampPL=new THREE.PointLight(0xFFB25E,0,22,1.1),lampPL2=new THREE.PointLight(0xFFB25E,0,22,1.1);scene.add(lampPL,lampPL2);
 // ---------- audio ----------
 const AU={m:new Audio('audio/music.m4a'),pick:new Audio('audio/pickup.m4a'),
  bump:new Audio('audio/bump.m4a'),jump:new Audio('audio/jump.m4a')};
@@ -193,7 +193,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.39.0';
+const VER='4.39.1';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -294,6 +294,7 @@ function driveHero(dt){
  const alp=armPh(Math.PI),arp=armPh(0); // руки в противофазе с ногами
  // боковой шаг = полноценный шаг: половина цикла ног (5.5 м пути), перенос ноги по фазе, а не таймером
  const sp=(S.stepPh!==undefined&&S.stepPh!==null)?1-Math.min(1,(S.anim-S.stepPh)/Math.PI):0,st=sp>0&&sp<1?Math.sin(Math.PI*(1-sp)):0,sd=S.stepD||0;
+ const stepU=(sp>0&&sp<1)?1-sp:0; // 0..1 прогресс переноса; боковой вынос идёт по stepU, а lift и forward — по фазе a, т.е. реальному замаху
  heroM.scale.set(1+.09*land,sq,1+.09*land); // squash при приземлении
  T(j.rig,'x',.14+spd*.07+Math.sin(a*2+Math.PI*.2)*.03); // наклон вперёд + дыхание
  j.rig.position.y=-.02+Math.abs(sw)*.075; // подпрыгивание в такт шагам: два на цикл
@@ -303,12 +304,17 @@ function driveHero(dt){
  T(j.armL,'x',alp.shoulder);T(j.armR,'x',arp.shoulder);
  T(j.elbowL,'x',alp.elbow);T(j.elbowR,'x',arp.elbow);
  T(j.armL,'z',.12-Math.max(0,alp.shoulder)*.08);T(j.armR,'z',-.12+Math.max(0,arp.shoulder)*.08);
- if(st>0){ // приставной шаг: маховая нога отводится и переносится, толчковая отталкивается, руки врозь для баланса
+ if(st>0){ // приставной шаг: нога поднимается и уходит в сторону по stepU; z=forward остаётся в фазе a
   const lead=sd>0?j.legR:j.legL,leadK=sd>0?j.kneeR:j.kneeL,other=sd>0?j.legL:j.legR;
   const lt=sd>0?rp:lp,ot=sd>0?lp:rp;
-  T(lead,'x',-1.0*st+lt.thigh*(1-st));T(lead,'z',-sd*.75*st);T(leadK,'x',1.1*st+Math.max(0,lt.knee)*(1-st));
-  T(other,'x',.4*st+ot.thigh*(1-st));T(other,'z',sd*.22*st);
-  T(j.armL,'z',(sd>0?.6:-.15)*st);T(j.armR,'z',(sd<0?-.6:.15)*st);}
+  const lift=Math.sin(stepU*Math.PI),side=sd*stepU;
+  T(lead,'x',lt.thigh*.4+.25*lift);T(lead,'z',-sd*.3*lift);
+  T(leadK,'x',lt.knee*.4+.35*lift);
+  T(other,'x',ot.thigh*.45+.1*lift);T(other,'z',sd*.1*lift);
+  T(j.rig,'z',Math.sin(a)*.05-side*.18);T(j.rig,'x',.14+spd*.07+Math.sin(a*2+Math.PI*.2)*.03);
+  T(j.armL,'z',(sd>0?.5:.05)*lift);T(j.armR,'z',(sd<0?-.5:-.05)*lift);
+  T(j.rig,'y',Math.sin(a)*.09+side*.12);
+  T(lead,'y',sd*.65*lift); /* local +y = world +x после root rotY=pi; lift и side идут вместе, не через thigh */ }
  T(j.head,'z',-Math.sin(a)*.03);T(j.head,'y',Math.sin(a)*.09+Math.sin(S.t*.8)*.06); // стабилизация взгляда
  T(j.head,'x',.04+Math.sin(a*2+Math.PI*.3)*.025);
  tipV+=Math.sin(a*2+Math.PI*.3)*dt*24; // импульс колпака от ускорения головы
@@ -448,7 +454,7 @@ function dayFx(dt){
  if(S.dist>SEG.start+SEG.len){SEG.start=S.dist+260+Math.random()*260; // следующий портал выставляется впереди, чтобы расти из горизонта
   SEG.len=110+Math.random()*90;WX.next=S.dist;tunSeed=Math.random()*97+3;}
  const d=S.dist-SEG.start; let mt;
- if(d<0)mt=Math.max(0,1+d/14);else if(d<SEG.len)mt=1;else mt=0;
+ if(d<0)mt=Math.max(0,1+d/14);else if(d<SEG.len*.7)mt=1;else mt=Math.max(0,1-(d-SEG.len*.7)/(SEG.len*.3));
  SEG.m+=(mt-SEG.m)*Math.min(1,dt*8);
  const m=SEG.m;WX.night=m;
  if(S.dist>WX.next){const r=Math.random();WX.st=r<.55?0:r<.85?1:2;WX.next=S.dist+120+Math.random()*180;}
@@ -465,7 +471,7 @@ function dayFx(dt){
  scene.fog.near=45-33*m;scene.fog.far=120-70*m;
  sunL.intensity=si;HEMI.intensity=hi;
  const on=Math.min(1,m*1.6);
- flameMat.color.copy(OFFC).lerp(ONC,on);glowMat.opacity=on*.6;lampPool.material.opacity=on*.5;
+ flameMat.color.copy(OFFC).lerp(ONC,on);glowMat.opacity=on*.65;lampPool.material.opacity=on*.55;
  houseWin.material.color.setHex(0xFFCE6B).convertSRGBToLinear().multiplyScalar(.6+on*.9);
  let lampZ=-99,lampX=0,lampY=2.2;
  for(let i2=0;i2<NL;i2++){const b2=lanP[i2],z=-150+(((b2.z+S.dist)%220)+220)%220,x=b2.x+bend(z);
@@ -473,15 +479,17 @@ function dayFx(dt){
   V1.set(x,2.3,z);M4.compose(V1,Q0,V0);flame.setMatrixAt(i2,M4);
   const fl=.9+.18*Math.sin(S.t*7+i2*2.7);V0.set(fl*(.6+on*.7),fl*(.6+on*.7),fl*(.6+on*.7));
   M4.compose(V1,Q0,V0);glow.setMatrixAt(i2,M4);
-  V1.set(x-Math.sign(b2.x)*.7,.02,z);V0.set(1+on*.5,1,1+on*.5);M4.compose(V1,Q0,V0);lampPool.instanceMatrix.needsUpdate=true;lampPool.setMatrixAt(i2,M4);
+  V1.set(x-Math.sign(b2.x)*1.6,.02,z);V0.set(1.55+on*1.3,1,1.55+on*1.3);lampPool.instanceMatrix.needsUpdate=true;lampPool.setMatrixAt(i2,M4);
   if(z<0&&z>-9&&z>lampZ){lampZ=z;lampX=x;lampY=2.2;}}
- lampPL.position.set(lampX,lampY,lampZ);lampPL.intensity=on*1.6;
+ lampPL.position.set(lampX,lampY,lampZ);lampPL.intensity=on*4.5;
+ // вторая лампа: следующий фонарь — чтобы тропы между ними не были пустыми
+ for(let j=0;j<NL;j++){const b2=lanP[j],z=-150+(((b2.z+S.dist)%220)+220)%220;if(z<=lampZ&&z>lampZ-16){lampPL2.position.set(b2.x+bend(z)-Math.sign(b2.x)*.5,2.2,z);lampPL2.intensity=on*3.8;break;}}
  poles.instanceMatrix.needsUpdate=flame.instanceMatrix.needsUpdate=glow.instanceMatrix.needsUpdate=lampPool.instanceMatrix.needsUpdate=tunRidge.instanceMatrix.needsUpdate=true;
  // сечения пещеры: радиус и центр «дышат» вдоль длины, раструб у входов
  for(let i=0;i<TSEG;i++){const s=i/(TSEG-1)*SEG.len,zw=SEG.start+s,z=S.dist-zw; // вперёд = -z
-  const fl=s<5?(5-s)*.3:(s>SEG.len-5?(s-(SEG.len-5))*.3:0);
-  const r=4.3+1.15*Math.sin(s*.11+tunSeed)+.75*Math.sin(s*.27+tunSeed*2)+fl;
-  const cx=bend(z)+1.0*Math.sin(s*.08+tunSeed*3),cy=1.75+.55*Math.sin(s*.06+tunSeed*5);
+  const e=Math.min(1,s/18,(SEG.len-s)/18); // стены неровные только в середине; у входов и выхода гладко
+  const r=4.6+(1.15*Math.sin(s*.11+tunSeed)+.75*Math.sin(s*.27+tunSeed*2))*e;
+  const cx=bend(z),cy=1.75+.4*Math.sin(s*.06+tunSeed*5)*e; // центр строго по тропе: неровность только в радиусе, стены не лезут на дорогу
   for(let k=0;k<TRING;k++){const ang=k/TRING*6.2832,ix=(i*TRING+k)*3;
    tunV[ix]=cx+r*Math.cos(ang);tunV[ix+1]=cy+r*.92*Math.sin(ang);tunV[ix+2]=z;}
   const ri=i>>1;if(ri<NRK){Q0.identity();V1.set(cx+Math.sin(ri*2.1)*2.4,cy+r*.9+1.1,z);
