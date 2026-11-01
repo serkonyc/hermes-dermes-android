@@ -207,7 +207,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.41.2';
+const VER='4.42.0';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -223,7 +223,7 @@ let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),
    const b2=new THREE.Box3().setFromObject(root); root.position.y=-b2.min.y;
    root.rotation.y=Math.PI;     // лицом вперёд по тропе
    rollRoot=new THREE.Group(); rollRoot.add(root); heroM.add(rollRoot); heroCOM.set((b2.max.x+b2.min.x)/2,(b2.max.y+b2.min.y)/2,(b2.max.z+b2.min.z)/2); mReady=true; player.visible=false;
-  heroBow=makeBow(); heroBow.position.set(.42,.72,.32); heroBow.scale.setScalar(HERO_K); j.rig.add(heroBow);
+  heroBow=makeBow(); heroBow.position.set(.42,.8,.05); heroBow.scale.setScalar(HERO_K); j.rig.add(heroBow);
    const fb=document.getElementById('gfail');if(fb)fb.remove();
    if($('ver'))$('ver').textContent='v'+VER+' · GLB';
   });
@@ -333,8 +333,11 @@ function driveHero(dt){
  T(j.head,'z',-Math.sin(a)*.03);T(j.head,'y',Math.sin(a)*.09+Math.sin(S.t*.8)*.06); // стабилизация взгляда
  T(j.head,'x',.04+Math.sin(a*2+Math.PI*.3)*.025);
  if(heroBow){bowT=Math.max(0,bowT-dt);const b=Math.min(1,bowT/.22); // bowT: прицел-выпуск 0.22с
-  heroBow.visible=b>0;T(j.armR,'x',-1.15*b+arp.shoulder*(1-b));T(j.armR,'z',.5*b+(-.12+Math.max(0,arp.shoulder)*.08)*(1-b));
-  T(j.elbowR,'x',-.1*b+arp.elbow*(1-b));} // правая рука тянется с луком, остальные в беговой фазе
+  heroBow.visible=true;heroBow.rotation.z=b*.12;heroBow.rotation.x=-1.35*(1-b); // в покое лук несётся плашмя, при выстреле дуга встаёт вертикально в плоскость выстрела
+  bowStr.position.z=-.29+.25*b;bowStr.scale.x=1+.45*b; // тетива оттянута к лицу и проседает на выпуске
+  bowArr.visible=b>0;bowArr.position.set(0,.16,.22-.55*(1-b)); // стрела вкладывается и уходит с релизом
+  T(j.armR,'x',-1.35*b+arp.shoulder*(1-b));T(j.armR,'z',.62*b+(-.12+Math.max(0,arp.shoulder)*.08)*(1-b));
+  T(j.elbowR,'x',-1.05*b+arp.elbow*(1-b));} // правая: в беге качается с луком, при выстреле - полная тяча
  tipV+=Math.sin(a*2+Math.PI*.3)*dt*24; // импульс колпака от ускорения головы
  T(j.hat,'x',-.05+Math.sin(a*2)*.03+tipQ*.5);
  heroM.position.y+=st*.16; // подскок приставного шага
@@ -379,14 +382,19 @@ function tWall(){ // катящийся валун (BotW rolling rock) - вза�
   p.position.set((i?1:-1)*.85,.25,.5);p.rotation.y=i*2;g.add(p);}
  return g;}
 // ---------- лук Link'а: появляется в вытянутой руке на выстрел ----------
-function makeBow(){const g=new THREE.Group();
- const arc=new THREE.Mesh(new THREE.TorusGeometry(.42,.028,6,12,Math.PI*1.15),M(0x3E6B2F,.8));arc.rotation.y=Math.PI/2;arc.rotation.z=Math.PI*.42;g.add(arc);
- const str=new THREE.Mesh(new THREE.CylinderGeometry(.008,.008,.78,4),M(0xE8E1CE,.6));str.rotation.z=Math.PI/2;str.position.z=-.12;g.add(str);
- const grip=box(.07,.2,.07,M(0x6B3E2A,.85));grip.position.z=.02;g.add(grip);
- const tipA=new THREE.Mesh(new THREE.ConeGeometry(.03,.1,4),M(0xC9B06B,.5));tipA.position.set(0,.44,-.12);tipA.rotation.x=1.4;g.add(tipA);
- const tipB=tipA.clone();tipB.position.y=-.44;tipB.rotation.x=-1.4;g.add(tipB);
- g.visible=false;return g;}
-var heroBow=null,bowT=0;
+function makeBow(){const g=new THREE.Group(); // локальная система: Y вверх, -z вперёд; дуга в вертикальной плоскости XY, тетива вдоль Y, стрела вдоль Z
+ const arc=new THREE.Mesh(new THREE.TorusGeometry(.42,.028,6,14,Math.PI*1.15),M(0x3E6B2F,.8));arc.rotation.z=Math.PI*.925;g.add(arc); // тора в XY: дуга открывается вперёд (-z), концы по ±x
+ const str=new THREE.Mesh(new THREE.CylinderGeometry(.008,.008,.86,4),M(0xE8E1CE,.6));str.position.z=-.29;g.add(str);bowStr=str;
+ const na=new THREE.Group();const sh=new THREE.Mesh(new THREE.CylinderGeometry(.014,.014,.7,5),M(0x6B4A2F,.9));sh.rotation.x=Math.PI/2;na.add(sh);
+ const hd=new THREE.Mesh(new THREE.ConeGeometry(.03,.12,4),M(0xC4CBD2,.3,.8));hd.rotation.x=-Math.PI/2;hd.position.z=-.4;na.add(hd);
+ const fm=new THREE.Mesh(new THREE.BoxGeometry(.1,.008,.14),M(0xC43A3A,.6));
+ const f1=fm.clone();f1.position.z=.34;const f2=fm.clone();f2.position.z=.34;f2.rotation.z=1.57;na.add(f1);na.add(f2);
+ na.position.set(0,.16,.22);na.visible=false;g.add(na);bowArr=na; // линия стрелы над рукоятью, у большого пальца, и вынесена вперёд - не тонет в кисти
+ const grip=box(.07,.2,.07,M(0x6B3E2A,.85));g.add(grip);
+ const tipA=new THREE.Mesh(new THREE.ConeGeometry(.03,.1,4),M(0xC9B06B,.5));tipA.position.set(.26,0,-.33);tipA.rotation.x=1.4;g.add(tipA);
+ const tipB=tipA.clone();tipB.position.set(-.26,0,-.33);tipB.rotation.x=-1.4;g.add(tipB);
+ g.rotation.z=0;return g;}
+var heroBow=null,bowT=0,bowStr=null,bowArr=null;
 // лук цепляется к rig при готовности GLB (см. loader): heroBow=makeBow();rig.add(heroBow)
 function tCoin(){ // sword pickup
  const g=new THREE.Group();
@@ -488,7 +496,7 @@ function reset(){S.mode='run';S.t=0;S.dist=0;S.speed=18;S.coins=0;S.score=0;S.la
  S.air=false;S.roll=0;S.rollY=0;S.rollV=0;S.anim=0;S.dead=0;S.shake=0;S.flash=0;S.ts=1;
  for(const o of S.obs)scene.remove(o.m);for(const c of S.coinsArr)scene.remove(c.m);
  for(const a of S.arrows)scene.remove(a.m);
- S.obs=[];S.coinsArr=[];S.arrows=[];S.arrowsMade=0;nextSpawn=30;S.missed=0;deathPlayed=false;}
+ S.obs=[];S.coinsArr=[];S.arrows=[];S.arrowsMade=0;nextSpawn=30;S.missed=0;deathPlayed=false;heartsP.length=0;}
 function addObs(type,lane){const m=TPL[type]();m.position.set((lane-1)*LANE,0,SPAWN_Z);scene.add(m);
  const o={type,lane,z:SPAWN_Z,m};
  const e=(type==='mob'||type==='bomb'||type==='boss')?enemyMesh(type):null;
@@ -624,7 +632,7 @@ function dayFx(dt){
  // сечения пещеры: радиус и центр «дышат» вдоль длины, раструб у входов
  for(let i=0;i<TSEG;i++){const s=i/(TSEG-1)*SEG.len,zw=SEG.start+s,z=S.dist-zw; // вперёд = -z
   const e=Math.min(1,s/18,(SEG.len-s)/18); // стены неровные только в середине; у входов и выхода гладко
-  const r=4.6+(1.15*Math.sin(s*.11+tunSeed)+.75*Math.sin(s*.27+tunSeed*2))*e;
+  const r=3.9+(.95*Math.sin(s*.11+tunSeed)+.6*Math.sin(s*.27+tunSeed*2))*e; // радиус с запасом до ближайших деревьев (|x|>=10.2): ни одна крона не проходит сквозь оболочку
   const cx=bend(z),cy=1.75+.4*Math.sin(s*.06+tunSeed*5)*e; // центр строго по тропе: неровность только в радиусе, стены не лезут на дорогу
   for(let k=0;k<TRING;k++){const ang=k/TRING*6.2832,ix=(i*TRING+k)*3;
    tunV[ix]=cx+r*Math.cos(ang);tunV[ix+1]=cy+r*.92*Math.sin(ang);tunV[ix+2]=z;}
@@ -661,16 +669,18 @@ function doRoll(){if(S.roll>0)return;S.roll=.62;S.rollAir=S.air;if(S.air){S.roll
 function arrowGeo(){const g=new THREE.Group();
  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.016,.016,.8,5),M(0x6B4A2F,.9));shaft.rotation.x=Math.PI/2;g.add(shaft);
  const head=new THREE.Mesh(new THREE.ConeGeometry(.035,.14,4),M(0xC4CBD2,.3,.8));head.rotation.x=-Math.PI/2;head.position.z=-.44;g.add(head);
- for(let i=0;i<2;i++){const f=new THREE.Mesh(new THREE.BoxGeometry(.11,.01,.16),M(0xE8E1CE,.6));f.position.set(0,0,.32);f.rotation.z=i?1.57:0;g.add(f);}
+ for(let i=0;i<2;i++){const f=new THREE.Mesh(new THREE.BoxGeometry(.12,.012,.17),M(0xC43A3A,.6));f.position.set(0,0,.32);f.rotation.z=i?1.57:0;g.add(f);}
  return g;}
 function shoot(){if(S.mode!=='run')return;
- const m=arrowGeo();m.position.set(S.x+bend(0),S.y+.95,0); // вперед = -z
- scene.add(m);S.arrows.push({x:S.lane,z:0,m,hit:0});S.arrowsMade++;
+ const m=arrowGeo();m.position.set((S.lane-1)*LANE+bend(0),S.y+.95,-.9); // вылет из лука чуть впереди героя, полоса та же
+ scene.add(m);S.arrows.push({x:S.lane,z:-.9,m,hit:0});S.arrowsMade++;
  bowT=.22;sfx('jump');}
 function updArrows(dt){
  for(let i=S.arrows.length-1;i>=0;i--){const a=S.arrows[i];
   if(a.hit){a.hit+=dt; // поражающая стрела замирает в цели и кувыркается, затем исчезает
    a.m.rotation.z=a.hit*10;a.m.position.z+=S.speed*dt*.4; // втыкается в поток и утекает назад
+   a.m.traverse(o=>{if(o.isMesh&&o.material&&!o.material.__fade){o.material=o.material.clone();o.material.transparent=true;o.material.__fade=1;}}); // клонируем: shared-материал новых стрел не должен гаснуть
+   const k=1-a.hit/.35;a.m.traverse(o=>{if(o.isMesh&&o.material.__fade)o.material.opacity=k;}); // Dissolve после поражения
    if(a.hit>.35){scene.remove(a.m);S.arrows.splice(i,1);}continue;}
   a.z-=34*dt;if(a.z<-34){scene.remove(a.m);S.arrows.splice(i,1);continue;}
   a.m.position.z=a.z;a.m.position.x=(a.lane-1)*LANE+bend(a.z);
@@ -687,7 +697,28 @@ function updArrows(dt){
  S.obs=S.obs.filter(o=>o.dead?(scene.remove(o.m),false):true);}
 function killFx(o){const p=new THREE.Vector3();o.m.getWorldPosition(p);
  const col=o.type==='boss'?0xFF1A2E:o.type==='mob'?0x7B4A2F:o.type==='bomb'?0x2E7A4A:0x8F8D89;
- burst(p.x,p.y+.7,p.z,col,18);sparkle(p.x,p.y+.7,p.z);S.score+=60;S.shake=Math.max(S.shake,.18);sfx('bump');}
+ burst(p.x,p.y+.7,p.z,col,18);hearts(p.x,p.y+.9,p.z);S.score+=60;S.shake=Math.max(S.shake,.18);sfx('bump');}
+// сердечки-подтверждение попадания: аддитивные билборды, всплывают и гаснут
+const heartCv=document.createElement('canvas');heartCv.width=heartCv.height=64;
+{const g2=heartCv.getContext('2d');g2.fillStyle='#ff4f7b';const s=64;
+ g2.beginPath();g2.moveTo(s/2,s*.88);g2.bezierCurveTo(s*.05,s*.55,s*.12,s*.12,s/2,s*.34);
+ g2.bezierCurveTo(s*.88,s*.12,s*.95,s*.55,s/2,s*.88);g2.fill();}
+const heartTex=new THREE.CanvasTexture(heartCv);
+const heartsP=[];const NH=40;
+const heartsMesh=new THREE.InstancedMesh(new THREE.PlaneGeometry(.3,.3),
+ new THREE.MeshBasicMaterial({map:heartTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false}),NH);
+heartsMesh.frustumCulled=false;heartsMesh.renderOrder=3;scene.add(heartsMesh);
+function hearts(x,y,z){for(let i=0;i<7;i++)heartsP.push({x:x+(Math.random()-.5)*.5,y:y+Math.random()*.3,z:z+(Math.random()-.5)*.5,
+ vy:1.8+Math.random()*1.6,sway:Math.random()*6.28,t:0,life:.6+Math.random()*.35});
+ while(heartsP.length>NH)heartsP.shift();}
+function updHearts(dt){for(let j=heartsP.length-1;j>=0;j--){const p=heartsP[j];p.t+=dt;if(p.t>=p.life){heartsP.splice(j,1);continue;}
+ p.y+=p.vy*dt;p.vy-=1.4*dt;}
+ for(let i=0;i<NH;i++){const p=heartsP[i];
+  if(!p){V0.set(0,0,0);M4.compose(V1.set(0,-9999,0),Q0.identity(),V0);}
+  else{const k=1-p.t/p.life;V1.set(p.x+Math.sin(p.sway+p.t*7)*.12,p.y,p.z);
+   const s=(.7+.5*Math.sin(Math.min(1,p.t*6)*1.57))*k*1.4+.25;V0.set(s,s,1);M4.compose(V1,Q0.copy(camera.quaternion),V0);} // Q0 глобальный скиретч, .copy экономит clone на инстанс
+  heartsMesh.setMatrixAt(i,M4);}
+ heartsMesh.instanceMatrix.needsUpdate=true;}
 function act(a){if(window.dlog&&a!=='T'&&a!=='O')dlog.swipe();
  if(S.mode==='menu'){reset();showRun();if(window.dlog)dlog.run();return;}
  if(S.mode==='over'){if(S.dead>1.05){reset(),showRun();return;}return;} // до respawn-задержки любые клавиши молчат
@@ -749,19 +780,29 @@ function updInst(){
   houseWin.instanceMatrix.needsUpdate=merlon.instanceMatrix.needsUpdate=true;
   poleMesh.instanceMatrix.needsUpdate=flagMesh.instanceMatrix.needsUpdate=true;
   towerMesh.instanceMatrix.needsUpdate=towerTop.instanceMatrix.needsUpdate=castleWall.instanceMatrix.needsUpdate=true;}
+ const hT=SEG.m>.5?1:0; // в пещере нет деревьев/камней/кустов: гасим всю дорогу-растительность, не только стволы
+ const hA=hT<.5?1:0; // открытая фаза: обычная сборка матриц
  for(let i=0;i<NTree;i++){const b=treePos[i],z=-260+(((b.z+S.dist*.85)%320)+320)%320;
-  V1.set(b.x+bend(z),b.h/2,z);V0.set(b.w,b.h,b.w);M4.compose(V1,Q0,V0);trunks.setMatrixAt(i,M4);
-  V1.set(b.x+bend(z),b.h+b.canopyH/2,z);V0.set(b.canopyW,b.canopyH,b.canopyW);M4.compose(V1,Q0,V0);canopies.setMatrixAt(i,M4);
-  V1.set(b.x+bend(z)+b.canopyW*.35,.025,z);V0.set(b.canopyW*1.15,1,b.canopyW*1.15);M4.compose(V1,Q0,V0);treeSh.setMatrixAt(i,M4);}
+  if(hT){V0.set(0,0,0);V1.set(0,-9999,z);}
+  else{V1.set(b.x+bend(z),b.h/2,z);V0.set(b.w,b.h,b.w);}
+  M4.compose(V1,Q0.identity(),V0);trunks.setMatrixAt(i,M4);
+  if(!hT){V1.set(b.x+bend(z),b.h+b.canopyH/2,z);V0.set(b.canopyW,b.canopyH,b.canopyW);}
+  M4.compose(V1,Q0.identity(),V0);canopies.setMatrixAt(i,M4);
+  if(!hT){V1.set(b.x+bend(z)+b.canopyW*.35,.025,z);V0.set(b.canopyW*1.15,1,b.canopyW*1.15);}
+  M4.compose(V1,Q0.identity(),V0);treeSh.setMatrixAt(i,M4);}
  treeSh.instanceMatrix.needsUpdate=true;
  trunks.instanceMatrix.needsUpdate=true;canopies.instanceMatrix.needsUpdate=true;V0.set(1,1,1);
  for(let i=0;i<NStone;i++){const v=stonePos[i],z=-260+(((v.z+S.dist*.85)%320)+320)%320; // камни у дороги
-  Q0.setFromAxisAngle(YAX,v.ry);V1.set(v.x+bend(z),v.w*.5,z);V0.set(v.w,v.w*.7,v.w);M4.compose(V1,Q0,V0);stoneMesh.setMatrixAt(i,M4);}
+  if(hT){V0.set(0,0,0);V1.set(0,-9999,z);}else V1.set(v.x+bend(z),v.w*.5,z);
+  if(!hT)V0.set(v.w,v.w*.7,v.w);
+  Q0.setFromAxisAngle(YAX,v.ry);M4.compose(V1,Q0,V0);stoneMesh.setMatrixAt(i,M4);}
  stoneMesh.instanceMatrix.needsUpdate=true;Q0.identity();
  for(let i=0;i<NBush;i++){const b=bushPos[i],z=-200+(((b.z+S.dist)%220)+220)%220;
   const tilt=Math.sin(S.t*1.6+b.sw+b.x)*.13; // ветер по траве
   QE.set(tilt,b.ry,0,'YXZ');Q0.setFromEuler(QE);
-  V1.set(b.x+bend(z),b.h*.42,z);V0.set(.95,b.h*1.15,.95);M4.compose(V1,Q0,V0);bushes.setMatrixAt(i,M4);}
+  if(hT){V0.set(0,0,0);V1.set(0,-9999,z);}else V1.set(b.x+bend(z),b.h*.42,z);
+  if(!hT)V0.set(.95,b.h*1.15,.95);
+  M4.compose(V1,Q0,V0);bushes.setMatrixAt(i,M4);}
  bushes.instanceMatrix.needsUpdate=true;V0.set(1,1,1);Q0.identity();}
 function update(dt){
  S.t+=dt;
@@ -799,7 +840,7 @@ function update(dt){
   o.z+=crawl*dt;o.m.position.z=o.z;o.m.position.x=(o.lane-1)*LANE+bend(o.z);
   if(o.type==='mob'||o.type==='boss'){o.m.position.y=Math.abs(Math.sin(S.t*9))*(o.type==='boss'?.18:.08);} // перевалка в ходьбе
  }
- updArrows(dt);
+ updArrows(dt);updHearts(dt);
  S.obs=S.obs.filter(o=>o.z<DESPAWN_Z||(scene.remove(o.m),false));
  S.coinsArr=S.coinsArr.filter(c=>c.z<DESPAWN_Z&&!c.taken||(scene.remove(c.m),false));
  if(S.dist>=nextSpawn)spawn();
