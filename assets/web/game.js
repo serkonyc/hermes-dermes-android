@@ -96,6 +96,15 @@ const flame=new THREE.InstancedMesh(new THREE.BoxGeometry(.17,.24,.17),flameMat,
 const glowMat=new THREE.MeshBasicMaterial({color:new THREE.Color(0xFFC46B).convertSRGBToLinear(),fog:false,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending});
 const glow=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.36,0),glowMat,NL);
 scene.add(poles,flame,glow);
+// лужи света на тропе: аддитивные блики видны издалека; плюс одна живая лампа-источник у ближайшего фонаря
+const lpGeo=new THREE.CircleGeometry(2.3,12);lpGeo.rotateX(-Math.PI/2);
+const lpCv=document.createElement('canvas');lpCv.width=lpCv.height=64;
+{const g2=lpCv.getContext('2d');const rg=g2.createRadialGradient(32,32,2,32,32,30);
+ rg.addColorStop(0,'rgba(255,190,110,1)');rg.addColorStop(1,'rgba(255,190,110,0)');
+ g2.fillStyle=rg;g2.fillRect(0,0,64,64);}
+const lampPool=new THREE.InstancedMesh(lpGeo,new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(lpCv),transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,fog:false}),NL);
+lampPool.renderOrder=2;scene.add(lampPool);
+const lampPL=new THREE.PointLight(0xFFB25E,0,9,2);scene.add(lampPL);
 // ---------- audio ----------
 const AU={m:new Audio('audio/music.m4a'),pick:new Audio('audio/pickup.m4a'),
  bump:new Audio('audio/bump.m4a'),jump:new Audio('audio/jump.m4a')};
@@ -184,7 +193,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.38.2';
+const VER='4.39.0';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -276,17 +285,18 @@ function driveHero(dt){
   springs(dt,105,11,ML); return;}
  // ---------- 4-фазная походка на GLB-суставах: FK-цепочки, наклон, таз, контр-вращения ----------
  const a=S.anim*2,sw=Math.sin(a),sq=1-.13*land;
- const spd=Math.min(1,(S.speed-26)/26),amp=.95+spd*.25;
- const legPh=ph=>{const s0=Math.sin(a+ph),s1=Math.sin(a+ph+Math.PI*.5);
-  return{thigh:-amp*s0*.55,knee:Math.max(0,.75*(.5-.5*s1)+.2),ankle:.2*s1};};
+ const spd=Math.min(1,(S.speed-18)/26); // бег, а не Семенка: бедро ±(0.8..1.2), колено поджимается в замахе, носок тянется на отрыве
+ const A=.8+spd*.4;
+ const legPh=ph=>{const s0=Math.sin(a+ph),rec=Math.max(0,-Math.sin(a+ph-.7));
+  return{thigh:-A*s0,knee:.22+1.4*rec*rec,ankle:.55*Math.sin(a+ph+1.9)-.08};};
  const lp=legPh(0),rp=legPh(Math.PI);
- const armPh=ph=>{const s0=Math.sin(a+ph);return{shoulder:-s0*.85-.1,elbow:-.35-.3*Math.max(0,s0)};};
+ const armPh=ph=>{const s0=Math.sin(a+ph);return{shoulder:-1.05*s0-.15,elbow:-.55-.7*Math.max(0,-s0)};};
  const alp=armPh(Math.PI),arp=armPh(0); // руки в противофазе с ногами
  // боковой шаг = полноценный шаг: половина цикла ног (5.5 м пути), перенос ноги по фазе, а не таймером
  const sp=(S.stepPh!==undefined&&S.stepPh!==null)?1-Math.min(1,(S.anim-S.stepPh)/Math.PI):0,st=sp>0&&sp<1?Math.sin(Math.PI*(1-sp)):0,sd=S.stepD||0;
  heroM.scale.set(1+.09*land,sq,1+.09*land); // squash при приземлении
- T(j.rig,'x',.12+spd*.04+Math.sin(a*2+Math.PI*.2)*.03); // наклон вперёд + дыхание
- j.rig.position.y=-.02+Math.abs(sw)*.045+Math.sin(a)*.018; // осциллятор таза
+ T(j.rig,'x',.14+spd*.07+Math.sin(a*2+Math.PI*.2)*.03); // наклон вперёд + дыхание
+ j.rig.position.y=-.02+Math.abs(sw)*.075; // подпрыгивание в такт шагам: два на цикл
  T(j.rig,'z',Math.sin(a)*.05-sd*.24*st);T(j.rig,'y',Math.sin(a)*.09+sd*.3*st);
  T(j.legL,'x',lp.thigh);T(j.kneeL,'x',lp.knee);T(j.ankleL,'x',lp.ankle);
  T(j.legR,'x',rp.thigh);T(j.kneeR,'x',rp.knee);T(j.ankleR,'x',rp.ankle);
@@ -305,8 +315,9 @@ function driveHero(dt){
  T(j.hat,'x',-.05+Math.sin(a*2)*.03+tipQ*.5);
  heroM.position.y+=st*.16; // подскок приставного шага
  // кукла-марионетка: корпус ведёт жёстко, конечности догоняют мягче - цепь читается связанной, а не 13 шарниров
- // тряпичность: всё догоняет с запаздыванием, жёсткость ниже - силуэт «дышит», а не щёлкает позам
- springs(dt,165,14,[j.rig,j.head]); springs(dt,78,9.5,[j.armL,j.armR,j.elbowL,j.elbowR,j.legL,j.legR,j.kneeL,j.kneeR,j.ankleL,j.ankleR]);
+ // пружины ног/рук: k выше квадрата частоты шага (на 44 м/с ω≈50) - иначе амплитуда срезается в разы;
+ // мягкость держим недокрученным демпфированием (d<2*sqrt(k)): фаза отстает - силуэт «дышит»
+ springs(dt,165,14,[j.rig,j.head]); springs(dt,2400,64,[j.armL,j.armR,j.elbowL,j.elbowR,j.legL,j.legR,j.kneeL,j.kneeR,j.ankleL,j.ankleR]);
 }
 
 // ---------- templates: Korok Forest obstacles (BotW lore) ----------
@@ -420,16 +431,22 @@ const _cA=new THREE.Color();
 const _SKY_D=new THREE.Color(1,1,1),_SKY_C=new THREE.Color(.05,.04,.035);
 const _FOG_D=new THREE.Color(HZ).convertSRGBToLinear(),_FOG_C=new THREE.Color(0x171310).convertSRGBToLinear();
 const _SL_D=new THREE.Color(0xFFF3D6).convertSRGBToLinear(),_SL_C=new THREE.Color(0x7d8fc0).convertSRGBToLinear();
-// каменные кольца тоннеля: фасетчатая труба по 3 м, следует за изгибом дороги
-const NT=70,tun=new THREE.InstancedMesh(new THREE.CylinderGeometry(4.6,4.6,3.02,9,1,true),
- new THREE.MeshStandardMaterial({color:new THREE.Color(0x6b5a48).convertSRGBToLinear(),roughness:.95,flatShading:true,side:THREE.DoubleSide}),NT);
-{const rc=[0x6b5a48,0x5d4d3e,0x776552];for(let i=0;i<NT;i++)tun.setColorAt(i,new THREE.Color(rc[i%3]).convertSRGBToLinear());}
+// пещера: непрерывная труба с гуляющим радиусом и центром (неровные стены), перестраивается по изгибу дороги
+const TSEG=56,TRING=16;
+const tunG=new THREE.BufferGeometry();
+const tunV=new Float32Array(TSEG*TRING*3);
+tunG.setAttribute('position',new THREE.BufferAttribute(tunV,3));
+{const idx=[];for(let i=0;i<TSEG-1;i++)for(let k=0;k<TRING;k++){const a0=i*TRING+k,b0=i*TRING+(k+1)%TRING,c0=(i+1)*TRING+k,d0=(i+1)*TRING+(k+1)%TRING;idx.push(a0,c0,b0,b0,c0,d0);}tunG.setIndex(idx);}
+const tun=new THREE.Mesh(tunG,new THREE.MeshStandardMaterial({color:new THREE.Color(0x6b5a48).convertSRGBToLinear(),roughness:.95,flatShading:true,side:THREE.DoubleSide}));
 scene.add(tun);
-const TUNAX=new THREE.Vector3(1,0,0);
+// гряда валунов поверх пещеры: снаружи читается как каменистая горка на горизонте
+const NRK=28,tunRidge=new THREE.InstancedMesh(rockGeos[1],new THREE.MeshStandardMaterial({color:new THREE.Color(0x5d4d3e).convertSRGBToLinear(),roughness:.95,flatShading:true}),NRK);
+scene.add(tunRidge);
+let tunSeed=Math.random()*97+3;
 const OFFC=new THREE.Color(.34,.26,.17),ONC=new THREE.Color(1,.78,.42);
 function dayFx(dt){
  if(S.dist>SEG.start+SEG.len){SEG.start=S.dist+260+Math.random()*260; // следующий портал выставляется впереди, чтобы расти из горизонта
-  SEG.len=110+Math.random()*90;WX.next=S.dist;}
+  SEG.len=110+Math.random()*90;WX.next=S.dist;tunSeed=Math.random()*97+3;}
  const d=S.dist-SEG.start; let mt;
  if(d<0)mt=Math.max(0,1+d/14);else if(d<SEG.len)mt=1;else mt=0;
  SEG.m+=(mt-SEG.m)*Math.min(1,dt*8);
@@ -448,22 +465,29 @@ function dayFx(dt){
  scene.fog.near=45-33*m;scene.fog.far=120-70*m;
  sunL.intensity=si;HEMI.intensity=hi;
  const on=Math.min(1,m*1.6);
- flameMat.color.copy(OFFC).lerp(ONC,on);glowMat.opacity=on*.6;
+ flameMat.color.copy(OFFC).lerp(ONC,on);glowMat.opacity=on*.6;lampPool.material.opacity=on*.5;
  houseWin.material.color.setHex(0xFFCE6B).convertSRGBToLinear().multiplyScalar(.6+on*.9);
+ let lampZ=-99,lampX=0,lampY=2.2;
  for(let i2=0;i2<NL;i2++){const b2=lanP[i2],z=-150+(((b2.z+S.dist)%220)+220)%220,x=b2.x+bend(z);
   V1.set(x,1.15,z);V0.set(1,1,1);Q0.identity();M4.compose(V1,Q0,V0);poles.setMatrixAt(i2,M4);
   V1.set(x,2.3,z);M4.compose(V1,Q0,V0);flame.setMatrixAt(i2,M4);
   const fl=.9+.18*Math.sin(S.t*7+i2*2.7);V0.set(fl*(.6+on*.7),fl*(.6+on*.7),fl*(.6+on*.7));
-  M4.compose(V1,Q0,V0);glow.setMatrixAt(i2,M4);}
- poles.instanceMatrix.needsUpdate=flame.instanceMatrix.needsUpdate=glow.instanceMatrix.needsUpdate=true;
- // кольца тоннеля: наезд из-под земли при входе, масштаб=смешение
- for(let i=0;i<NT;i++){const zw=SEG.start-3+i*3,z=S.dist-zw; // вперёд = -z, как у препятствий
-  if(z>12||z<-NT*3){V0.set(0,0,0);M4.compose(V1.set(0,-50,0),Q0.identity(),V0);tun.setMatrixAt(i,M4);continue;}
-  const s=z<0?1:Math.max(0,1-z/14);
-  Q0.setFromAxisAngle(TUNAX,Math.PI/2);V1.set(bend(z),1.6,z);V0.set(s,s,s);
-  M4.compose(V1,Q0,V0);tun.setMatrixAt(i,M4);}
- tun.instanceMatrix.needsUpdate=true;
- tun.visible=S.dist<SEG.start+SEG.len+14&&S.dist>SEG.start-NT*3-30;}
+  M4.compose(V1,Q0,V0);glow.setMatrixAt(i2,M4);
+  V1.set(x-Math.sign(b2.x)*.7,.02,z);V0.set(1+on*.5,1,1+on*.5);M4.compose(V1,Q0,V0);lampPool.instanceMatrix.needsUpdate=true;lampPool.setMatrixAt(i2,M4);
+  if(z<0&&z>-9&&z>lampZ){lampZ=z;lampX=x;lampY=2.2;}}
+ lampPL.position.set(lampX,lampY,lampZ);lampPL.intensity=on*1.6;
+ poles.instanceMatrix.needsUpdate=flame.instanceMatrix.needsUpdate=glow.instanceMatrix.needsUpdate=lampPool.instanceMatrix.needsUpdate=tunRidge.instanceMatrix.needsUpdate=true;
+ // сечения пещеры: радиус и центр «дышат» вдоль длины, раструб у входов
+ for(let i=0;i<TSEG;i++){const s=i/(TSEG-1)*SEG.len,zw=SEG.start+s,z=S.dist-zw; // вперёд = -z
+  const fl=s<5?(5-s)*.3:(s>SEG.len-5?(s-(SEG.len-5))*.3:0);
+  const r=4.3+1.15*Math.sin(s*.11+tunSeed)+.75*Math.sin(s*.27+tunSeed*2)+fl;
+  const cx=bend(z)+1.0*Math.sin(s*.08+tunSeed*3),cy=1.75+.55*Math.sin(s*.06+tunSeed*5);
+  for(let k=0;k<TRING;k++){const ang=k/TRING*6.2832,ix=(i*TRING+k)*3;
+   tunV[ix]=cx+r*Math.cos(ang);tunV[ix+1]=cy+r*.92*Math.sin(ang);tunV[ix+2]=z;}
+  const ri=i>>1;if(ri<NRK){Q0.identity();V1.set(cx+Math.sin(ri*2.1)*2.4,cy+r*.9+1.1,z);
+   const sc=1.6+((ri*73)%17)/17*1.8;V0.set(sc,sc*.8,sc);M4.compose(V1,Q0,V0);tunRidge.setMatrixAt(ri,M4);}}
+ tunG.attributes.position.needsUpdate=true;tunG.computeVertexNormals();
+ tun.visible=true;tunRidge.visible=true;}
 // ---------- collision ----------
 const laneHit=o=>o.lane===S.lane&&Math.abs(S.x-(o.lane-1)*LANE)<LANE*.6;
 function collide(dt){const h=S.roll>0?1.0:1.62, // хитбокс = измеренный клубок .90 + зазор
