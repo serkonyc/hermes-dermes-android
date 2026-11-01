@@ -28,8 +28,7 @@ const CLOUD_P=[[ -.33,-.06,.7],[0,.14,.95],[.33,-.06,.7]]; // три сфери�
 const clouds=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,1),cloudM,30), cloudPos=[];
 for(let i=0;i<10;i++)cloudPos.push({x:(Math.random()*2-1)*120,y:22+Math.random()*20,z:-60-Math.random()*180,s:8+Math.random()*14});
 scene.add(clouds);
-{const sun=new THREE.Mesh(new THREE.SphereGeometry(9,12,12),new THREE.MeshBasicMaterial({color:0xFFF6C9,fog:false}));
- sun.position.set(-70,60,-220);scene.add(sun);}
+// 3D-солнца нет: оно на текстуре неба; объёмная сфера на горизонте давала «жёлтый диск», съезжающий на героя при изгибах тропы и прыжках
 // ---------- дальние деревни и замки: кластеры домов и крепостей по сторонам от дороги ----------
 const vr=(s=>()=>((s=(s*16807)%2147483647)/2147483647))(4242); // свой сид: расстановка стабильна между запусками
 const noFog=m=>{m.fog=false;m.flatShading=true;return m;}; // дальше far-тумана - рисуем силуэтами, как облака
@@ -105,6 +104,8 @@ addEventListener('touchstart',unlockAudio,{passive:true});
 addEventListener('mousedown',unlockAudio);
 // file:// WebView sometimes reports NotAllowedError even inside the gesture; retry on any later gesture too
 addEventListener('touchend',()=>{if(!audioOn)unlockAudio();},{passive:true});
+addEventListener('visibilitychange',()=>{if(document.hidden)AU.m.pause();else if(audioOn&&S.mode==='run')AU.m.play().catch(()=>{});});
+addEventListener('pagehide',()=>AU.m.pause()); // Android WebView: activity pause может не дать visibilitychange
 
 // ---------- player: blocky forest hero ----------
 const skinM=M(0xF4D0B0,.8), tunicM=M(0x3FAE5A,.8), beltM=M(0x6B3E2A,.85), bootM=M(0x6B4A2F,.85), hatM=M(0x41C05E,.8), hairM=M(0xD9B45B,.9); // светлые волосы
@@ -174,7 +175,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.37.1';
+const VER='4.37.2';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
