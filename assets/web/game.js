@@ -207,7 +207,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.42.0';
+const VER='4.42.1';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -223,7 +223,7 @@ let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),
    const b2=new THREE.Box3().setFromObject(root); root.position.y=-b2.min.y;
    root.rotation.y=Math.PI;     // лицом вперёд по тропе
    rollRoot=new THREE.Group(); rollRoot.add(root); heroM.add(rollRoot); heroCOM.set((b2.max.x+b2.min.x)/2,(b2.max.y+b2.min.y)/2,(b2.max.z+b2.min.z)/2); mReady=true; player.visible=false;
-  heroBow=makeBow(); heroBow.position.set(.42,.8,.05); heroBow.scale.setScalar(HERO_K); j.rig.add(heroBow);
+  heroBow=makeBow(); heroBow.position.set(0,-.24,.02); heroBow.scale.setScalar(.85); MJ.elbowR.add(heroBow); // на предплечье: local scale .85 -> мир ~1.1 м, рост героя 1.7 м
    const fb=document.getElementById('gfail');if(fb)fb.remove();
    if($('ver'))$('ver').textContent='v'+VER+' · GLB';
   });
@@ -333,7 +333,7 @@ function driveHero(dt){
  T(j.head,'z',-Math.sin(a)*.03);T(j.head,'y',Math.sin(a)*.09+Math.sin(S.t*.8)*.06); // стабилизация взгляда
  T(j.head,'x',.04+Math.sin(a*2+Math.PI*.3)*.025);
  if(heroBow){bowT=Math.max(0,bowT-dt);const b=Math.min(1,bowT/.22); // bowT: прицел-выпуск 0.22с
-  heroBow.visible=true;heroBow.rotation.z=b*.12;heroBow.rotation.x=-1.35*(1-b); // в покое лук несётся плашмя, при выстреле дуга встаёт вертикально в плоскость выстрела
+  heroBow.visible=true;heroBow.rotation.set(-1.57+b*.12,.1*b,-.25); // в кисти: дуга смотрит вперёд; прицел/выпуск задаются рукой armR
   bowStr.position.z=-.29+.25*b;bowStr.scale.x=1+.45*b; // тетива оттянута к лицу и проседает на выпуске
   bowArr.visible=b>0;bowArr.position.set(0,.16,.22-.55*(1-b)); // стрела вкладывается и уходит с релизом
   T(j.armR,'x',-1.35*b+arp.shoulder*(1-b));T(j.armR,'z',.62*b+(-.12+Math.max(0,arp.shoulder)*.08)*(1-b));
