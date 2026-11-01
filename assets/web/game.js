@@ -207,7 +207,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.40.0';
+const VER='4.40.1';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -565,7 +565,7 @@ function showOver(){$('over').style.display='flex';$('hud').style.display='none'
  setTimeout(()=>{$('ogo').style.visibility='visible';},800);}
 showMenu();
 // ---------- update ----------
-const M4=new THREE.Matrix4(),Q0=new THREE.Quaternion(),Q1=new THREE.Quaternion(),V1=new THREE.Vector3(),V0=new THREE.Vector3(1,1,1);
+const M4=new THREE.Matrix4(),Q0=new THREE.Quaternion(),QE=new THREE.Euler(),V1=new THREE.Vector3(),V0=new THREE.Vector3(1,1,1);
 function updInst(){
  bendStrip(ground);bendStrip(path);
  for(let i=0;i<10;i++){const c=cloudPos[i],z=-260+(((c.z+S.dist*.35)%320)+320)%320;
@@ -612,7 +612,7 @@ function updInst(){
  stoneMesh.instanceMatrix.needsUpdate=true;Q0.identity();
  for(let i=0;i<NBush;i++){const b=bushPos[i],z=-200+(((b.z+S.dist)%220)+220)%220;
   const tilt=Math.sin(S.t*1.6+b.sw+b.x)*.13; // ветер по траве
-  Q0.makeRotationY(b.ry);Q1.makeRotationX(tilt);Q0.multiply(Q1);
+  QE.set(tilt,b.ry,0,'YXZ');Q0.setFromEuler(QE);
   V1.set(b.x+bend(z),b.h*.42,z);V0.set(.95,b.h*1.15,.95);M4.compose(V1,Q0,V0);bushes.setMatrixAt(i,M4);}
  bushes.instanceMatrix.needsUpdate=true;V0.set(1,1,1);Q0.identity();}
 function update(dt){
