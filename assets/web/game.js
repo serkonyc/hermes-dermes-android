@@ -5,7 +5,7 @@ const LANE=1.725, GRAV=26, JUMP_V=8.6, SPAWN_Z=-70, DESPAWN_Z=6, TAU=Math.PI*2; 
 const $=id=>document.getElementById(id);
 let renderer,scene,camera;
 try{
-  renderer=new THREE.WebGLRenderer({canvas:$('c'),antialias:false,powerPreference:'high-performance'});
+  renderer=new THREE.WebGLRenderer({canvas:$('c'),antialias:false,powerPreference:'high-performance',preserveDrawingBuffer:true}); // keep buffer: toDataURL shots + Android capture
 }catch(e){ document.body.innerHTML='<p style="color:#333;padding:40px;font:14px monospace">WebGL недоступен: '+e.message+'</p>'; throw e; }
 const DPR=Math.min(devicePixelRatio||1,location.search.includes('slow')?.75:1.75); // 'slow': headless test mode
 renderer.setPixelRatio(DPR); renderer.setSize(innerWidth,innerHeight);
@@ -207,7 +207,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.41.0';
+const VER='4.41.2';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -439,6 +439,45 @@ function tBoss(){ // Phantom: красная капля-фантом с горя
  return g;}
 
 const TPL={low:tLow,bar:tBar,wall:tWall,mob:tMob,bomb:tBomb,boss:tBoss};
+// ---------- Фигурки врагов: hand-made GLB тем же китом, что и герой (enemies.glb); примитивные TPL = фолбэк ----------
+let ENM=null,ENMROOT=null;
+{const L=(typeof THREE.GLTFLoader==='function')&&new THREE.GLTFLoader();
+ const ok=g=>{const roots={};g.scene.traverse(o=>{if(o.isMesh)o.frustumCulled=false;
+   if(!o.isMesh)return;
+   const nm=(o.name||'').replace(/_\d+$/,'');
+   if((nm==='bokoblin'||nm==='magta'||nm==='phantom')&&!roots[nm])roots[nm]=o.parent||o;});
+  // нормализация масштаба: как у героя - рост нормализуем по bbox группы-родителя
+  g.scene.updateMatrixWorld(true);
+  for(const k in roots){const rt=roots[k];const b=new THREE.Box3().setFromObject(rt);const H=b.max.y-b.min.y;
+   if(H>0){rt.scale.setScalar(1.0/H);
+    const b2=new THREE.Box3().setFromObject(rt);rt.position.y-=b2.min.y;}}
+  g.scene.updateMatrixWorld(true);
+  if(roots.bokoblin&&roots.magta&&roots.phantom){ENM=roots;ENMROOT=g.scene;}else ENM=null;};
+ const bad=()=>{ENM=null;};
+ const load=()=>{
+  if(window.ENEMIES_GLB_B64){const bin=atob(window.ENEMIES_GLB_B64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);L.parse(u.buffer,'',ok,bad);}
+  else L.load('../models/enemies.glb',ok,undefined,bad);};
+ if(L)load();}
+function enemyMesh(type){const key=type==='mob'?'bokoblin':type==='bomb'?'magta':type==='boss'?'phantom':null;
+ if(!ENM||!ENM[key])return null;
+ const grp=ENM[key];grp.updateWorldMatrix(true,true);
+ // Инстанс: mesh'и группы, мировые трансформанты печём в локальную геометрию (gltf-цепочка занулена)
+ const parMat=new THREE.Matrix4().copy(grp.matrixWorld).invert();
+ const wrap=new THREE.Group();
+ grp.traverse(o=>{if(!o.isMesh)return;
+  const g2=o.geometry.clone();
+  g2.applyMatrix4(new THREE.Matrix4().multiplyMatrices(parMat,o.matrixWorld));
+  g2.computeVertexNormals();
+  const mats=Array.isArray(o.material)?o.material:[o.material];
+  const mm=mats.map(mt=>{const c=mt.clone();c.flatShading=true;c.needsUpdate=true;return c;}); // GLTFLoader уже привёл цвета к linear; повторный convert удваивал гамму (враги темнее мира)
+  const cl=new THREE.Mesh(g2,mats.length>1?mm:mm[0]);
+  cl.frustumCulled=false;wrap.add(cl);});
+ // модель из glb уже лицом к +z (к камере) - wrap разворота не требует
+ wrap.updateMatrixWorld(true);
+ const bb=new THREE.Box3().setFromObject(wrap);
+ wrap.userData.hgt=(bb.max.y-bb.min.y);
+ wrap.userData.dip=bb.min.y;
+ return wrap;}
 const SHOOTABLE={low:1,wall:1,mob:1,bomb:1,boss:1}; // стрела сбивает репьи, валуны и всю нечисть
 // ---------- state ----------
 const S={mode:'menu',t:0,dist:0,speed:26,coins:0,score:0,
@@ -450,7 +489,16 @@ function reset(){S.mode='run';S.t=0;S.dist=0;S.speed=18;S.coins=0;S.score=0;S.la
  for(const o of S.obs)scene.remove(o.m);for(const c of S.coinsArr)scene.remove(c.m);
  for(const a of S.arrows)scene.remove(a.m);
  S.obs=[];S.coinsArr=[];S.arrows=[];S.arrowsMade=0;nextSpawn=30;S.missed=0;deathPlayed=false;}
-function addObs(type,lane){const m=TPL[type]();m.position.set((lane-1)*LANE,0,SPAWN_Z);scene.add(m);S.obs.push({type,lane,z:SPAWN_Z,m});}
+function addObs(type,lane){const m=TPL[type]();m.position.set((lane-1)*LANE,0,SPAWN_Z);scene.add(m);
+ const o={type,lane,z:SPAWN_Z,m};
+ const e=(type==='mob'||type==='bomb'||type==='boss')?enemyMesh(type):null;
+ if(e){const want=type==='mob'?1.15:type==='bomb'?1.5:.95;
+  const k=want/Math.max(.3,e.userData.hgt);
+  e.scale.setScalar(k);
+  m.traverse(c=>{if(c.isMesh)c.visible=false;}); // примитив-скелет не рисуем, но он носит позицию/полосу
+  e.position.y=-e.userData.dip*k;  // встать на землю
+  m.add(e); o.gl=e;}
+ S.obs.push(o);}
 function spawn(){
  const diff=Math.min(1,S.dist/3000), r=Math.random();
  const p=Math.random()<.45; // мечи не к каждому препятствию (частота снижена в ~1.5 раза)
