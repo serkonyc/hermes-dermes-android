@@ -48,8 +48,8 @@
   <div class="card" id="ocard"><div class="big" id="ostats"></div>
   <p style="margin:8px 0 0;color:#888;font-size:13px" id="obest"></p></div>
   <div class="card" id="mathq" style="display:none;font:900 30px system-ui;color:#333"></div>
-  <div id="mathrow" style="display:none;margin-top:14px;gap:10px;align-items:center;pointer-events:auto">
-    <input id="mathn" type="number" inputmode="numeric" style="width:110px;font:900 24px system-ui;text-align:center;border:0;border-radius:12px;padding:8px 10px;box-shadow:0 4px 0 rgba(0,0,0,.15)">
+  <div id="mathrow" style="display:none;margin-top:14px;gap:10px;align-items:center;pointer-events:auto;touch-action:auto;-webkit-user-select:text;user-select:text">
+    <input id="mathn" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" style="width:110px;font:900 24px system-ui;text-align:center;border:0;border-radius:12px;padding:8px 10px;box-shadow:0 4px 0 rgba(0,0,0,.15)">
     <button id="mathok" style="font:800 18px system-ui;border:0;border-radius:12px;padding:10px 18px;background:#FF8C42;color:#fff;box-shadow:0 4px 0 #E5651B">✓</button>
   </div>
   <div id="matherr" style="visibility:hidden;margin-top:10px;color:#fff;font:800 14px system-ui;text-shadow:0 2px 4px rgba(0,0,0,.35)">НЕ ВЕРНО, ПОПРОБУЙ ЕЩЁ</div>

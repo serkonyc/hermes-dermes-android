@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.46.4';
+const VER='4.46.5';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -885,7 +885,14 @@ function act(a,e){if(window.dlog&&a!=='T'&&a!=='O')dlog.swipe();
  if(a==='U'||a==='F')window.__lastTap=a;}
 let tsx=0,tsy=0,lastTapTS=0;
 addEventListener('touchstart',e=>{tsx=e.touches[0].clientX;tsy=e.touches[0].clientY;},{passive:true});
+// ГАРД: тап/свайп, начатый над примером или кнопкой, никогда не уходит в игру (в WebView touch.target при пальце на input часто = body -> свайп над полем = move() в забеге, тач-обработчик даже не видит пальца на поле)
+function overUI(e){const t=e&&e.target;if(!t||!t.closest)return false;const r=t.closest('#mathrow');if(!r)return false;
+ if(e.clientX!==undefined){const b=r.getBoundingClientRect(),p=28; // палец должен реально попасть в строку примера (+28px воздуха вокруг); свайп, начатый за строкой, остаётся свайпом
+  return e.clientX>=b.left-p&&e.clientX<=b.right+p&&e.clientY>=b.top-p&&e.clientY<=b.bottom+p;}
+ return true;}
+addEventListener('touchstart',e=>{window.__uiDown=overUI(e)?1:0;},{passive:true});
 addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tsx,dy=e.changedTouches[0].clientY-tsy;
+ if(window.__uiDown){window.__uiDown=0;return;} // жест начался над примером = не игровой ввод (гард выше)
  if(Math.abs(dx)<24&&Math.abs(dy)<24)return act(S.mode==='run'?'F':'T',e); // тап = выстрел из лука (over: e для кнопки/фону)
  if(Math.abs(dx)>Math.abs(dy))act(dx>0?'R':'L');else act(dy>0?'D':'U');},{passive:true});
 addEventListener('click',e=>{if(S.mode==='over'&&S.dead>1.05)act('T',e);});
@@ -910,13 +917,16 @@ function showOver(){ // v4.45 «математический реванш»: т�
  newMath(); // пример показывает ТОЛЬКО showOver (единая точка): die->showOver->newMath = один mathrow на смерть; тап по фону = след. пример; верный ответ = reviveRun (продолжение), неверный = +1 ошибка
 }
 let mathAns=0;
+function mathAnsOf(){ // ответ ВЫЧИСЛЯЕМ из того, что на экране: проверять mathAns, а показывать другой текст = класс рассинхрона («верный ответ» не принимается); теперь mathAns только кэш, источник истины - mathq.textContent
+ const t=$('mathq').textContent.replace(/\s+/g,'');const m=/^(\d+)([+−-])(\d+)=\?$/.exec(t);if(!m)return mathAns;
+ return m[2]==='+'?(+m[1])+(+m[3]):(m[3]>m[1]?(+m[3])-(+m[1]):(+m[1])-(+m[3]));}
 function newMath(){let a=1+Math.floor(Math.random()*9),b=1+Math.floor(Math.random()*9); // уровень 6-летки: только однозначные, вычитание без отрицательного ответа
  if(Math.random()<.5){mathAns=a+b;$('mathq').textContent=a+' + '+b+' = ?';}
  else{if(b>a){const t=a;a=b;b=t;}mathAns=a-b;$('mathq').textContent=a+' − '+b+' = ?';}
  $('oh1').textContent='РЕВАНШ?';$('ocard').style.display='none';$('ogo').style.visibility='hidden';
  $('mathq').style.display='block';$('mathrow').style.display='flex';$('matherr').style.visibility='hidden';$('mathn').value='';$('mathn').focus();}
 function mathCheck(){if(!$('mathrow')||$('mathrow').style.display==='none')return;
- if(S.mode!=='over'||$('mathn').value.trim()===''||+$('mathn').value!==mathAns){
+ if(S.mode!=='over'||$('mathn').value.trim()===''||+$('mathn').value!==mathAnsOf()){
   S.revive++;$('matherr').style.visibility='visible';if(S.revive>=3){$('mathrow').style.display='none';showOver();}return;}
  $('mathrow').style.display='none';$('mathq').style.display='none';reviveRun();}
 function reviveRun(){ // верный ответ = бежать ДАЛЬШЕ с той же точки: «убийца» разрушается (killFx как от стрелы), полоса впереди расчищена на ~30м; мир, дистанция, счёт, монеты и полоса не трогаются
