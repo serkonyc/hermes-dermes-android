@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.45.0';
+const VER='4.45.1';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -261,7 +261,7 @@ function driveHero(dt){
  if(S.roll===0&&heroM.__piv){heroM.__piv=null;heroM.__ball=null;if(heroBow)heroBow.visible=true;} // после кувырка: лук обратно (run-ветка ставит visible сам, но на idle-кадрах до неё — страховка), метрики клуба на пересчёт
  if(S.roll>0){ // КУВЫРОК v4.44.4 (ground-contact): КАТИМЫЙ клубок = видимый bbox собранной club-позы; ЦЕНТР дуги в heroM поднят так, чтобы НИЖНЯЯ точка дуги легла на G=-0.52 (уровень ступней бега = асфальт в heroM-рамке, world -0.01): heroY = G - bbox.min.y + bbox.cy, инвариантно к углу вращения. Раньше центр поднимался по вписанному шару (cy=-0.18 r=0.73 club-позы: центр дуги на G+r=0.21 при bbox.cy=-0.18 => дуга ушла на -0.92, ступня протыкала дорогу) = «провал». Расплетение вшито в хвост последнего оборота (обратная рампа tk), tk=0 = чистая поза/позиция бега = непрерывные вход/выход (обрыв позы по таймеру = «телепорт на полкорпуса»). Лук на время кувырка скрыт (дуга торчала из клуба)
   const p=1-S.roll/.62;
-  const tk=Math.min(1,p*4,Math.max(0,(1-p)/.12)), q=Math.min(1,Math.max(0,(p-.1)/.60)), x=(q+.25*(1-tk))*Math.PI*2; // хвост tk дотянут до p=1 (было .88: tk=0 за 4 кадров ДО конца таймера => club-поза замирала, bbox прыгал на .84 = «телепорт»); дорывок .25*tk*2PI встроен В q-оборот (не аддитивный хвост: аддитивный давал докрутку 2PI за 4 кадра = бешеный мах ногами) => угол монотонен, при tk=0 x=2PI = ноль по кругу = непрерывный выход
+  const tk=Math.min(1,p*4,Math.max(0,(.82-p)/.1)), q=Math.min(1,Math.max(0,(p-.1)/.6)), x=(q+.3*(1-tk))*Math.PI*2; // tk=0 при p=.92: ПОСЛЕДНИЕ .08c = обычный бег по земле (было (1-p)/.12: в хвосте .32c heroM.y=tk*подъём = клубок замирал в воздухе над G = «висит несколько кадров»; дорывок .3 встроен в q => tk=0 => x=2PI = ноль по кругу = непрерывный выход) // хвост tk дотянут до p=1 (было .88: tk=0 за 4 кадров ДО конца таймера => club-поза замирала, bbox прыгал на .84 = «телепорт»); дорывок .25*tk*2PI встроен В q-оборот (не аддитивный хвост: аддитивный давал докрутку 2PI за 4 кадра = бешеный мах ногами) => угол монотонен, при tk=0 x=2PI = ноль по кругу = непрерывный выход
   const rt=j.rig.parent; if(rt.__by===undefined)rt.__by=rt.position.y;
   rt.position.y=rt.__by; // база скелета на месте (LIFT-присед убран: club-поза сама компактна)
   const C=(o,ax,v)=>{o.rotation[ax]=v*tk;}; // club-цели абсолютные (эталон v4.44.3 .76): tk=0 = ноль = база позы (springs в ветке молчат, присваивание безопасно)
@@ -516,7 +516,7 @@ function enemyMesh(type){const key=type==='mob'?'bokoblin':type==='bomb'?'magta'
  wrap.userData.hgt=(bb.max.y-bb.min.y);
  wrap.userData.dip=bb.min.y;
  return wrap;}
-const SHOOTABLE={low:1,wall:1,mob:1,bomb:1,boss:1}; // стрела сбивает репьи, валуны и всю нечисть
+const SHOOTABLE={low:1,mob:1,bomb:1,boss:1}; // валун (wall) стрелой не сбивается
 // ---------- state ----------
 const S={mode:'menu',t:0,dist:0,speed:26,coins:0,score:0,
  best:+(localStorage.getItem('nr_best')||0),bestC:+(localStorage.getItem('nr_bestc')||0),
@@ -707,9 +707,9 @@ function arrowGeo(){const g=new THREE.Group();
  return g;}
 const AR_CACHE={}; // лениво: THREE ещё не точно инициализирован в момент парса модуля... инициализируется в первом arrowGeo
 {const L=(c,r,m)=>new THREE.MeshStandardMaterial({color:new THREE.Color(c).convertSRGBToLinear(),roughness:r,metalness:m});
- AR_CACHE.shaft=new THREE.CylinderGeometry(.026,.026,1.05,5);AR_CACHE.shaftM=L(0xE8D9B8,.85,0);
- AR_CACHE.head=new THREE.ConeGeometry(.055,.2,4);AR_CACHE.headM=L(0x2A2E33,.35,.7);
- AR_CACHE.fletch=new THREE.BoxGeometry(.19,.016,.26);AR_CACHE.fletchM=L(0xE04848,.6,0);}
+ AR_CACHE.shaft=new THREE.CylinderGeometry(.045,.045,1.3,6);AR_CACHE.shaftM=new THREE.MeshBasicMaterial({color:0xFFF3D0,toneMapped:false,fog:false}); // толще и ярче: Basic без тумана читается на любой дистанции
+ AR_CACHE.head=new THREE.ConeGeometry(.095,.3,4);AR_CACHE.headM=new THREE.MeshBasicMaterial({color:0x1A1D21,toneMapped:false,fog:false});
+ AR_CACHE.fletch=new THREE.BoxGeometry(.3,.026,.4);AR_CACHE.fletchM=new THREE.MeshBasicMaterial({color:0xFF2E2E,toneMapped:false,fog:false});}
 let arrowFlashKick=0,arrowFlash=null; // вспышка у выпуска: 0.12 с, растёт и гаснет - без неё выстрел не читается
 {const g=new THREE.RingGeometry(.05,.14,12);
  arrowFlash=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0xFFE89A,transparent:true,opacity:0,fog:false,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));
@@ -816,15 +816,22 @@ function showOver(){ // v4.45 «математический реванш»: т�
   $('mathq').style.display='none';$('mathrow').style.display='none';return;}
  newMath();}
 let mathAns=0;
-function newMath(){const a=1+Math.floor(Math.random()*99),b=1+Math.floor(Math.random()*Math.min(a,98)); // вычитание без отрицательного ответа (детский формат)
+function newMath(){let a=1+Math.floor(Math.random()*9),b=1+Math.floor(Math.random()*9); // уровень 6-летки: только однозначные, вычитание без отрицательного ответа
  if(Math.random()<.5){mathAns=a+b;$('mathq').textContent=a+' + '+b+' = ?';}
- else{mathAns=a-b;$('mathq').textContent=a+' − '+b+' = ?';}
+ else{if(b>a){const t=a;a=b;b=t;}mathAns=a-b;$('mathq').textContent=a+' − '+b+' = ?';}
  $('oh1').textContent='РЕВАНШ?';$('ocard').style.display='none';$('ogo').style.visibility='hidden';
  $('mathq').style.display='block';$('mathrow').style.display='flex';$('matherr').style.visibility='hidden';$('mathn').value='';$('mathn').focus();}
 function mathCheck(){if(!$('mathrow')||$('mathrow').style.display==='none')return;
  if(S.mode!=='over'||$('mathn').value.trim()===''||+$('mathn').value!==mathAns){
   S.revive++;$('matherr').style.visibility='visible';if(S.revive>=3){$('mathrow').style.display='none';showOver();}return;}
- $('mathrow').style.display='none';$('ogo').style.visibility='visible';$('ogo').textContent='РЕВАНШ! НАЖМИ, ЧТОБЫ ПОВТОРИТЬ';$('oh1').textContent='РЕВАНШ!';}
+ $('mathrow').style.display='none';$('mathq').style.display='none';reviveRun();}
+function reviveRun(){ // верный ответ = продолжить С ТОЙ ЖЕ точки: откат дистанции на 8м, мир респавнится, счёт/монеты/полоса живые
+ S.mode='run';S.dead=0;S.shake=0;S.flash=0;S.ts=1;S.air=false;S.roll=0;S.rollY=0;S.rollV=0;S.y=0;S.vy=0;S.stepT=0;S.stepPh=null;
+ S.dist=Math.max(0,S.dist-8);S.speed=Math.max(16,Math.min(S.speed,S.speed*.8));
+ for(const o of S.obs)scene.remove(o.m);for(const c of S.coinsArr)scene.remove(c.m);
+ for(const a of S.arrows)scene.remove(a.m);if(arrowTrail)arrowTrail.visible=false;
+ S.obs=[];S.coinsArr=[];S.arrows=[];S.missed=0;nextSpawn=Math.max(14,S.speed*.8);deathPlayed=false;heartsP.length=0;
+ $('over').style.display='none';$('over').style.pointerEvents='none';$('hud').style.display='flex';$('meta').style.display='block';}
 showMenu();
 // ---------- update ----------
 const M4=new THREE.Matrix4(),Q0=new THREE.Quaternion(),QE=new THREE.Euler(),V1=new THREE.Vector3(),V0=new THREE.Vector3(1,1,1);
