@@ -207,7 +207,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.43.1';
+const VER='4.43.2';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -509,6 +509,7 @@ function reset(){S.mode='run';S.t=0;S.dist=0;S.speed=18;S.coins=0;S.score=0;S.la
  S.air=false;S.roll=0;S.rollY=0;S.rollV=0;S.anim=0;S.dead=0;S.shake=0;S.flash=0;S.ts=1;
  for(const o of S.obs)scene.remove(o.m);for(const c of S.coinsArr)scene.remove(c.m);
  for(const a of S.arrows)scene.remove(a.m);
+ if(arrowTrail)arrowTrail.visible=false; // иначе лента повиснет в воздухе после смерти (updArrows уже не догонит)
  S.obs=[];S.coinsArr=[];S.arrows=[];S.arrowsMade=0;nextSpawn=30;S.missed=0;deathPlayed=false;heartsP.length=0;}
 function addObs(type,lane){const m=TPL[type]();m.position.set((lane-1)*LANE,0,SPAWN_Z);scene.add(m);
  const o={type,lane,z:SPAWN_Z,m};
@@ -682,10 +683,15 @@ function jump(){if(!S.air&&S.roll<=0){S.vy=JUMP_V;S.air=true;sfx('jump');}}
 function doRoll(){if(S.roll>0)return;S.roll=.62;S.rollAir=S.air;if(S.air){S.rollY=S.y;S.rollV=Math.min(S.vy,-2);S.vy=0;sfx('jump');}else{S.rollY=0;S.rollV=0;}}
 // ---------- выстрел из лука: стрела мгновенно летит вперед по полосе, сбивает камень/врага ----------
 function arrowGeo(){const g=new THREE.Group();
- const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.026,.026,1.05,5),M(0xE8D9B8,.85));shaft.rotation.x=Math.PI/2;g.add(shaft); // светлое древко: тёмное на тёмной тропе сливалось
- const head=new THREE.Mesh(new THREE.ConeGeometry(.055,.2,4),M(0x2A2E33,.35,.7));head.rotation.x=-Math.PI/2;head.position.z=-.6;g.add(head);
- for(let i=0;i<2;i++){const f=new THREE.Mesh(new THREE.BoxGeometry(.19,.016,.26),M(0xE04848,.6));f.position.set(0,0,.42);f.rotation.z=i?1.57:0;g.add(f);} // оперение крупнее и ярче
+ const shaft=new THREE.Mesh(AR_CACHE.shaft,AR_CACHE.shaftM);shaft.rotation.x=Math.PI/2;g.add(shaft); // общая геометрия/материал: стрелы сыплются часто, new на выстрел = GC-фризы на телефоне
+ const head=new THREE.Mesh(AR_CACHE.head,AR_CACHE.headM);head.rotation.x=-Math.PI/2;head.position.z=-.6;g.add(head);
+ for(let i=0;i<2;i++){const f=new THREE.Mesh(AR_CACHE.fletch,AR_CACHE.fletchM);f.position.set(0,0,.42);f.rotation.z=i?1.57:0;g.add(f);}
  return g;}
+const AR_CACHE={}; // лениво: THREE ещё не точно инициализирован в момент парса модуля... инициализируется в первом arrowGeo
+{const L=(c,r,m)=>new THREE.MeshStandardMaterial({color:new THREE.Color(c).convertSRGBToLinear(),roughness:r,metalness:m});
+ AR_CACHE.shaft=new THREE.CylinderGeometry(.026,.026,1.05,5);AR_CACHE.shaftM=L(0xE8D9B8,.85,0);
+ AR_CACHE.head=new THREE.ConeGeometry(.055,.2,4);AR_CACHE.headM=L(0x2A2E33,.35,.7);
+ AR_CACHE.fletch=new THREE.BoxGeometry(.19,.016,.26);AR_CACHE.fletchM=L(0xE04848,.6,0);}
 let arrowTrail=null; // хвост-лента за стрелой: ~4 px на дистанции поражения, без неё стрела теряется на текстуре тропы
 {const g=new THREE.BufferGeometry();
  g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(2*3),3));
@@ -702,7 +708,7 @@ function updArrows(dt){
    a.m.rotation.z=a.hit*10;a.m.position.z+=S.speed*dt*.4; // втыкается в поток и утекает назад
    a.m.traverse(o=>{if(o.isMesh&&o.material&&!o.material.__fade){o.material=o.material.clone();o.material.transparent=true;o.material.__fade=1;}}); // клонируем: shared-материал новых стрел не должен гаснуть
    const k=1-a.hit/.35;a.m.traverse(o=>{if(o.isMesh&&o.material.__fade)o.material.opacity=k;}); // Dissolve после поражения
-   if(a.hit>.35){scene.remove(a.m);S.arrows.splice(i,1);}continue;}
+   if(a.hit>.35){scene.remove(a.m);a.m.traverse(o=>{if(o.isMesh&&o.material&&o.material.__fade)o.material.dispose();});S.arrows.splice(i,1);}continue;} // геометрии общие, клипаются только fade-материалы - их и освобождаем
   a.z-=34*dt;if(a.z<-34){scene.remove(a.m);S.arrows.splice(i,1);if(!S.arrows.length&&arrowTrail)arrowTrail.visible=false;continue;}
   a.m.position.z=a.z;a.m.position.x=(a.x-1)*LANE+bend(a.z);
   if(arrowTrail){ // хвост: точка у древка -> точка позади, в той же полосе
