@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.44.4';
+const VER='4.45.0';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -275,7 +275,7 @@ function driveHero(dt){
   C(j.kneeL,'x',2.9);C(j.kneeR,'x',2.85);
   C(j.ankleL,'x',-1.3);C(j.ankleR,'x',-1.2);
   if(heroBow)heroBow.visible=false; // в кувырке лук прячем (иначе дуга лука торчит из клубка = «палка из клубка», bbox +0.85)
-  heroM.position.set(S.x,S.rollY,0);
+  heroM.position.set(S.x,S.rollY,0); // без x-смещения: раньше корень ролла сдвигался на метрический пивот центра клубка = «уход влево» при кувырке; клубок центрируется позой
   heroM.scale.setScalar(1-(1-.84)*tk); // tuck scale 0.84 (эталон): входит в bbox
   root.rotation.set(0,0,0); root.scale.set(1,1,1); root.position.set(0,0,0);
   if(!heroM.__lb)heroM.__lb=new THREE.Box3();
@@ -283,11 +283,10 @@ function driveHero(dt){
   const G=-.02; // ЗЕМЛЯ heroM-рамки = верх асфальта (road plane -0.01..0; низ bbox в ран-позе = ботинки -0.51 проваливаются под плоскость дороги = артефакт GLB-посадки; раньше G=-0.52 по ступням = провал клубка)
   if(!heroM.__piv){
     if(tk>=.999){heroM.position.y=0;heroM.updateMatrixWorld(true);visB(); // метрики собранного клуба ОДИН РАЗ при tk=1 НА НУЛЕВОЙ heroM.y (мерить при уже поднятом heroM = self-referential: центр уезжает, низ дуги под дорогу)
-      heroM.__piv={x:heroM.__lb.min.x-S.x,z:(heroM.__lb.min.z+heroM.__lb.max.z)/2,cy:(heroM.__lb.min.y+heroM.__lb.max.y)/2,r:(heroM.__lb.max.y-heroM.__lb.min.y)/2};}
+      heroM.__piv={cy:(heroM.__lb.min.y+heroM.__lb.max.y)/2,r:(heroM.__lb.max.y-heroM.__lb.min.y)/2};} // x/z-пивот выбросили: его подстройка root.position = сдвиг кувырка влево; x-дисбаланс позы (<0.2) не виден
     else visB();}
   const met=heroM.__piv||{cy:(heroM.__lb.min.y+heroM.__lb.max.y)/2,r:(heroM.__lb.max.y-heroM.__lb.min.y)/2};
   heroM.position.y=(S.rollAir?Math.max(0,S.rollY):0)+tk*(G+met.r-met.cy); // центр дуги на G+r (heroY=G+r-cy при tk=1) => НИЖНЯЯ точка дуги на G при любом угле; tk=0 = позиция бега = непрерывные вход/выход
-  if(heroM.__piv)root.position.set(tk*heroM.__piv.x,0,tk*heroM.__piv.z);
   root.rotation.set(-x%(Math.PI*2),0,0); // %2PI: выход даёт x=2PI -> 0, иначе run-ветка (rotation.x!==0) гасила остаток .38 рад одним кадром = «телепорт» при выходе
   return;}
  heroM.position.set(S.x,S.y,0);
@@ -521,7 +520,7 @@ const SHOOTABLE={low:1,wall:1,mob:1,bomb:1,boss:1}; // стрела сбивае
 // ---------- state ----------
 const S={mode:'menu',t:0,dist:0,speed:26,coins:0,score:0,
  best:+(localStorage.getItem('nr_best')||0),bestC:+(localStorage.getItem('nr_bestc')||0),
- lane:1,x:0,y:0,vy:0,air:false,roll:0,anim:0,dead:0,shake:0,flash:0,ts:1};
+ lane:1,x:0,y:0,vy:0,air:false,roll:0,anim:0,dead:0,shake:0,flash:0,ts:1,revive:0};
 let nextSpawn=30; S.obs=[];S.coinsArr=[];S.arrows=[];S.arrowsMade=0;
 function reset(){S.mode='run';S.t=0;S.dist=0;S.speed=18;S.coins=0;S.score=0;S.lane=1;S.x=0;S.y=0;S.vy=0;S.stepT=0;S.stepPh=null;
  S.air=false;S.roll=0;S.rollY=0;S.rollV=0;S.anim=0;S.dead=0;S.shake=0;S.flash=0;S.ts=1;
@@ -692,7 +691,7 @@ function collide(dt){const h=S.roll>0?1.0:1.62, // хитбокс = измере
   c.taken=true;scene.remove(c.m);S.coins++;sfx('pick');sparkle(S.x+bend(0),S.y+.7,0);burst(S.x+bend(0),S.y+.7,0,0xFFD879,8);S.coinsArr=S.coinsArr.filter(x=>x!==c);}}
  updPickFx(dt);}
 // отладка: лог причин смерти в console (для боевого автотеста)
-function die(){ if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);if(rollRoot){rollRoot.rotation.set(0,0,0);}const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}S.mode='over';S.dead=.001;S.dz=(Math.random()<.5?-1:1)*(.35+Math.random()*.3);S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
+function die(){ S.revive=0; if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);if(rollRoot){rollRoot.rotation.set(0,0,0);}const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}S.mode='over';S.dead=.001;S.dz=(Math.random()<.5?-1:1)*(.35+Math.random()*.3);S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
  S.bestC=Math.max(S.bestC,S.coins);localStorage.setItem('nr_bestc',S.bestC);
  burst(S.x+bend(0),S.y+.8,0,0xF5F5F5,30);showOver();}
@@ -779,18 +778,27 @@ function updHearts(dt){for(let j=heartsP.length-1;j>=0;j--){const p=heartsP[j];p
    const s=(.7+.5*Math.sin(Math.min(1,p.t*6)*1.57))*k*1.4+.25;V0.set(s,s,1);M4.compose(V1,Q0.copy(camera.quaternion),V0);} // Q0 глобальный скиретч, .copy экономит clone на инстанс
   heartsMesh.setMatrixAt(i,M4);}
  heartsMesh.instanceMatrix.needsUpdate=true;}
-function act(a){if(window.dlog&&a!=='T'&&a!=='O')dlog.swipe();
+function act(a,e){if(window.dlog&&a!=='T'&&a!=='O')dlog.swipe();
  if(S.mode==='menu'){reset();showRun();if(window.dlog)dlog.run();return;}
- if(S.mode==='over'){if(S.dead>1.05){reset(),showRun();return;}return;} // до respawn-задержки любые клавиши молчат
+ if(S.mode==='over'){if(S.dead<=1.05)return; // limp-анимация: любые тапы молчат
+ if(e&&e.timeStamp-lastTapTS<600)return; lastTapTS=e?e.timeStamp:0; // touchend+синтетический click = один жест (иначе фон-тап удваивает revive)
+ if($('mathrow').style.display!=='none'){ // пока пример открыт: тап по фону = новый пример, кнопка/Enter = проверка
+  if(!e||!e.target.closest('#mathrow')){S.revive++;newMath();if(S.revive>=3)showOver();}
+  return;}
+ if($('ogo').style.visibility!=='hidden'){reset(),showRun();}
+ return;} // до respawn-задержки любые клавиши молчат
  if(S.mode!=='run')return;
  if(a==='L')move(-1);else if(a==='R')move(1);else if(a==='U')jump();else if(a==='D')doRoll();else if(a==='F')shoot();
  if(a==='U'||a==='F')window.__lastTap=a;}
-let tsx=0,tsy=0;
+let tsx=0,tsy=0,lastTapTS=0;
 addEventListener('touchstart',e=>{tsx=e.touches[0].clientX;tsy=e.touches[0].clientY;},{passive:true});
 addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tsx,dy=e.changedTouches[0].clientY-tsy;
- if(Math.abs(dx)<24&&Math.abs(dy)<24)return act(S.mode==='run'?'F':'T'); // тап = выстрел из лука
+ if(Math.abs(dx)<24&&Math.abs(dy)<24)return act(S.mode==='run'?'F':'T',e); // тап = выстрел из лука (over: e для кнопки/фону)
  if(Math.abs(dx)>Math.abs(dy))act(dx>0?'R':'L');else act(dy>0?'D':'U');},{passive:true});
+addEventListener('click',e=>{if(S.mode==='over'&&S.dead>1.05)act('T',e);});
 addEventListener('keydown',e=>act({ArrowLeft:'L',ArrowRight:'R',ArrowUp:'U',ArrowDown:'D',' ':'U'}[e.key]));
+$('mathok').addEventListener('click',mathCheck);
+$('mathn').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')mathCheck();});
 // ---------- HUD ----------
 const fmt=n=>(''+n).padStart(6,'0');
 $('mbest').textContent='РЕКОРД '+fmt(S.best)+' · ⚔ '+S.bestC;
@@ -800,10 +808,23 @@ function showMenu(){$('menu').style.display='flex';$('over').style.display='none
  let v=$('ver');if(!v){v=document.createElement('div');v.id='ver';v.style.cssText='position:fixed;bottom:6px;left:0;right:0;text-align:center;font-size:11px;opacity:.5';document.body.appendChild(v);}
  v.style.display='block';v.textContent='v'+VER+' · '+(mReady?'GLB':'FALLBACK');}
 function showRun(){$('menu').style.display='none';$('over').style.display='none';$('hud').style.display='flex';$('meta').style.display='block';if($('ver'))$('ver').style.display='none';}
-function showOver(){$('over').style.display='flex';$('hud').style.display='none';
+function showOver(){ // v4.45 «математический реванш»: тап по экрану смерти = простой пример (сложение/вычитание, однозначные и двузначные); верно = рестарт с +1 реваншем, неверно = результат закрыт
+ $('over').style.display='flex';$('hud').style.display='none';$('over').style.pointerEvents='auto';
  $('ostats').textContent=fmt(Math.floor(S.score))+' · ⚔ '+S.coins+' · '+Math.floor(S.dist)+'m';
  $('obest').textContent='РЕКОРД '+fmt(S.best)+' · ⚔ '+S.bestC;
- setTimeout(()=>{$('ogo').style.visibility='visible';},800);}
+ if(S.revive>=3){$('oh1').textContent='ПОЙМАЛИ!';$('ocard').style.display='block';$('ogo').style.visibility='visible';$('ogo').textContent='НАЖМИ, ЧТОБЫ ПОВТОРИТЬ';
+  $('mathq').style.display='none';$('mathrow').style.display='none';return;}
+ newMath();}
+let mathAns=0;
+function newMath(){const a=1+Math.floor(Math.random()*99),b=1+Math.floor(Math.random()*Math.min(a,98)); // вычитание без отрицательного ответа (детский формат)
+ if(Math.random()<.5){mathAns=a+b;$('mathq').textContent=a+' + '+b+' = ?';}
+ else{mathAns=a-b;$('mathq').textContent=a+' − '+b+' = ?';}
+ $('oh1').textContent='РЕВАНШ?';$('ocard').style.display='none';$('ogo').style.visibility='hidden';
+ $('mathq').style.display='block';$('mathrow').style.display='flex';$('matherr').style.visibility='hidden';$('mathn').value='';$('mathn').focus();}
+function mathCheck(){if(!$('mathrow')||$('mathrow').style.display==='none')return;
+ if(S.mode!=='over'||$('mathn').value.trim()===''||+$('mathn').value!==mathAns){
+  S.revive++;$('matherr').style.visibility='visible';if(S.revive>=3){$('mathrow').style.display='none';showOver();}return;}
+ $('mathrow').style.display='none';$('ogo').style.visibility='visible';$('ogo').textContent='РЕВАНШ! НАЖМИ, ЧТОБЫ ПОВТОРИТЬ';$('oh1').textContent='РЕВАНШ!';}
 showMenu();
 // ---------- update ----------
 const M4=new THREE.Matrix4(),Q0=new THREE.Quaternion(),QE=new THREE.Euler(),V1=new THREE.Vector3(),V0=new THREE.Vector3(1,1,1);
