@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.46.8';
+const VER='4.46.9';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -264,7 +264,7 @@ function driveHero(dt){
    for(const b in runT){const o=j[b];if(!o)continue;o.__t||(o.__t={});for(const ax in runT[b])o.__t[ax]=runT[b][ax];}}
  if(S.roll>0){ // КУВЫРОК v4.44.4 (ground-contact): КАТИМЫЙ клубок = видимый bbox собранной club-позы; ЦЕНТР дуги в heroM поднят так, чтобы НИЖНЯЯ точка дуги легла на G=-0.52 (уровень ступней бега = асфальт в heroM-рамке, world -0.01): heroY = G - bbox.min.y + bbox.cy, инвариантно к углу вращения. Раньше центр поднимался по вписанному шару (cy=-0.18 r=0.73 club-позы: центр дуги на G+r=0.21 при bbox.cy=-0.18 => дуга ушла на -0.92, ступня протыкала дорогу) = «провал». Расплетение вшито в хвост последнего оборота (обратная рампа tk), tk=0 = чистая поза/позиция бега = непрерывные вход/выход (обрыв позы по таймеру = «телепорт на полкорпуса»). Лук на время кувырка скрыт (дуга торчала из клуба)
   const p=1-S.roll/.62,base=(S.rollAir?Math.max(0,S.rollY):0);
-  const tkP=Math.min(1,Math.max(0,(1-p)/.28)), tk=1, q=Math.min(1,Math.max(0,(p-.08)/.6)), x=q*Math.PI*2; // ВХОД в клубок мгновенный: при tk<1 поза+метрика-оболочка оставались resting (низ y0) при поднятом hy=(G-low)-центре = «висит и вращается в воздухе» на боковых; метрика не знала какая поза реально на экране. Мгновенный club (как v4.45.2-эталон) = экран == метрика с 1-го кадра; расплетение tkP в хвосте
+  const tkP=Math.min(1,Math.max(0,(1-p)/.2)), tk=1, q=Math.min(1,Math.max(0,(p-.08)/.9)), x=q*Math.PI*2; // оборот дотянут до p=1 (было q=1 на p=.68 => последние 0.2с клубок ЗАМЫРАЛ неподвижно = «замирает после кувырка») + хвост расплетения .28->.2 // ВХОД в клубок мгновенный: при tk<1 поза+метрика-оболочка оставались resting (низ y0) при поднятом hy=(G-low)-центре = «висит и вращается в воздухе» на боковых; метрика не знала какая поза реально на экране. Мгновенный club (как v4.45.2-эталон) = экран == метрика с 1-го кадра; расплетение tkP в хвосте
   const CL={rig:{x:1.4},head:{x:1.2},hat:{x:-3.2,z:.12},armL:{x:-2.45,z:.5},armR:{x:-2.35,z:-.5},elbowL:{x:2.15},elbowR:{x:2.1},legL:{x:-2.9},legR:{x:-2.8},kneeL:{x:2.9},kneeR:{x:2.85},ankleL:{x:-1.3},ankleR:{x:-1.2}};
   if(!heroM.__tuck){heroM.__tuck=true; // ПЕРЕЗАХВАТ на старте: resting-рог (rig x.8/z.4 + .1 lift) в roll-ветке НЕ действовал (club писал абсолютку), но метрика и хвост жили с ним => центр/низ гуляли. Снапшот resting-позы = база бленда rest+(club-rest)*tk, метрика и x-ось считаются на НЕЙ => вход/выход непрерывны
     heroM.__rest={};for(const b in CL){const o=j[b];if(!o)continue;heroM.__rest[b]={x:o.rotation.x,z:o.rotation.z};}
@@ -556,15 +556,17 @@ function tBoss(){ // Phantom: красная капля-фантом с горя
 
 function tCart(){ // povozka s tentom: zaprygivaemaya krysha, analog "poezda" Subway Surfers
  const g=new THREE.Group();const W=M(0x5B4632,.9);
- const bed=box(1.12,.14,3.0,W);bed.position.y=.66;g.add(bed);
+ const bed=box(1.12,.14,3.0,W);bed.position.y=.72;g.add(bed); // тележка выше (дно кузова .72 вместо .66 -> платформа для забега; тент 1.35/1.43)
  for(let i=0;i<2;i++){for(let j=0;j<2;j++){const ra=new THREE.Mesh(new THREE.CylinderGeometry(.42,.42,.06,10),W);ra.rotation.z=Math.PI/2;ra.position.set((i?1:-1)*.6,.42,(j?1:-1)*1.15); // 4 колеса
   for(let k=0;k<6;k++){const sp=new THREE.Mesh(new THREE.BoxGeometry(.05,.74,.04),W);sp.rotation.x=k*Math.PI/6;ra.add(sp);}
   const hub=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.1,8),M(0x3A2A18,.9));hub.rotation.z=Math.PI/2;ra.add(hub);g.add(ra);}} // закрытие двойного цикла колёс
- const cv=box(1.06,.16,2.8,M(0x8A2E2E,.9));cv.position.y=1.0;g.add(cv);
- const cv2=box(1.12,.07,2.94,M(0x742323,.9));cv2.position.y=1.08;g.add(cv2);
+ const cv=box(1.06,.16,2.8,M(0x8A2E2E,.9));cv.position.y=1.75;g.add(cv); // тент поднят: низ 1.67 > рост бегуна 1.62 — голова не втыкается, когда стоишь в кузове
+ const cv2=box(1.12,.07,2.94,M(0x742323,.9));cv2.position.y=1.83;g.add(cv2);
+ const rb=box(1.1,.09,2.3,M(0x6B5138,.9));rb.position.set(0,.41,-2.72);rb.rotation.x=0.412;g.add(rb); // ПОЛОГИЙ ЗАБЕГ со стороны героя: верхний край доски = ровно борт кузова (z=-1.55,y=.78) — врос в телегу, не «доска сама по себе»; подъём пешком
+ g.userData.ramp=1;
  const rope=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,1.1,4),M(0xD8CBA8,.7));rope.rotation.z=Math.PI/2;rope.position.set(0,.92,1);g.add(rope);
  const rope2=rope.clone();rope2.position.z=-1;g.add(rope2);
- g.userData.len=3.6; // крыша 3.6м: вход за 2м до центра = край прыжковой дуги (hgt~1.35, дуга 2.85m)
+ g.userData.len=3.6; // крыша на 1.35 (кузов поднят 2x: bed .66->1.32 не нужен — см. rb); спуск сзади = просто схождение с края (гравация)
  return g;}
 function tHill(){ // pologyi zh-kholmik vershina .82: osnowanie-skirt zakryvaet styk s asfal'tom (ineache kupa "plavaet"), 3 klonka zernistosti dlja estestvennosti
  const g=new THREE.Group();const skirt=new THREE.Mesh(new THREE.CylinderGeometry(1.02,1.06,.34,14),M(0x6E8A3A,.95));
@@ -633,7 +635,7 @@ function reset(){S.mode='run';S.t=0;S.dist=0;S.speed=18;S.coins=0;S.score=0;S.la
  S.obs=[];S.coinsArr=[];S.arrows=[];S.arrowsMade=0;nextSpawn=30;S.missed=0;deathPlayed=false;heartsP.length=0;}
 function addObs(type,lane){const m=TPL[type]();m.position.set((lane-1)*LANE,0,SPAWN_Z);scene.add(m);
  const o={type,lane,z:SPAWN_Z,m};
- if(PLAT[type]){m.updateMatrixWorld(true);o.hgt=new THREE.Box3().setFromObject(m).max.y;o.len=m.userData.len;}
+ if(PLAT[type]){m.updateMatrixWorld(true);o.hgt=new THREE.Box3().setFromObject(m).max.y;o.len=m.userData.len;if(type==='cart')o.hgt=.79;} // cart: опора = борт кузова .79 (стоим в кузове, тент 1.67+ над головой) верх тента — хитбокс головы под тент
  const e=(type==='mob'||type==='bomb'||type==='boss')?enemyMesh(type):null;
  if(e){const want=type==='mob'?1.15:type==='bomb'?1.5:.95;
   const k=want/Math.max(.3,e.userData.hgt);
@@ -658,7 +660,7 @@ function spawn(){
  else if(r<.62){const l=(Math.random()*3)|0;addObs('bar',l);
   if(p)swordRun(l,3,SPAWN_Z-6.6,()=>.45);} // низкая линия за корнем - собирается в подкате
  else if(r<.73){const l=(Math.random()*3)|0; // povozka/holmik + linija mechey NA kryshe
-  if(Math.random()<.5){addObs('cart',l);swordRun(l,3,SPAWN_Z+1.6,()=>1.3);}
+  if(Math.random()<.5){addObs('cart',l);swordRun(l,3,SPAWN_Z+1.6,()=>1.75);} // монеты над крышей (было 1.3: вросли в поднятый тент)
   else{addObs('hill',l);swordRun(l,3,SPAWN_Z+1.4,()=>1.05);}}
  else if(r<.88){const bl=new Set();const n=diff>.4&&Math.random()<.5?2:1;   // валуны чаще
   while(bl.size<n)bl.add((Math.random()*3)|0);bl.forEach(l=>addObs('wall',l));
@@ -773,12 +775,12 @@ function dayFx(dt){
  for(let i=0;i<TSEG;i++){const s=i/(TSEG-1)*SEG.len,zw=SEG.start+s,z=S.dist-zw; // вперёд = -z
   const e=Math.min(1,s/18,(SEG.len-s)/18); // стены неровные только в середине; у входов и выхода гладко
   const r=3.9+(.95*Math.sin(s*.11+tunSeed)+.6*Math.sin(s*.27+tunSeed*2))*e; // радиус с запасом до ближайших деревьев (|x|>=10.2): ни одна крона не проходит сквозь оболочку
-  const cx=bend(z),cy=1.75+.4*Math.sin(s*.06+tunSeed*5)*e; // центр строго по тропе: неровность только в радиусе, стены не лезут на дорогу
+  const cx=bend(z),cy=3.45+.4*Math.sin(s*.06+tunSeed*5)*e; // тоннель выше 2x: верт. радиус x2 (см. tunV), центр 3.45 => потолок ~2x прежнего (~10.7м), низ врос в пол как раньше
   for(let k=0;k<TRING;k++){const ang=k/TRING*6.2832,ix=(i*TRING+k)*3;
-   tunV[ix]=cx+r*Math.cos(ang);tunV[ix+1]=cy+r*.92*Math.sin(ang);tunV[ix+2]=z;}
+   tunV[ix]=cx+r*Math.cos(ang);tunV[ix+1]=cy+r*1.84*Math.sin(ang);tunV[ix+2]=z;} // тоннель выше 2x: вертикальный радиус x2 (низ по полу: cy=радиус*1.84 ниже => см. cy)
   const ri=i>>1;if(ri*2<NRK)for(let q=0;q<2;q++){const n=ri*2+q,h=((n*53)%29)/29,h2=((n*17)%11)/11;
    const ang=Math.PI*(.05+.9*h),rO=r+.25+h2*1.2; // валуны по верхней дуге и бокам, частично вросшие
-   Q0.setFromAxisAngle(YAX,h*6.28);V1.set(cx+rO*Math.cos(ang),cy+rO*.92*Math.sin(ang)-.25,z);
+   Q0.setFromAxisAngle(YAX,h*6.28);V1.set(cx+rO*Math.cos(ang),cy+rO*1.84*Math.sin(ang)-.25,z);
    const sc=1.4+h2*2.1;V0.set(sc,sc*.85,sc);M4.compose(V1,Q0,V0);tunRidge.setMatrixAt(n,M4);}}
  tunG.attributes.position.needsUpdate=true;tunG.computeVertexNormals();
  tun.visible=true;tunRidge.visible=true;}
@@ -790,7 +792,14 @@ function collide(dt){const dz=S.speed*dt;S.platTop=0;const h=S.roll>0?1.0:1.62, 
   if(PLAT[o.type]){ // НЕПРЕРЫВНАЯ стенка: за кадр скролл проходит dz~0.3-0.7м; дискретная проверка «внутри окна» ловила приземляющегося в метре перед стенкой уже ПОСЛЕ прыжка через стенку = смерть вместо запрыга. Свип: момент входа передней стенки в героя и высота ног в этот момент
    const hL=o.len/2,wall=hL+.45; // полуlong + глубина героя .35 + запас
    const z1=o.z,z0=o.z-dz; // путь центра корпуса за кадр (o.z уже прокручен)
+   if(o.type==='cart'&&o.z<wall&&o.z>-hL-2.4){ // ramp-забег (окно через всю крышу до задней стенки wall: на задней стенке сработает обычный sweep -> сход с борта вниз, без die-окна) (объект идёт от -70 к 0, передняя стенка = -hL): опора растёт по доске — герой поднимается на бегу без прыжка
+    const t=Math.max(0,Math.min(1,(o.z+hL+2.4)/2.4));
+    const rh=t*o.hgt; // t=0 в начале рампы (пол) -> 1 у крыши (hgt-.14: на стыке feet>=hgt-.12 проходит -> platform без die-окна)
+    if(feet>=rh-.12||S.platTop>0){S.platTop=Math.max(S.platTop||0,rh);if(S.vy<0&&feet<rh){S.y=rh;S.vy=0;S.air=false;land=1;continue;}continue;}
+    if(S.air){S.y=rh;S.vy=0;S.air=false;S.platTop=Math.max(S.platTop||0,rh);land=1;continue;}
+    S.y=rh;S.vy=0;S.air=false;S.platTop=Math.max(S.platTop||0,rh);continue;}
    if(z0>wall){continue;} // ещё далеко
+
    const inRoof=Math.abs(o.z)<hL; // крыша над героем СЕЙЧАС = опора
    if(inRoof){
     if(feet>=o.hgt-.05||S.platTop>0){S.platTop=Math.max(S.platTop||0,o.hgt);continue;}
@@ -934,7 +943,7 @@ addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tsx,dy=e.ch
 addEventListener('click',e=>{if(S.mode==='over'&&S.dead>1.05)act('T',e);});
 addEventListener('keydown',e=>act({ArrowLeft:'L',ArrowRight:'R',ArrowUp:'U',ArrowDown:'D',' ':'U'}[e.key]));
 $('mathok').addEventListener('click',mathCheck);
-$('mathn').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')mathCheck();else mathCheck();}); // любой ввод = проверка: верная цифра = мгновенный реванш (Android WebView: Enter с клавиатуры не всегда доходит)
+$('mathn').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')mathCheck();}); // ТОЛЬКО Enter/галочка = попытка; раньше любой keydown дёргал mathCheck: набор «12» = неверно на '1', Backspace = ещё попытка = проверка: верная цифра = мгновенный реванш (Android WebView: Enter с клавиатуры не всегда доходит)
 // ---------- HUD ----------
 const fmt=n=>(''+n).padStart(6,'0');
 $('mbest').textContent='РЕКОРД '+fmt(S.best)+' · ⚔ '+S.bestC;
@@ -963,7 +972,9 @@ function newMath(){let a=1+Math.floor(Math.random()*9),b=1+Math.floor(Math.rando
  $('oh1').textContent='РЕВАНШ?';$('ocard').style.display='none';$('ogo').style.visibility='hidden';
  $('mathq').style.display='block';$('mathrow').style.display='flex';$('matherr').style.visibility='hidden';$('mathn').value='';$('mathn').focus();}
 function mathCheck(){if(!$('mathrow')||$('mathrow').style.display==='none')return;
- if(S.mode!=='over'||$('mathn').value.trim()===''||+$('mathn').value!==mathAnsOf()){
+ if(S.mode!=='over')return;
+ if($('mathn').value.trim()==='')return; // пустой ввод = не попытка (пустой Enter/тап-галочка жёг revive без действия)
+ if(+$('mathn').value!==mathAnsOf()){
   S.revive++;
   if(S.revive>=3){$('matherr').style.visibility='hidden';$('mathrow').style.display='none';$('mathq').style.display='none';showOver();return;} // последний неверный = СРАЗУ финал: без «НЕ ВЕРНО» поверх «ЗАБЕГ ОКОНЧЕН» (одновременные сообщения = «оформи лучше»)
   $('matherr').textContent=S.revive===2?'НЕ ВЕРНО. ОСТАЛАСЬ 1 ПОПЫТКА':'НЕ ВЕРНО. ОСТАЛИСЬ 2 ПОПЫТКИ';
