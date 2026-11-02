@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.45.1';
+const VER='4.45.2';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -247,6 +247,7 @@ function driveHero(dt){
  if(!j.__cl){j.__cl=[-.35,1.62];}
  springTip(0,dt); // колпак догоняет через пружинную цель в ветрах поз (прямая запись ломала прыжок)
  const T=tgt;
+ if(S.mode==='over'&&(heroM.__tuck||heroM.__piv)){heroM.__tuck=false;heroM.__piv=null;heroM.__shell=null;heroM.__rest=null;if(rollRoot)rollRoot.position.set(0,0,0);root.position.set(0,0,0);root.rotation.set(0,0,0);} // deathMidRoll: __t обратно пружинам, иначе limp-ветка пишет Т в мёртвые __t (см. ниже), а roll-ветка их перетирает CL => limp не работает = «хвост улетает в палку»
  if(S.mode==='over'){ // рогдолл смерти: limp-суставы, ничком, болтанка
   if(S.y>0){S.vy-=GRAV*dt;S.y+=S.vy*dt;if(S.y<0){S.y=0;S.vy=Math.abs(S.vy)*.3;if(S.vy<.6)S.vy=0;}}
   heroM.position.set(S.x,S.y,0);
@@ -258,36 +259,73 @@ function driveHero(dt){
   T(j.legL,'x',.9);T(j.legR,'x',.5);T(j.kneeL,'x',-1.2);T(j.kneeR,'x',-.8);
   T(j.head,'x',.5);T(j.hat,'x',-1.9);
   springs(dt,88,8.5,ML); return;}
- if(S.roll===0&&heroM.__piv){heroM.__piv=null;heroM.__ball=null;if(heroBow)heroBow.visible=true;} // после кувырка: лук обратно (run-ветка ставит visible сам, но на idle-кадрах до неё — страховка), метрики клуба на пересчёт
+ if(S.roll===0&&(heroM.__piv||heroM.__tuck)){heroM.__piv=null;heroM.__shell=null;heroM.__tuck=false;heroM.__rest=null;if(rollRoot){rollRoot.position.set(0,0,0);rollRoot.rotation.set(0,0,0);}root.position.set(0,0,0);root.rotation.set(0,0,0);if(heroBow)heroBow.visible=true;
+   const runT={rig:{x:.12,z:0},head:{x:.1,z:0},hat:{x:.05,z:0},armL:{x:-.35,z:.12},armR:{x:-.2,z:-.1},elbowL:{x:-.7},elbowR:{x:-.55},legL:{x:0},legR:{x:0},kneeL:{x:.1},kneeR:{x:.05},ankleL:{x:0},ankleR:{x:0}}; // exit: __t = ран-цели (не нули): relax-пружина тащит из club в бег; шаг-цикл ниже перетирает ноги как обычно
+   for(const b in runT){const o=j[b];if(!o)continue;o.__t||(o.__t={});for(const ax in runT[b])o.__t[ax]=runT[b][ax];}}
  if(S.roll>0){ // КУВЫРОК v4.44.4 (ground-contact): КАТИМЫЙ клубок = видимый bbox собранной club-позы; ЦЕНТР дуги в heroM поднят так, чтобы НИЖНЯЯ точка дуги легла на G=-0.52 (уровень ступней бега = асфальт в heroM-рамке, world -0.01): heroY = G - bbox.min.y + bbox.cy, инвариантно к углу вращения. Раньше центр поднимался по вписанному шару (cy=-0.18 r=0.73 club-позы: центр дуги на G+r=0.21 при bbox.cy=-0.18 => дуга ушла на -0.92, ступня протыкала дорогу) = «провал». Расплетение вшито в хвост последнего оборота (обратная рампа tk), tk=0 = чистая поза/позиция бега = непрерывные вход/выход (обрыв позы по таймеру = «телепорт на полкорпуса»). Лук на время кувырка скрыт (дуга торчала из клуба)
-  const p=1-S.roll/.62;
-  const tk=Math.min(1,p*4,Math.max(0,(.82-p)/.1)), q=Math.min(1,Math.max(0,(p-.1)/.6)), x=(q+.3*(1-tk))*Math.PI*2; // tk=0 при p=.92: ПОСЛЕДНИЕ .08c = обычный бег по земле (было (1-p)/.12: в хвосте .32c heroM.y=tk*подъём = клубок замирал в воздухе над G = «висит несколько кадров»; дорывок .3 встроен в q => tk=0 => x=2PI = ноль по кругу = непрерывный выход) // хвост tk дотянут до p=1 (было .88: tk=0 за 4 кадров ДО конца таймера => club-поза замирала, bbox прыгал на .84 = «телепорт»); дорывок .25*tk*2PI встроен В q-оборот (не аддитивный хвост: аддитивный давал докрутку 2PI за 4 кадра = бешеный мах ногами) => угол монотонен, при tk=0 x=2PI = ноль по кругу = непрерывный выход
-  const rt=j.rig.parent; if(rt.__by===undefined)rt.__by=rt.position.y;
-  rt.position.y=rt.__by; // база скелета на месте (LIFT-присед убран: club-поза сама компактна)
-  const C=(o,ax,v)=>{o.rotation[ax]=v*tk;}; // club-цели абсолютные (эталон v4.44.3 .76): tk=0 = ноль = база позы (springs в ветке молчат, присваивание безопасно)
-  C(j.rig,'x',1.4);j.rig.position.y*=(1-tk);
-  C(j.head,'x',1.2);
-  C(j.hat,'x',-3.2);C(j.hat,'z',.12);
-  C(j.armL,'x',-2.45);C(j.armR,'x',-2.35);
-  C(j.elbowL,'x',2.15);C(j.elbowR,'x',2.1);
-  C(j.armL,'z',.5);C(j.armR,'z',-.5);
-  C(j.legL,'x',-2.9);C(j.legR,'x',-2.8);
-  C(j.kneeL,'x',2.9);C(j.kneeR,'x',2.85);
-  C(j.ankleL,'x',-1.3);C(j.ankleR,'x',-1.2);
+  const p=1-S.roll/.62,base=(S.rollAir?Math.max(0,S.rollY):0);
+    const tk=Math.min(1,p*4,Math.max(0,(1-p)/.28)), q=Math.min(1,Math.max(0,(p-.08)/.6)), x=q*Math.PI*2; // расплетение .72->1.0 внутри вращения (q=1 с .68): подъём/ось/поза снимаются синхронно с последним полуоборотом; tk=0 ровно при p=1 => exit-кадр = ран-база (bbox не прыгает); последняя 1/8 = шаги по земле
+  const CL={rig:{x:1.4},head:{x:1.2},hat:{x:-3.2,z:.12},armL:{x:-2.45,z:.5},armR:{x:-2.35,z:-.5},elbowL:{x:2.15},elbowR:{x:2.1},legL:{x:-2.9},legR:{x:-2.8},kneeL:{x:2.9},kneeR:{x:2.85},ankleL:{x:-1.3},ankleR:{x:-1.2}};
+  if(!heroM.__tuck){heroM.__tuck=true; // ПЕРЕЗАХВАТ на старте: resting-рог (rig x.8/z.4 + .1 lift) в roll-ветке НЕ действовал (club писал абсолютку), но метрика и хвост жили с ним => центр/низ гуляли. Снапшот resting-позы = база бленда rest+(club-rest)*tk, метрика и x-ось считаются на НЕЙ => вход/выход непрерывны
+    heroM.__rest={};for(const b in CL){const o=j[b];if(!o)continue;heroM.__rest[b]={x:o.rotation.x,z:o.rotation.z};}
+    heroM.__restLift=j.rig.position.y;
+    for(const b in CL){const o=j[b];if(!o)continue;o.__t||(o.__t={});const ss=o.__s||(o.__s={});
+      for(const ax in CL[b]){o.__t[ax]=CL[b][ax];const st=ss[ax]||(ss[ax]={v:0,c:o.rotation[ax]});st.v=0;}}
+    heroM.__piv=null;}
+
+  const RS=heroM.__rest||{};
+  const C=(b,ax,v)=>{const o=j[b],r=(RS[b]||{x:0,z:0})[ax]||0;o.rotation[ax]=r+(v-r)*tk;if(tk>=1)o.rotation[ax]=v;}; // club-абсолютка при tk=1 (HEAD-эталон). rest-примесь давала ран-остатки (rig.x .14 swing) поверх собранного клуба => скелет на 5-8° мимо валидированной позы => метрика и live-bbox ехали, низ гулял ±0.4; tk=0 всё ещё resting-рог = ран-база (вход непрерывен)
+  C('rig','x',1.4);j.rig.position.y=(heroM.__restLift||.1)*(1-tk);
+  C('head','x',1.2);
+  C('hat','x',-3.2);C('hat','z',.12);
+  C('armL','x',-2.45);C('armR','x',-2.35);
+  C('elbowL','x',2.15);C('elbowR','x',2.1);
+  C('armL','z',.5);C('armR','z',-.5);
+  C('legL','x',-2.9);C('legR','x',-2.8);
+  C('kneeL','x',2.9);C('kneeR','x',2.85);
+  C('ankleL','x',-1.3);C('ankleR','x',-1.2);
   if(heroBow)heroBow.visible=false; // в кувырке лук прячем (иначе дуга лука торчит из клубка = «палка из клубка», bbox +0.85)
   heroM.position.set(S.x,S.rollY,0); // без x-смещения: раньше корень ролла сдвигался на метрический пивот центра клубка = «уход влево» при кувырке; клубок центрируется позой
   heroM.scale.setScalar(1-(1-.84)*tk); // tuck scale 0.84 (эталон): входит в bbox
   root.rotation.set(0,0,0); root.scale.set(1,1,1); root.position.set(0,0,0);
   if(!heroM.__lb)heroM.__lb=new THREE.Box3();
-  const visB=()=>{heroM.__lb.makeEmpty();heroM.traverse(c=>{if(c.isMesh&&(!heroBow||c!==heroBow)){let q=c,v=true;while(q){if(!q.visible){v=false;break;}q=q.parent;}if(v)heroM.__lb.expandByObject(c);}});}; // только ВИДИМЫЕ меши (скрытый hero_glb скин-скелет раздвигал bbox до 2.0)
+  const visB=(()=>{const bb=new THREE.Box3(),pt=new THREE.Vector3();return()=>{ // ТОЧНЫЕ углы geometry.boundingBox*matrixWorld. expandByObject на ПОВЁРНУТЫХ мешах строит AABB-вокруг-AABB: на 45° завышал bbox на ±0.25 => метрика self-referential (низ дуги гулял ±0.5 = «висит/топится»)
+    heroM.__lb.makeEmpty();heroM.traverse(c=>{if(c.isMesh&&(!heroBow||c!==heroBow)){let q=c,v=true;while(q){if(!q.visible){v=false;break;}q=q.parent;}if(!v||!c.geometry)return;
+      if(!c.geometry.boundingBox)c.geometry.computeBoundingBox();bb.copy(c.geometry.boundingBox);
+      for(let i=0;i<8;i++){pt.set(i&1?bb.max.x:bb.min.x,i&2?bb.max.y:bb.min.y,i&4?bb.max.z:bb.min.z).applyMatrix4(c.matrixWorld);heroM.__lb.expandByPoint(pt);}}});};})();
   const G=-.02; // ЗЕМЛЯ heroM-рамки = верх асфальта (road plane -0.01..0; низ bbox в ран-позе = ботинки -0.51 проваливаются под плоскость дороги = артефакт GLB-посадки; раньше G=-0.52 по ступням = провал клубка)
-  if(!heroM.__piv){
-    if(tk>=.999){heroM.position.y=0;heroM.updateMatrixWorld(true);visB(); // метрики собранного клуба ОДИН РАЗ при tk=1 НА НУЛЕВОЙ heroM.y (мерить при уже поднятом heroM = self-referential: центр уезжает, низ дуги под дорогу)
-      heroM.__piv={cy:(heroM.__lb.min.y+heroM.__lb.max.y)/2,r:(heroM.__lb.max.y-heroM.__lb.min.y)/2};} // x/z-пивот выбросили: его подстройка root.position = сдвиг кувырка влево; x-дисбаланс позы (<0.2) не виден
-    else visB();}
-  const met=heroM.__piv||{cy:(heroM.__lb.min.y+heroM.__lb.max.y)/2,r:(heroM.__lb.max.y-heroM.__lb.min.y)/2};
-  heroM.position.y=(S.rollAir?Math.max(0,S.rollY):0)+tk*(G+met.r-met.cy); // центр дуги на G+r (heroY=G+r-cy при tk=1) => НИЖНЯЯ точка дуги на G при любом угле; tk=0 = позиция бега = непрерывные вход/выход
-  root.rotation.set(-x%(Math.PI*2),0,0); // %2PI: выход даёт x=2PI -> 0, иначе run-ветка (rotation.x!==0) гасила остаток .38 рад одним кадром = «телепорт» при выходе
+    // КАТИМЫЙ клубок (v4.45.2): dуга КАЧЕНИЯ вокруг точки касания дороги (не вокруг origin скелета — тот на 0.58 выше центра = «непонятная далёкая ось», и не вокруг вписанного шара — club-поза не шар, низ гулял +0.5..-0.44 = «висит/тонет»). heroM поднят так, чтобы центр клуба был на G+r; pivot T = P - R*P (P = live-центр) => world-центр инвариантен к углу при tk=1, нижняя точка инвариантна на G; tk=0 => T=0 и heroM на базе = непрерывные вход/выход
+  // метрика при heroM.y=0 (HEAD-эталон): world-центр = heroM.y + cy (root=0 при tk-записях) => подъём G+r-cy кладёт НИЖНЮЮ точку видимого bbox ровно на G, без live-петли
+  const baseY=heroM.position.y; // ран-позиция — точка непрерывности входа (ран-ветка ставит герой на baseY)
+  // === КАТИМЫЙ клубок v4.45.2 (окончательно): три ошибки исправлены по очереди: (1) метрика зависела от собственного угла => меряем при rollRoot.rotation=0; (2) pivot писался в root при root==rollRoot (цикл add) => пишем в rollRoot; (3) pivot вращается ВНУТРИ scale heroM => world = heroM.y + SC*(T+R·p): sup из world-box уже со scale, но T/оффсеты надо делить на SC при переводе в world; ниже sup используется в world-единицах напрямую
+  const SC=heroM.scale.x;
+  heroM.position.y=0;
+  rollRoot.rotation.set(0,0,0);rollRoot.position.set(0,0,0);root.rotation.set(0,0,0);heroM.updateMatrixWorld(true);visB(); // world-box текущей tk-смешанной позы (scale включён, heroM на 0)
+  const y0=heroM.__lb.min.y,y1=heroM.__lb.max.y,z0=heroM.__lb.min.z,z1=heroM.__lb.max.z;
+  const cy=(y0+y1)/2,lz=(z0+z1)/2,lx=(heroM.__lb.min.x+heroM.__lb.max.x)/2;
+  const a=-x,ca=Math.cos(a),sa=Math.sin(a);
+  // ЭМПИРИЧЕСКАЯ ОБОЛОЧКА (AABB-углы врут: meshes не заполняют коробку; const-radius AABB давал «горб» +0.55): точка = среднее облако мешей позной рамки (world при hy=0). Вращаем точки, берём макс(-y') = support фазы x. Собирается в тот же кадр, что метрика; позa tk-смешанная => envelope тоже
+  // === ФИКСИРОВАННАЯ ОБОЛОЧКА СОБРАННОГО КЛУБКА (tk=1): измерить ОДИН РАЗ облако world-точек (hy=0, цепь чиста) => центр (cy,lz) + список угловых точек (y,cy)-x-(z,lz). Поза при tk=1 детерминирована (springs заморожены, club-абсолютка) => оболочка честная на всю club-фазу. tk-рампа смешивает resting-низ и club-огибающую плавно
+  // === МЕХАНИКА КОЛЕСА: центр качения = метрический центр AABB позы (cy,lz); радиус = max‖p-c‖ по облаку. Позиция: heroM на (G+r) при tk=1, resting baseY при tk=0 (линейный микс). ОСТОРОЖНО: pivot-T гасит вращение центра — при r=const центр (G+r) НЕ двигается, вращается тело вокруг центра (как колесо на оси) — «ось далеко» уйдёт: ось = центр, который ровно в (G+r) на уровне середины клубка (не скелет-торс выше)
+  // live-оболочка каждый кадр: matrixWorld при hy=0 свеж, те же 8-угловые точки что мерит тест => честный низ live-позы на любом tk/углу (fixed-оболочка из club-фазы врала в input/unwind = «подлёт/провал»)
+  let sh;
+  { const pts=[];const wp=new THREE.Vector3(),mm=new THREE.Matrix4();
+    heroM.traverse(function(c){if(c.isMesh&&c!==heroBow){let q=c,vv=true;while(q){if(!q.visible){vv=false;break;}q=q.parent;}if(!vv||!c.geometry)return;
+      mm.copy(c.matrixWorld);
+      if(!c.geometry.boundingBox)c.geometry.computeBoundingBox();const bb=c.geometry.boundingBox;
+      for(let i=0;i<8;i++){wp.set(i&1?bb.max.x:bb.min.x,i&2?bb.max.y:bb.min.y,i&4?bb.max.z:bb.min.z).applyMatrix4(mm);pts.push(wp.y,wp.z);}}});
+    sh={pts:pts};
+  }
+  // support по живому облаку (та же сетка, что и тест): min y повёрнутого облака + hy => низ. hy = G - low
+  let low=1e9;{const cp=sh.pts;
+  for(let i=0;i<cp.length;i+=2){const ry=(cp[i]-cy)*ca-(cp[i+1]-lz)*sa+cy;if(ry<low)low=ry;}}
+  heroM.position.y=baseY+((G-low)-baseY)*tk;
+  // pivot: world_точка(p) = hy + SC·(T + R·p), p в rollRoot-локальных (= heroM-локальные до scale: world_box_при_нулевом_pivot = hy + SC·p => p = (world-координаты)/SC)
+  const off={x:lx/SC,y:cy/SC,z:lz/SC};
+  const Ry=off.y*ca-off.z*sa,Rz=off.y*sa+off.z*ca;
+  rollRoot.position.set(off.x*(1-ca)*tk,(off.y-Ry)*tk,-Rz*tk); // T=(I-R)off => SC·(T+R·off)=SC·off — центр на месте; с углом — качение вокруг точки касания
+  window.__dbg={p:p,tk:tk,x:x,hy:heroM.position.y,off:off,rp:[rollRoot.position.x,rollRoot.position.y,rollRoot.position.z],SC:SC,cy:cy,lz:lz};
+  rollRoot.rotation.set(-x%(Math.PI*2),0,0); // угол на rollRoot (root==rollRoot — см. выше); %2PI: выход даёт x=2PI -> 0, иначе run-ветка гасила остаток одним кадром = «телепорт»
   return;}
  heroM.position.set(S.x,S.y,0);
  if(root&&root.rotation.x!==0||root.position.lengthSq()>1e-9){root.rotation.set(0,0,0);root.position.set(0,0,0);const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}
@@ -302,7 +340,7 @@ function driveHero(dt){
   T(j.head,'x',up?.1:-.05);
   T(j.hat,'x',(up?-.3:.15)+tipQ*.6); // в прыжке колпак мягко откидывается, не выворачивается
   tipV+=Math.sin(S.t*9)*(up?.9:-1.1)*dt*22;
-  springs(dt,105,11,ML); return;}
+  if(!heroM.__tuck)springs(dt,105,11,ML); return;}
  // ---------- 4-фазная походка на GLB-суставах: FK-цепочки, наклон, таз, контр-вращения ----------
  const a=S.anim*2,sw=Math.sin(a),sq=1-.13*land;
  const spd=Math.min(1,(S.speed-18)/26); // бег, а не Семенка: бедро ±(0.8..1.2), колено поджимается в замахе, носок тянется на отрыве
@@ -691,7 +729,9 @@ function collide(dt){const h=S.roll>0?1.0:1.62, // хитбокс = измере
   c.taken=true;scene.remove(c.m);S.coins++;sfx('pick');sparkle(S.x+bend(0),S.y+.7,0);burst(S.x+bend(0),S.y+.7,0,0xFFD879,8);S.coinsArr=S.coinsArr.filter(x=>x!==c);}}
  updPickFx(dt);}
 // отладка: лог причин смерти в console (для боевого автотеста)
-function die(){ S.revive=0; if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);if(rollRoot){rollRoot.rotation.set(0,0,0);}const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}S.mode='over';S.dead=.001;S.dz=(Math.random()<.5?-1:1)*(.35+Math.random()*.3);S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
+function die(){ // S.revive НЕ сбрасываем: счётчик ошибок реванша живёт до конца забега (3 ошибки = ПОЙМАЛИ)
+ S.killer=S.obs.find(o=>!o.dead&&laneHit(o)&&o.z>-3&&o.z<3)||null; // «во что врезались» — для математ-реванша; окно шире collide-ного (wall R1.15, boss шире) so the killer is always captured
+ if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);if(rollRoot){rollRoot.rotation.set(0,0,0);}const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}S.mode='over';S.dead=.001;S.dz=(Math.random()<.5?-1:1)*(.35+Math.random()*.3);S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
  S.bestC=Math.max(S.bestC,S.coins);localStorage.setItem('nr_bestc',S.bestC);
  burst(S.x+bend(0),S.y+.8,0,0xF5F5F5,30);showOver();}
@@ -825,12 +865,21 @@ function mathCheck(){if(!$('mathrow')||$('mathrow').style.display==='none')retur
  if(S.mode!=='over'||$('mathn').value.trim()===''||+$('mathn').value!==mathAns){
   S.revive++;$('matherr').style.visibility='visible';if(S.revive>=3){$('mathrow').style.display='none';showOver();}return;}
  $('mathrow').style.display='none';$('mathq').style.display='none';reviveRun();}
-function reviveRun(){ // верный ответ = продолжить С ТОЙ ЖЕ точки: откат дистанции на 8м, мир респавнится, счёт/монеты/полоса живые
- S.mode='run';S.dead=0;S.shake=0;S.flash=0;S.ts=1;S.air=false;S.roll=0;S.rollY=0;S.rollV=0;S.y=0;S.vy=0;S.stepT=0;S.stepPh=null;
- S.dist=Math.max(0,S.dist-8);S.speed=Math.max(16,Math.min(S.speed,S.speed*.8));
- for(const o of S.obs)scene.remove(o.m);for(const c of S.coinsArr)scene.remove(c.m);
+function reviveRun(){ // верный ответ = бежать ДАЛЬШЕ с той же точки: «убийца» разрушается (killFx как от стрелы), полоса впереди расчищена на ~30м; мир, дистанция, счёт, монеты и полоса не трогаются
+ const k=S.killer&&!S.killer.dead?S.killer:S.obs.find(o=>!o.dead&&laneHit(o)&&o.z>-6&&o.z<4); // шире fallback: герой стоит в шаге от убийцы, окно ±4m покрывает wall/boss
+ if(k){k.dead=true;killFx(k);}
+ S.obs.forEach(o=>{if(!o.dead&&o.lane===S.lane&&o.z>=2&&o.z<30){o.dead=true;scene.remove(o.m);}});
+ S.mode='run';S.dead=0;S.shake=0;S.flash=0;S.ts=1;S.air=false;S.roll=0;S.rollY=0;S.rollV=0;S.y=0;S.vy=0;S.stepT=0;S.stepPh=null;S.speed=Math.max(16,S.speed*.6);
+ if(heroM.__tuck||heroM.__piv||heroM.__shell){ // смерть в кувырке -> реванш: полный hard-reset roll-механики (иначе roll-остатки перетирают ран-позу = «улетевшие конечности» на первом кадре)
+   heroM.__tuck=false;heroM.__piv=null;heroM.__shell=null;heroM.__rest=null;
+   const _rt=(rollRoot||heroM);_rt.position.set(0,0,0);_rt.rotation.set(0,0,0);
+   if(rollRoot){rollRoot.position.set(0,0,0);rollRoot.rotation.set(0,0,0);}
+   heroM.rotation.set(0,0,0);heroM.scale.set(1,1,1);
+   const j=MJ;const ML=[j&&j.rig,j&&j.head,j&&j.hat,j&&j.armL,j&&j.armR,j&&j.elbowL,j&&j.elbowR,j&&j.legL,j&&j.legR,j&&j.kneeL,j&&j.kneeR,j&&j.ankleL,j&&j.ankleR];
+   for(const o of ML){if(!o)continue;o.rotation.set(0,0,0);o.__t&&(o.__t.x=0,o.__t.y=0,o.__t.z=0);}}
+ if(heroBow)heroBow.visible=true;
  for(const a of S.arrows)scene.remove(a.m);if(arrowTrail)arrowTrail.visible=false;
- S.obs=[];S.coinsArr=[];S.arrows=[];S.missed=0;nextSpawn=Math.max(14,S.speed*.8);deathPlayed=false;heartsP.length=0;
+ S.missed=0;deathPlayed=false;heartsP.length=0;
  $('over').style.display='none';$('over').style.pointerEvents='none';$('hud').style.display='flex';$('meta').style.display='block';}
 showMenu();
 // ---------- update ----------
