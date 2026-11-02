@@ -207,7 +207,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.44.0';
+const VER='4.44.1';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -223,7 +223,7 @@ let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),
    const b2=new THREE.Box3().setFromObject(root); root.position.y=-b2.min.y;
    root.rotation.y=Math.PI;     // лицом вперёд по тропе
    rollRoot=new THREE.Group(); rollRoot.add(root); heroM.add(rollRoot); heroCOM.set((b2.max.x+b2.min.x)/2,(b2.max.y+b2.min.y)/2,(b2.max.z+b2.min.z)/2); mReady=true; player.visible=false;
-  heroBow=makeBow(); heroBow.position.set(0,-.42,0); heroBow.scale.setScalar(.8); MJ.armL.add(heroBow); // ЛЕВОНА рука держит лук (left is bow hand); кисть на конце = local -y у локтя; ориентацию задаёт driveHero (rotation.y=PI/2: нормаль дуги local x -> world -z, в цель)
+  heroBow=makeBow(); heroBow.position.set(0,-.44,.06); heroBow.scale.setScalar(.8); MJ.elbowL.add(heroBow); // grip хвастается empirically: world-точка grip совпала с distal концом предплечья (z -.53 vs BB -.51) // лук в КИСТИ: кисть = distal-конец предплечья elbowL (local -y ~.30); ориентация - в driveHero
    const fb=document.getElementById('gfail');if(fb)fb.remove();
    if($('ver'))$('ver').textContent='v'+VER+' · GLB';
   });
@@ -332,20 +332,26 @@ function driveHero(dt){
   T(lead,'y',sd*.65*lift); /* local +y = world +x после root rotY=pi; lift и side идут вместе, не через thigh */ }
  T(j.head,'z',-Math.sin(a)*.03);T(j.head,'y',Math.sin(a)*.09+Math.sin(S.t*.8)*.06); // стабилизация взгляда
  T(j.head,'x',.04+Math.sin(a*2+Math.PI*.3)*.025);
- if(heroBow){bowT=Math.max(0,bowT-dt);const b=Math.min(1,bowT/.22); // bowT: прицел-выпуск 0.22с
-  heroBow.visible=true;
-  // ЛЕВАЯ (лучная): вытянута вперёд-в-цель, лук на конце; арка плоскостью вертикальна в мире: компенсация наклона всей цепи armL+elbowL
-  heroBow.rotation.set(-(MJ.armL.rotation.x+MJ.elbowL.rotation.x),1.57,0);
-  T(j.armL,'x',-1.55*b+alp.shoulder*(1-b));T(j.armL,'z',-.28*b+(.12-Math.max(0,alp.shoulder)*.08)*(1-b));
-  T(j.elbowL,'x',-0.25*b+alp.elbow*(1-b));
-  for(const ss of bowStr){const sg=ss.userData.sg,nx=.14+.26*b,d=new THREE.Vector3(nx-(-.10),sg*.72,0); // тяча: полочка уходит ОТ цели (local -x к лицу), нить кончик->полочка пересобирается
-   ss.scale.y=d.length()/ss.userData.L0;ss.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.clone().normalize());
-   ss.position.set((nx+(-.10))/2,sg*.36,0);}
-  bowArr.visible=b>0;bowArr.position.set(.14-.5*(1-b),0,0); // стрела на тетиве (на луку левой), уходит с релизом вдоль local -x (world -z)
-  // ПРАВАЯ (тянущая): локоть прижат, кисть идёт от лица назад-к уху, на релизе - щелчок назад (явный выстрел)
-  const rel=bowT<=0&&b>0?1:0; // кадр после релиза не ловим - тяча возвращается пружиной рук
-  T(j.armR,'x',-1.5*b+arp.shoulder*(1-b));T(j.armR,'z',1.15*b+(-.12+Math.max(0,arp.shoulder)*.08)*(1-b));
-  T(j.elbowR,'x',-1.35*b+arp.elbow*(1-b));} // правая: в беге качается, при выстреле - тяча к уху
+ if(heroBow){ // ЛУК ВСЕГДА В ЛЕВОЙ КИСТИ: idle-носка + фаза натяжения
+ shotCd=Math.max(0,shotCd-dt);
+ const wasDrawing=bowT>0;bowT=Math.max(0,bowT-dt);const b=wasDrawing?1-bowT/DRAW_T:0; // b 0->1 за DRAW_T, выпуск ровно на b=1
+ if(wasDrawing&&bowT===0)releaseShot(); // выпуск в конце натяжения
+ heroBow.visible=true;
+ // ЛЕВАЯ (лучная): idle чуть согнута-вперёд (лук смотрит по бегом вперёд), при тяче выпрямляется в цель
+ T(j.armL,'x',-1.5*b+alp.shoulder*(1-b)-.55*b*(0));T(j.armL,'z',-.18*b+(.12-Math.max(0,alp.shoulder)*.08)*(1-b));
+ T(j.elbowL,'x',-.1*b+alp.elbow*(1-b)-.4*(1-b));
+ heroBow.rotation.set(-(MJ.armL.rotation.x+MJ.elbowL.rotation.x),1.57,0);
+ // арка/полочка: idle тетива натянута (b=0 -> nx=.14), при тяче полочка уходит к лицу
+ for(const ss of bowStr){const sg=ss.userData.sg,nx=.14+.26*b,d=new THREE.Vector3(nx-(-.10),sg*.72,0);
+  ss.scale.y=d.length()/ss.userData.L0;ss.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.clone().normalize());
+  ss.position.set((nx+(-.10))/2,sg*.36,0);}
+ bowArr.visible=b>0;bowArr.position.set(.14-.5*(1-b),0,0); // стрела на тетиве появляется при натяжении
+ // ПРАВАЯ: idle качается с бегом; при тяче локоть к корпусу, кисть идёт к уху; на релизе - резкий щелчок назад
+ T(j.armR,'x',-1.5*b+arp.shoulder*(1-b));T(j.armR,'z',1.15*b+(-.12+Math.max(0,arp.shoulder)*.08)*(1-b));
+ T(j.elbowR,'x',-1.35*b+arp.elbow*(1-b));
+ if(b>0){ // idle-носка: правая свободна, слегка прикрывает лук у руки (не «пердит» вхолостую)
+ }
+}
  tipV+=Math.sin(a*2+Math.PI*.3)*dt*24; // импульс колпака от ускорения головы
  T(j.hat,'x',-.05+Math.sin(a*2)*.03+tipQ*.5);
  heroM.position.y+=st*.16; // подскок приставного шага
@@ -413,7 +419,7 @@ function makeBow(){const g=new THREE.Group(); // локальные оси лу�
  const f1=fm.clone();f1.position.x=.34;const f2=fm.clone();f2.position.x=.34;f2.rotation.x=1.57;na.add(f1);na.add(f2);
  na.position.set(-.05,0,0);na.visible=false;g.add(na);bowArr=na;
  return g;}
-var heroBow=null,bowT=0,bowStr=null,bowArr=null;
+var heroBow=null,bowT=0,shotCd=0,bowStr=null,bowArr=null;
 // лук цепляется к rig при готовности GLB (см. loader): heroBow=makeBow();rig.add(heroBow)
 function tCoin(){ // sword pickup
  const g=new THREE.Group();
@@ -516,6 +522,7 @@ function reset(){S.mode='run';S.t=0;S.dist=0;S.speed=18;S.coins=0;S.score=0;S.la
  for(const o of S.obs)scene.remove(o.m);for(const c of S.coinsArr)scene.remove(c.m);
  for(const a of S.arrows)scene.remove(a.m);
  if(arrowTrail)arrowTrail.visible=false; // иначе лента повиснет в воздухе после смерти (updArrows уже не догонит)
+ bowT=0;shotCd=0; // незавершённая тяча не должна переезжать в новый забег (иначе первый тап проигнорирован до конца CD)
  S.obs=[];S.coinsArr=[];S.arrows=[];S.arrowsMade=0;nextSpawn=30;S.missed=0;deathPlayed=false;heartsP.length=0;}
 function addObs(type,lane){const m=TPL[type]();m.position.set((lane-1)*LANE,0,SPAWN_Z);scene.add(m);
  const o={type,lane,z:SPAWN_Z,m};
@@ -707,15 +714,16 @@ let arrowTrail=null; // хвост-лента за стрелой: ~4 px на д
  g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(2*3),3));
  arrowTrail=new THREE.Line(g,new THREE.LineBasicMaterial({color:0xFFF3B0,transparent:true,opacity:.55,fog:false,depthWrite:false}));
  arrowTrail.frustumCulled=false;arrowTrail.visible=false;scene.add(arrowTrail);}
-function shoot(){if(S.mode!=='run')return;
- const z0=-5; // спавн в 5 м впереди: между спиной и камерой стрелу всё равно не видно, а 5 м на 34 м/с - лишь 0.12 с, цель это не прячет
- const m=arrowGeo();m.position.set((S.lane-1)*LANE+bend(z0),S.y+.95,z0);
- scene.add(m);S.arrows.push({x:S.lane,z:z0,m,hit:0});S.arrowsMade++; // NB: полоса в .x; updArrows читает a.x (a.lane не существует)
- bowT=.22;sfx('jump');
+const DRAW_T=.5,SHOT_CD=.95; // натяжение .5 с, выстрел + общая блокировка .95 с: тап-спам не превращается в пулемёт
+function shoot(){ // тап = НАЧАЛО натяжения; выпуск в конце фазы (releaseShot)
+ if(S.mode!=='run'||bowT>0||shotCd>0)return;
+ bowT=DRAW_T;shotCd=SHOT_CD;sfx('pick');} // AU.draw не заведен: 'pick' (щипок) ближе всех к натяжению тетивы
+function releaseShot(){ // вызывается из driveHero в конце DRAW_T
+ const z0=-5; const m=arrowGeo();m.position.set((S.lane-1)*LANE+bend(z0),S.y+.95,z0);
+ scene.add(m);S.arrows.push({x:S.lane,z:z0,m,hit:0});S.arrowsMade++; // NB: полоса в .x; updArrows читает a.x
+ sfx('jump');
  S.shake=Math.max(S.shake,.28); // kick камеры: выстрел чувствуется телом
- const fp=new THREE.Vector3();m.getWorldPosition(fp);fp.y+=.06; // вспышка у выпуска (world)
- if(arrowFlash){arrowFlash.position.copy(fp);arrowFlash.userData.t=.001;}
- arrowFlashKick=1;}
+ if(arrowFlash){const fp=new THREE.Vector3();m.getWorldPosition(fp);fp.y+=.06;arrowFlash.position.copy(fp);arrowFlash.userData.t=.001;}}
 function updArrows(dt){
  for(let i=S.arrows.length-1;i>=0;i--){const a=S.arrows[i];
   if(a.hit){a.hit+=dt; // поражающая стрела замирает в цели и кувыркается, затем исчезает
