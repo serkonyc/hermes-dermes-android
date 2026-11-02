@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.46.0';
+const VER='4.46.1';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -302,7 +302,7 @@ function driveHero(dt){
   heroM.position.y=0;
   rollRoot.rotation.set(0,0,0);rollRoot.position.set(0,0,0);root.rotation.set(0,0,0);heroM.updateMatrixWorld(true);visB(); // world-box текущей tk-смешанной позы (scale включён, heroM на 0)
   const y0=heroM.__lb.min.y,y1=heroM.__lb.max.y,z0=heroM.__lb.min.z,z1=heroM.__lb.max.z;
-  const cy=(y0+y1)/2,lz=(z0+z1)/2,lx=(heroM.__lb.min.x+heroM.__lb.max.x)/2;
+  const cy=(y0+y1)/2,lz=(z0+z1)/2,lx=(heroM.__lb.min.x+heroM.__lb.max.x)/2-heroM.position.x; // x-пивот ОТНОСИТЕЛЬНО героя: world-lx таил смещение полосы => T=(-lx·cos) уносил клубок с дороги на обочину при боковых кувырках (телепорт в лес)
   const a=-x,ca=Math.cos(a),sa=Math.sin(a);
   // ЭМПИРИЧЕСКАЯ ОБОЛОЧКА (AABB-углы врут: meshes не заполняют коробку; const-radius AABB давал «горб» +0.55): точка = среднее облако мешей позной рамки (world при hy=0). Вращаем точки, берём макс(-y') = support фазы x. Собирается в тот же кадр, что метрика; позa tk-смешанная => envelope тоже
   // === ФИКСИРОВАННАЯ ОБОЛОЧКА СОБРАННОГО КЛУБКА (tk=1): измерить ОДИН РАЗ облако world-точек (hy=0, цепь чиста) => центр (cy,lz) + список угловых точек (y,cy)-x-(z,lz). Поза при tk=1 детерминирована (springs заморожены, club-абсолютка) => оболочка честная на всю club-фазу. tk-рампа смешивает resting-низ и club-огибающую плавно
@@ -313,7 +313,7 @@ function driveHero(dt){
     // ОБЛАКО ВЕРШИН geometry (не 8 углов AABB): углы коробки пустотелы (меши не заполняют box), повёрнутые углы завышают низ на +0.15..0.2 на 45° = «висит». Вершины = реальная поверхность клубка
     const pts=[];const wp=new THREE.Vector3(),mm=new THREE.Matrix4();
     heroM.traverse(function(c){if(c.isMesh&&c!==heroBow){let q=c,vv=true;while(q){if(!q.visible){vv=false;break;}q=q.parent;}if(!vv||!c.geometry)return;
-      mm.copy(c.matrixWorld);const pa=c.geometry.attributes.position;
+      mm.copy(rollRoot.matrixWorld).invert().premultiply(c.matrixWorld);const pa=c.geometry.attributes.position; // LOCAL-облако к rollRoot: world-точкам не хватало -S.x => центр качения u съезжал на -S.x·cos при боковых кувырках
       for(let i=0;i<pa.count;i++){wp.fromBufferAttribute(pa,i).applyMatrix4(mm);pts.push(wp.y,wp.z);}}});
     sh=heroM.__shell={pts:pts};
   }
@@ -519,23 +519,23 @@ function tBoss(){ // Phantom: красная капля-фантом с горя
 
 function tCart(){ // povozka s tentom: zaprygivaemaya krysha, analog "poezda" Subway Surfers
  const g=new THREE.Group();const W=M(0x5B4632,.9);
- const bed=box(1.12,.14,2.0,W);bed.position.y=.52;g.add(bed);
- for(let i=0;i<2;i++){const ra=new THREE.Mesh(new THREE.CylinderGeometry(.36,.36,.06,10),W);ra.rotation.z=Math.PI/2;ra.position.set((i?1:-1)*.6,.36,0);
-  for(let k=0;k<6;k++){const sp=new THREE.Mesh(new THREE.BoxGeometry(.05,.62,.04),W);sp.rotation.x=k*Math.PI/6;ra.add(sp);}
-  const hub=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.1,8),M(0x3A2A18,.9));hub.rotation.z=Math.PI/2;ra.add(hub);g.add(ra);}
- const cv=box(1.06,.16,1.8,M(0x8A2E2E,.9));cv.position.y=.86;g.add(cv);
- const cv2=box(1.12,.07,1.94,M(0x742323,.9));cv2.position.y=.94;g.add(cv2);
- const rope=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,1.1,4),M(0xD8CBA8,.7));rope.rotation.z=Math.PI/2;rope.position.set(0,.78,.5);g.add(rope);
- const rope2=rope.clone();rope2.position.z=-.5;g.add(rope2);
- g.userData.len=2.6; // длинная крыша: запас по прыжковой дистанции (JUMP_V 8.6 / GRAV 26 = 2.84m, пик .7 на 1.42m)
+ const bed=box(1.12,.14,3.0,W);bed.position.y=.66;g.add(bed);
+ for(let i=0;i<2;i++){for(let j=0;j<2;j++){const ra=new THREE.Mesh(new THREE.CylinderGeometry(.42,.42,.06,10),W);ra.rotation.z=Math.PI/2;ra.position.set((i?1:-1)*.6,.42,(j?1:-1)*1.15); // 4 колеса
+  for(let k=0;k<6;k++){const sp=new THREE.Mesh(new THREE.BoxGeometry(.05,.74,.04),W);sp.rotation.x=k*Math.PI/6;ra.add(sp);}
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.1,8),M(0x3A2A18,.9));hub.rotation.z=Math.PI/2;ra.add(hub);g.add(ra);}} // закрытие двойного цикла колёс
+ const cv=box(1.06,.16,2.8,M(0x8A2E2E,.9));cv.position.y=1.0;g.add(cv);
+ const cv2=box(1.12,.07,2.94,M(0x742323,.9));cv2.position.y=1.08;g.add(cv2);
+ const rope=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,1.1,4),M(0xD8CBA8,.7));rope.rotation.z=Math.PI/2;rope.position.set(0,.92,1);g.add(rope);
+ const rope2=rope.clone();rope2.position.z=-1;g.add(rope2);
+ g.userData.len=3.6; // крыша 3.6м: вход за 2м до центра = край прыжковой дуги (hgt~1.35, дуга 2.85m)
  return g;}
 function tHill(){ // pologyi zh-kholmik vershina .82: osnowanie-skirt zakryvaet styk s asfal'tom (ineache kupa "plavaet"), 3 klonka zernistosti dlja estestvennosti
- const g=new THREE.Group();const skirt=new THREE.Mesh(new THREE.CylinderGeometry(1.02,1.06,.16,14),M(0x6E8A3A,.95));
- skirt.position.y=.08;skirt.flatShading=true;g.add(skirt);
+ const g=new THREE.Group();const skirt=new THREE.Mesh(new THREE.CylinderGeometry(1.02,1.06,.34,14),M(0x6E8A3A,.95));
+ skirt.position.y=.17;skirt.flatShading=true;g.add(skirt);
  const d=new THREE.Mesh(new THREE.SphereGeometry(1.3,14,7),M(0x8FB445,.95));
- d.scale.set(.64,.54,1.15);d.position.y=.1;d.flatShading=true;g.add(d);
+ d.scale.set(.64,.52,1.3);d.position.y=.12;d.flatShading=true;g.add(d);
  const d2=new THREE.Mesh(new THREE.SphereGeometry(.8,10,6),M(0xC0BE58,.95));
- d2.scale.set(.55,.5,.7);d2.position.set(.08,.5,-.1);d2.flatShading=true;g.add(d2);
+ d2.scale.set(.55,.5,.8);d2.position.set(.08,.5,-.1);d2.flatShading=true;g.add(d2);
  const d3=new THREE.Mesh(new THREE.SphereGeometry(.5,8,5),M(0xA9C24E,.95));
  d3.scale.set(.7,.42,.55);d3.position.set(-.14,.38,.55);d3.flatShading=true;g.add(d3);
  g.userData.len=3.2;
@@ -770,6 +770,7 @@ function collide(dt){const dz=S.speed*dt;S.platTop=0;const h=S.roll>0?1.0:1.62, 
 // отладка: лог причин смерти в console (для боевого автотеста)
 function die(){ // S.revive НЕ сбрасываем: счётчик ошибок реванша живёт до конца забега (3 ошибки = ПОЙМАЛИ)
  S.killer=S.obs.find(o=>!o.dead&&laneHit(o)&&o.z>-3&&o.z<3)||null; // «во что врезались» — для математ-реванша; окно шире collide-ного (wall R1.15, boss шире) so the killer is always captured
+ try{newMath();}catch(e){} // пример генерится ПРИ СМЕРТИ: каждый death всегда получает свежий пример (раньше второй death без нового newMath = матем-строка не показывалась)
  if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);if(rollRoot){rollRoot.rotation.set(0,0,0);}const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}S.mode='over';S.dead=.001;S.dz=(Math.random()<.5?-1:1)*(.35+Math.random()*.3);S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
  S.bestC=Math.max(S.bestC,S.coins);localStorage.setItem('nr_bestc',S.bestC);
