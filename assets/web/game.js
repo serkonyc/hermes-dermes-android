@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.46.2';
+const VER='4.46.3';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -313,7 +313,7 @@ function driveHero(dt){
     // ОБЛАКО ВЕРШИН geometry (не 8 углов AABB): углы коробки пустотелы (меши не заполняют box), повёрнутые углы завышают низ на +0.15..0.2 на 45° = «висит». Вершины = реальная поверхность клубка
     const pts=[];const wp=new THREE.Vector3(),mm=new THREE.Matrix4();
     heroM.traverse(function(c){if(c.isMesh&&c!==heroBow){let q=c,vv=true;while(q){if(!q.visible){vv=false;break;}q=q.parent;}if(!vv||!c.geometry)return;
-      mm.copy(rollRoot.matrixWorld).invert().premultiply(c.matrixWorld);const pa=c.geometry.attributes.position; // LOCAL-облако к rollRoot: world-точкам не хватало -S.x => центр качения u съезжал на -S.x·cos при боковых кувырках
+      mm.copy(heroM.matrixWorld).invert().premultiply(c.matrixWorld);const pa=c.geometry.attributes.position; // heroM-локальное облако (НЕ rollRoot: матрица rollRoot содержит position.pivot*(1-ca) = обратная связь x-пивота в облако; y,z инвариантны но берём y,z от heroM стабильно)
       for(let i=0;i<pa.count;i++){wp.fromBufferAttribute(pa,i).applyMatrix4(mm);pts.push(wp.y,wp.z);}}});
     sh=heroM.__shell={pts:pts};
   }
@@ -776,9 +776,9 @@ function collide(dt){const dz=S.speed*dt;S.platTop=0;const h=S.roll>0?1.0:1.62, 
   c.taken=true;scene.remove(c.m);S.coins++;sfx('pick');sparkle(S.x+bend(0),S.y+.7,0);burst(S.x+bend(0),S.y+.7,0,0xFFD879,8);S.coinsArr=S.coinsArr.filter(x=>x!==c);}}
  updPickFx(dt);}
 // отладка: лог причин смерти в console (для боевого автотеста)
-function die(){ // S.revive НЕ сбрасываем: счётчик ошибок реванша живёт до конца забега (3 ошибки = ПОЙМАЛИ)
+function die(){ // счётчик ошибок реванша = ошибки ЭТОЙ смерти: на каждой гибели чистый лист и свежий пример, тупика «примеров больше не будет» нет
  S.killer=S.obs.find(o=>!o.dead&&laneHit(o)&&o.z>-3&&o.z<3)||null; // «во что врезались» — для математ-реванша; окно шире collide-ного (wall R1.15, boss шире) so the killer is always captured
- if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);if(rollRoot){rollRoot.rotation.set(0,0,0);}const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}S.mode='over';S.dead=.001;S.dz=(Math.random()<.5?-1:1)*(.35+Math.random()*.3);S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
+ if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);if(rollRoot){rollRoot.rotation.set(0,0,0);}const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}S.revive=0;S.mode='over';S.dead=.001;S.dz=(Math.random()<.5?-1:1)*(.35+Math.random()*.3);S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
  S.bestC=Math.max(S.bestC,S.coins);localStorage.setItem('nr_bestc',S.bestC);
  burst(S.x+bend(0),S.y+.8,0,0xF5F5F5,30);showOver();}
@@ -869,10 +869,10 @@ function updHearts(dt){for(let j=heartsP.length-1;j>=0;j--){const p=heartsP[j];p
  heartsMesh.instanceMatrix.needsUpdate=true;}
 function act(a,e){if(window.dlog&&a!=='T'&&a!=='O')dlog.swipe();
  if(S.mode==='menu'){reset();showRun();if(window.dlog)dlog.run();return;}
- if(S.mode==='over'){if(S.dead<=1.05)return; // limp-анимация: любые тапы молчат
+ if(S.mode==='over'){if(S.dead<=0.5)return; // окно молчания 0.5с (было 1.05 = под ним гибли тапы: пример уже открыт, а экран не слушал)
  if(e&&e.timeStamp-lastTapTS<600)return; lastTapTS=e?e.timeStamp:0; // touchend+синтетический click = один жест (иначе фон-тап удваивает revive)
  if($('mathrow').style.display!=='none'){ // пока пример открыт: тап по фону = новый пример, кнопка/Enter = проверка
-  if(!e||!e.target.closest('#mathrow')){S.revive++;newMath();if(S.revive>=3)showOver();}
+  if(!e||!e.target.closest('#mathrow')){newMath();return;} // тап по фону = следующий пример, ошибкой не считается: на телефоне фон-тап сидел под клавиатурой и тихо сжигал попытку -> «пример был только один раз»
   return;}
  if($('ogo').style.visibility!=='hidden'){reset(),showRun();}
  return;} // до respawn-задержки любые клавиши молчат
@@ -1157,7 +1157,8 @@ addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);
  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();});
 // ---------- loop ----------
 let last=performance.now();
-function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;
+function watchdog(){if(S.mode==='over'&&S.dead>0.3&&$('mathrow').style.display==='none'&&$('ocard').style.display!=='block'){S.revive=Math.min(S.revive,2);newMath();}} // любой путь, спрятавший пример, лечится следующим кадром (жалоба: пример был только один раз)
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;watchdog();
  if(scene.userData.iv){scene.userData.iv=0;scene.traverse(o=>{if(o.isInstancedMesh)o.visible=true;});} // мир собран первым кадром - инстансы снова нужны
  update(dt*S.ts);updInst();if(mReady)driveHero(dt);else animRig(dt);animCam(dt);
  $('score').textContent=fmt(Math.floor(S.score));
