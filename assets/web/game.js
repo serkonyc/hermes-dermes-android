@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.44.3';
+const VER='4.44.4';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -258,40 +258,37 @@ function driveHero(dt){
   T(j.legL,'x',.9);T(j.legR,'x',.5);T(j.kneeL,'x',-1.2);T(j.kneeR,'x',-.8);
   T(j.head,'x',.5);T(j.hat,'x',-1.9);
   springs(dt,88,8.5,ML); return;}
- if(S.roll>0){ // КУВЫРОК: собираем компактную позу, центрируем её вокруг COM, затем вращаем вокруг точки касания
+ if(S.roll===0&&heroM.__piv){heroM.__piv=null;heroM.__ball=null;if(heroBow)heroBow.visible=true;} // после кувырка: лук обратно (run-ветка ставит visible сам, но на idle-кадрах до неё — страховка), метрики клуба на пересчёт
+ if(S.roll>0){ // КУВЫРОК v4.44.4 (ground-contact): КАТИМЫЙ клубок = видимый bbox собранной club-позы; ЦЕНТР дуги в heroM поднят так, чтобы НИЖНЯЯ точка дуги легла на G=-0.52 (уровень ступней бега = асфальт в heroM-рамке, world -0.01): heroY = G - bbox.min.y + bbox.cy, инвариантно к углу вращения. Раньше центр поднимался по вписанному шару (cy=-0.18 r=0.73 club-позы: центр дуги на G+r=0.21 при bbox.cy=-0.18 => дуга ушла на -0.92, ступня протыкала дорогу) = «провал». Расплетение вшито в хвост последнего оборота (обратная рампа tk), tk=0 = чистая поза/позиция бега = непрерывные вход/выход (обрыв позы по таймеру = «телепорт на полкорпуса»). Лук на время кувырка скрыт (дуга торчала из клуба)
   const p=1-S.roll/.62;
-  const tk=Math.min(1,p*8,Math.max(0,(.86-p)/.14)), q=Math.min(1,Math.max(0,(p-.12)/.78)), x=q*Math.PI*2; // оборот завершается к p=.9: кувырок докручивается в стойку
+  const tk=Math.min(1,p*4,Math.max(0,(1-p)/.12)), q=Math.min(1,Math.max(0,(p-.1)/.60)), x=(q+.25*(1-tk))*Math.PI*2; // хвост tk дотянут до p=1 (было .88: tk=0 за 4 кадров ДО конца таймера => club-поза замирала, bbox прыгал на .84 = «телепорт»); дорывок .25*tk*2PI встроен В q-оборот (не аддитивный хвост: аддитивный давал докрутку 2PI за 4 кадра = бешеный мах ногами) => угол монотонен, при tk=0 x=2PI = ноль по кругу = непрерывный выход
   const rt=j.rig.parent; if(rt.__by===undefined)rt.__by=rt.position.y;
-  rt.position.y=rt.__by;
-  const w=p>.82?Math.min(1,(p-.82)/.18):0;
-  j.rig.position.set(0,0,0);
-  j.rig.rotation.x=1.4*tk;
-  j.head.rotation.x=(1.2*tk)*(1-w)+.1*w;
-  j.hat.rotation.x=(-3.2*tk)*(1-w)-.25*w;j.hat.rotation.z=.12*tk;
-  j.armL.rotation.x=(-2.45*tk)*(1-w)-.35*w;j.armR.rotation.x=(-2.35*tk)*(1-w)+.18*w;
-  j.elbowL.rotation.x=2.15*tk;j.elbowR.rotation.x=2.1*tk;
-  j.armL.rotation.z=.5*tk;j.armR.rotation.z=-.5*tk;
-  j.legL.rotation.x=(-2.9*tk)*(1-w)-.28*w;j.legR.rotation.x=(-2.8*tk)*(1-w)+.45*w;
-  j.kneeL.rotation.x=(2.9*tk)*(1-w)+.22*w;j.kneeR.rotation.x=(2.85*tk)*(1-w)+.12*w;
-  j.ankleL.rotation.x=-1.3*tk*(1-w)+.1*w;j.ankleR.rotation.x=-1.2*tk*(1-w)+.05*w;
-  root.rotation.set(0,0,0); root.scale.set(1,1,1); root.position.set(0,0,0);
+  rt.position.y=rt.__by; // база скелета на месте (LIFT-присед убран: club-поза сама компактна)
+  const C=(o,ax,v)=>{o.rotation[ax]=v*tk;}; // club-цели абсолютные (эталон v4.44.3 .76): tk=0 = ноль = база позы (springs в ветке молчат, присваивание безопасно)
+  C(j.rig,'x',1.4);j.rig.position.y*=(1-tk);
+  C(j.head,'x',1.2);
+  C(j.hat,'x',-3.2);C(j.hat,'z',.12);
+  C(j.armL,'x',-2.45);C(j.armR,'x',-2.35);
+  C(j.elbowL,'x',2.15);C(j.elbowR,'x',2.1);
+  C(j.armL,'z',.5);C(j.armR,'z',-.5);
+  C(j.legL,'x',-2.9);C(j.legR,'x',-2.8);
+  C(j.kneeL,'x',2.9);C(j.kneeR,'x',2.85);
+  C(j.ankleL,'x',-1.3);C(j.ankleR,'x',-1.2);
+  if(heroBow)heroBow.visible=false; // в кувырке лук прячем (иначе дуга лука торчит из клубка = «палка из клубка», bbox +0.85)
   heroM.position.set(S.x,S.rollY,0);
+  heroM.scale.setScalar(1-(1-.84)*tk); // tuck scale 0.84 (эталон): входит в bbox
+  root.rotation.set(0,0,0); root.scale.set(1,1,1); root.position.set(0,0,0);
   if(!heroM.__lb)heroM.__lb=new THREE.Box3();
-  if(!heroM.__com)heroM.__com=new THREE.Vector3();
-  heroM.updateMatrixWorld(true);
-  heroM.__lb.setFromObject(heroM); heroM.__lb.getCenter(heroM.__com);
-  // фиксируем pivot: смещение локальное (мировой центр содержит x полосы - иначе кувырок телепортирует на центральную полосу)
-  root.position.set(-(heroM.__com.x-S.x),-(heroM.__com.y-S.rollY),-heroM.__com.z);
-  heroM.updateMatrixWorld(true);
-  heroM.__lb.setFromObject(heroM);
-  const dy=(heroM.__lb.max.y-heroM.__lb.min.y)*.5;
-  heroM.position.set(S.x,S.rollY+dy,0);
-  root.rotation.set(-x,0,0);
-  // visual tuck: компактный масштаб только в собранной фазе, чтобы колпак/конечности не растягивали габарит на повороте
-  heroM.scale.setScalar(1-(1-.84)*tk);
-  heroM.updateMatrixWorld(true);
-  heroM.__lb.setFromObject(heroM);
-  heroM.position.y+=Math.max(0,-heroM.__lb.min.y)+.012;
+  const visB=()=>{heroM.__lb.makeEmpty();heroM.traverse(c=>{if(c.isMesh&&(!heroBow||c!==heroBow)){let q=c,v=true;while(q){if(!q.visible){v=false;break;}q=q.parent;}if(v)heroM.__lb.expandByObject(c);}});}; // только ВИДИМЫЕ меши (скрытый hero_glb скин-скелет раздвигал bbox до 2.0)
+  const G=-.02; // ЗЕМЛЯ heroM-рамки = верх асфальта (road plane -0.01..0; низ bbox в ран-позе = ботинки -0.51 проваливаются под плоскость дороги = артефакт GLB-посадки; раньше G=-0.52 по ступням = провал клубка)
+  if(!heroM.__piv){
+    if(tk>=.999){heroM.position.y=0;heroM.updateMatrixWorld(true);visB(); // метрики собранного клуба ОДИН РАЗ при tk=1 НА НУЛЕВОЙ heroM.y (мерить при уже поднятом heroM = self-referential: центр уезжает, низ дуги под дорогу)
+      heroM.__piv={x:heroM.__lb.min.x-S.x,z:(heroM.__lb.min.z+heroM.__lb.max.z)/2,cy:(heroM.__lb.min.y+heroM.__lb.max.y)/2,r:(heroM.__lb.max.y-heroM.__lb.min.y)/2};}
+    else visB();}
+  const met=heroM.__piv||{cy:(heroM.__lb.min.y+heroM.__lb.max.y)/2,r:(heroM.__lb.max.y-heroM.__lb.min.y)/2};
+  heroM.position.y=(S.rollAir?Math.max(0,S.rollY):0)+tk*(G+met.r-met.cy); // центр дуги на G+r (heroY=G+r-cy при tk=1) => НИЖНЯЯ точка дуги на G при любом угле; tk=0 = позиция бега = непрерывные вход/выход
+  if(heroM.__piv)root.position.set(tk*heroM.__piv.x,0,tk*heroM.__piv.z);
+  root.rotation.set(-x%(Math.PI*2),0,0); // %2PI: выход даёт x=2PI -> 0, иначе run-ветка (rotation.x!==0) гасила остаток .38 рад одним кадром = «телепорт» при выходе
   return;}
  heroM.position.set(S.x,S.y,0);
  if(root&&root.rotation.x!==0||root.position.lengthSq()>1e-9){root.rotation.set(0,0,0);root.position.set(0,0,0);const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}
@@ -944,7 +941,7 @@ function animRig(dt){
   return;}
  if(S.roll>0){const s=Math.min(1,Math.min(S.roll,.45-S.roll)*10); // плавный вход/выход позы
   player.scale.setScalar(HERO_K);
-  player.position.set(S.x,S.y+LIFT*(1-s),0);
+  player.position.set(S.x,S.y+LIFT*(1-s),0); // LIFT-gate: в беге герой на +LIFT (подошва в нуле); скелетная поза кувырка сама ставит клубок на ноль - LIFT гасится вместе со входом в позу (s), иначе старт кувырка = прыжок на полкорпуса
   tgt(rig,'x',-1.25*s);tgt(rig,'y',0);tgt(rig,'z',-.08*s);rig.position.y=.48*s;
   tgt(armL,'x',1.4*s);tgt(armR,'x',1.4*s);tgt(armL.elbow,'x',.6*s);tgt(armR.elbow,'x',.6*s);
   tgt(legL,'x',-1.2*s);tgt(legR,'x',-1.2*s);
