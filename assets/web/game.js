@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.46.1';
+const VER='4.46.2';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -750,13 +750,21 @@ const laneHit=o=>o.lane===S.lane&&Math.abs(S.x-(o.lane-1)*LANE)<LANE*.6;
 function collide(dt){const dz=S.speed*dt;S.platTop=0;const h=S.roll>0?1.0:1.62, // хитбокс = измеренный клубок .90 + зазор
  feet=S.roll>0?S.rollY:S.y,top=feet+h; // под кувырком прогибаемся (как подкатом v4.34): bar закрывает щель, не ломая физику прыжка
  for(const o of S.obs){if(o.dead||!laneHit(o))continue;
-  if(PLAT[o.type]){ // o.z = ЦЕНТР корпуса (геометрия центрирована, m в o.z). смерть только при забеге ПО АСФАЛЬТУ в борт; прыжок выше борта = крыша-опора (Subway Surfers: поезд не убивает сверху)
-   const L=o.len,hL=L/2,wall=hL+.55; // окно тела: полуlong + глубина героя .35 + шаг скролла (дискретный шаг ~1м: окно не дырявое)
-   if(Math.abs(o.z)<wall){
-    if(feet>=o.hgt-.05){S.platTop=Math.max(S.platTop||0,o.hgt);continue;} // ноги выше борта = крыша из-под ног (перелёт сверху или бег по крыше)
-    if(S.air){ // в воздухе ниже борта = зацеп/недопрыг: авто-подъём на крышку (forgiving; честный промах = приземление с другой стороны, без мгновенной смерти)
-     S.y=o.hgt;S.vy=0;S.air=false;S.platTop=Math.max(S.platTop||0,o.hgt);land=1;burst(S.x,o.hgt+.05,0,0x6B4E2E,4);continue;}
-    return die();} // ноги на асфальте внутри тела = влетел в борт
+  if(PLAT[o.type]){ // НЕПРЕРЫВНАЯ стенка: за кадр скролл проходит dz~0.3-0.7м; дискретная проверка «внутри окна» ловила приземляющегося в метре перед стенкой уже ПОСЛЕ прыжка через стенку = смерть вместо запрыга. Свип: момент входа передней стенки в героя и высота ног в этот момент
+   const hL=o.len/2,wall=hL+.45; // полуlong + глубина героя .35 + запас
+   const z1=o.z,z0=o.z-dz; // путь центра корпуса за кадр (o.z уже прокручен)
+   if(z0>wall){continue;} // ещё далеко
+   const inRoof=Math.abs(o.z)<hL; // крыша над героем СЕЙЧАС = опора
+   if(inRoof){
+    if(feet>=o.hgt-.05||S.platTop>0){S.platTop=Math.max(S.platTop||0,o.hgt);continue;}
+    if(S.air){S.y=o.hgt;S.vy=0;S.air=false;S.platTop=Math.max(S.platTop||0,o.hgt);land=1;burst(S.x,o.hgt+.05,0,0x6B4E2E,4);continue;}
+    return die();}
+   // свип передней стенки: был за -wall, стал ближе -wall
+   if(z0<-wall&&z1>=-wall){
+    const t=(-wall-z0)/(z1-z0),feetAt=feet-S.vyPrev*dt*(1-t); //高度 ног в момент входа (vyPrev=vy ДО гравитации этого кадра; откатываем падение за кадр)
+    if(feetAt>=o.hgt-.12||S.platTop>0){S.platTop=Math.max(S.platTop||0,o.hgt);if(S.vy<0){S.y=o.hgt;S.vy=0;S.air=false;land=1;burst(S.x,o.hgt+.05,0,0x6B4E2E,4);}continue;}
+    if(S.air){S.y=o.hgt;S.vy=0;S.air=false;S.platTop=Math.max(S.platTop||0,o.hgt);land=1;burst(S.x,o.hgt+.05,0,0x6B4E2E,4);continue;} // авто-подъём у борта
+    return die();}
    continue;}
   const near=Math.abs(o.z)<(o.type==='wall'?1.35:.95); // валун круглый R1.15, а не вагон 4.2 длиной
   if(!near)continue;
@@ -770,7 +778,6 @@ function collide(dt){const dz=S.speed*dt;S.platTop=0;const h=S.roll>0?1.0:1.62, 
 // отладка: лог причин смерти в console (для боевого автотеста)
 function die(){ // S.revive НЕ сбрасываем: счётчик ошибок реванша живёт до конца забега (3 ошибки = ПОЙМАЛИ)
  S.killer=S.obs.find(o=>!o.dead&&laneHit(o)&&o.z>-3&&o.z<3)||null; // «во что врезались» — для математ-реванша; окно шире collide-ного (wall R1.15, boss шире) so the killer is always captured
- try{newMath();}catch(e){} // пример генерится ПРИ СМЕРТИ: каждый death всегда получает свежий пример (раньше второй death без нового newMath = матем-строка не показывалась)
  if(MJ&&MJ.rig){heroM.rotation.set(0,0,0);if(rollRoot){rollRoot.rotation.set(0,0,0);}const rt=MJ.rig.parent;if(rt.__by!==undefined)rt.position.y=rt.__by;}S.mode='over';S.dead=.001;S.dz=(Math.random()<.5?-1:1)*(.35+Math.random()*.3);S.shake=1;S.flash=.4;S.ts=.32;sfx('bump');
  S.best=Math.max(S.best,Math.floor(S.score));localStorage.setItem('nr_best',S.best);
  S.bestC=Math.max(S.bestC,S.coins);localStorage.setItem('nr_bestc',S.bestC);
@@ -896,7 +903,8 @@ function showOver(){ // v4.45 «математический реванш»: т�
  $('obest').textContent='РЕКОРД '+fmt(S.best)+' · ⚔ '+S.bestC;
  if(S.revive>=3){$('oh1').textContent='ПОЙМАЛИ!';$('ocard').style.display='block';$('ogo').style.visibility='visible';$('ogo').textContent='НАЖМИ, ЧТОБЫ ПОВТОРИТЬ';
   $('mathq').style.display='none';$('mathrow').style.display='none';return;}
- newMath();}
+ newMath(); // пример показывает ТОЛЬКО showOver (единая точка): die->showOver->newMath = один mathrow на смерть; тап по фону = след. пример; верный ответ = reviveRun (продолжение), неверный = +1 ошибка
+}
 let mathAns=0;
 function newMath(){let a=1+Math.floor(Math.random()*9),b=1+Math.floor(Math.random()*9); // уровень 6-летки: только однозначные, вычитание без отрицательного ответа
  if(Math.random()<.5){mathAns=a+b;$('mathq').textContent=a+' + '+b+' = ?';}
@@ -999,6 +1007,7 @@ function update(dt){
  dayFx(dt);
  S.stepT=Math.max(0,(S.stepT||0)-dt);
  S.x+=((S.lane-1)*LANE-S.x)*Math.min(1,dt*(S.stepT>0?9:14));
+ S.vyPrev=S.vy;
  if(S.roll<=0){S.vy-=GRAV*dt;S.y+=S.vy*dt;
  const fl=S.platTop||0; // platTop заполнен коллизией ПРОШЛОГО кадра (collide идёт до физики): гравитация садится на крышку; за краем fl=0 - падаем на асфальт
  if(S.y<=fl){if(S.air){burst(S.x,fl+.1,0,0x6B4E2E,6);land=1;}S.y=fl;S.vy=0;S.air=false;S.coy=0;}}
