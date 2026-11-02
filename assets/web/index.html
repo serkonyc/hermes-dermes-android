@@ -32,7 +32,7 @@
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="hud">
+<div id="hud"><div id="ver" style="position:fixed;right:8px;bottom:6px;color:rgba(0,0,0,.35);font:700 11px system-ui;z-index:5"></div>
   <span class="badge" id="score">000000</span>
   <span class="badge" id="coins">⚔ 0</span>
   <span class="badge" id="best">000000</span>
@@ -43,6 +43,7 @@
   <p>свайп: ↑ прыжок · ↓ подкат · ← → полоса<br>собирай мечи ⚔<br><span id="mbest"></span></p>
   <div class="go">НАЖМИ, ЧТОБЫ НАЧАТЬ</div>
 </div>
+<div id="again" style="position:fixed;left:50%;top:18%;transform:translateX(-50%);display:none;background:#B03A2E;color:#fff;font:900 22px system-ui;padding:12px 22px;border-radius:14px;box-shadow:0 4px 0 rgba(0,0,0,.25);pointer-events:none;z-index:9">ЗАБЕГ ОКОНЧЕН · НАЖМИ, ЧТОБЫ ПРОБЕЖАТЬ ЗАНОВО</div>
 <div class="ov" id="over">
   <h1 id="oh1">ПОЙМАЛИ!</h1>
   <div class="card" id="ocard"><div class="big" id="ostats"></div>
