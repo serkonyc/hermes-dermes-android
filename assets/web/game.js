@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.45.2';
+const VER='4.45.3';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -259,7 +259,7 @@ function driveHero(dt){
   T(j.legL,'x',.9);T(j.legR,'x',.5);T(j.kneeL,'x',-1.2);T(j.kneeR,'x',-.8);
   T(j.head,'x',.5);T(j.hat,'x',-1.9);
   springs(dt,88,8.5,ML); return;}
- if(S.roll===0&&(heroM.__piv||heroM.__tuck)){heroM.__piv=null;heroM.__shell=null;heroM.__tuck=false;heroM.__rest=null;if(rollRoot){rollRoot.position.set(0,0,0);rollRoot.rotation.set(0,0,0);}root.position.set(0,0,0);root.rotation.set(0,0,0);if(heroBow)heroBow.visible=true;
+ if(S.roll===0&&(heroM.__piv||heroM.__tuck||heroM.__shell)){heroM.__piv=null;heroM.__shell=null;heroM.__tuck=false;heroM.__rest=null;if(rollRoot){rollRoot.position.set(0,0,0);rollRoot.rotation.set(0,0,0);}root.position.set(0,0,0);root.rotation.set(0,0,0);heroM.scale.set(1,1,1);if(heroBow)heroBow.visible=true; // scale-возврат: roll-ветка писала scale .84, ран-ветка scale НЕ трогает => без возврата герой навсегда оставался на 16% меньше с парящими над дорогой ногами (виз-аудит post-exit)
    const runT={rig:{x:.12,z:0},head:{x:.1,z:0},hat:{x:.05,z:0},armL:{x:-.35,z:.12},armR:{x:-.2,z:-.1},elbowL:{x:-.7},elbowR:{x:-.55},legL:{x:0},legR:{x:0},kneeL:{x:.1},kneeR:{x:.05},ankleL:{x:0},ankleR:{x:0}}; // exit: __t = ран-цели (не нули): relax-пружина тащит из club в бег; шаг-цикл ниже перетирает ноги как обычно
    for(const b in runT){const o=j[b];if(!o)continue;o.__t||(o.__t={});for(const ax in runT[b])o.__t[ax]=runT[b][ax];}}
  if(S.roll>0){ // КУВЫРОК v4.44.4 (ground-contact): КАТИМЫЙ клубок = видимый bbox собранной club-позы; ЦЕНТР дуги в heroM поднят так, чтобы НИЖНЯЯ точка дуги легла на G=-0.52 (уровень ступней бега = асфальт в heroM-рамке, world -0.01): heroY = G - bbox.min.y + bbox.cy, инвариантно к углу вращения. Раньше центр поднимался по вписанному шару (cy=-0.18 r=0.73 club-позы: центр дуги на G+r=0.21 при bbox.cy=-0.18 => дуга ушла на -0.92, ступня протыкала дорогу) = «провал». Расплетение вшито в хвост последнего оборота (обратная рампа tk), tk=0 = чистая поза/позиция бега = непрерывные вход/выход (обрыв позы по таймеру = «телепорт на полкорпуса»). Лук на время кувырка скрыт (дуга торчала из клуба)
@@ -286,7 +286,7 @@ function driveHero(dt){
   C('ankleL','x',-1.3);C('ankleR','x',-1.2);
   if(heroBow)heroBow.visible=false; // в кувырке лук прячем (иначе дуга лука торчит из клубка = «палка из клубка», bbox +0.85)
   heroM.position.set(S.x,S.rollY,0); // без x-смещения: раньше корень ролла сдвигался на метрический пивот центра клубка = «уход влево» при кувырке; клубок центрируется позой
-  heroM.scale.setScalar(1-(1-.84)*tk); // tuck scale 0.84 (эталон): входит в bbox
+  heroM.scale.set(1-(1-.84)*tk,1,1-(1-.84)*tk); // tuck scale .84 только X/Z: y-scale squash сплющивал ран-позу после выхода (exit scale .92 при ран-росте 1.8 = «коротышка с парящими ногами», viz post-exit)
   root.rotation.set(0,0,0); root.scale.set(1,1,1); root.position.set(0,0,0);
   if(!heroM.__lb)heroM.__lb=new THREE.Box3();
   const visB=(()=>{const bb=new THREE.Box3(),pt=new THREE.Vector3();return()=>{ // ТОЧНЫЕ углы geometry.boundingBox*matrixWorld. expandByObject на ПОВЁРНУТЫХ мешах строит AABB-вокруг-AABB: на 45° завышал bbox на ±0.25 => метрика self-referential (низ дуги гулял ±0.5 = «висит/топится»)
@@ -307,18 +307,21 @@ function driveHero(dt){
   // ЭМПИРИЧЕСКАЯ ОБОЛОЧКА (AABB-углы врут: meshes не заполняют коробку; const-radius AABB давал «горб» +0.55): точка = среднее облако мешей позной рамки (world при hy=0). Вращаем точки, берём макс(-y') = support фазы x. Собирается в тот же кадр, что метрика; позa tk-смешанная => envelope тоже
   // === ФИКСИРОВАННАЯ ОБОЛОЧКА СОБРАННОГО КЛУБКА (tk=1): измерить ОДИН РАЗ облако world-точек (hy=0, цепь чиста) => центр (cy,lz) + список угловых точек (y,cy)-x-(z,lz). Поза при tk=1 детерминирована (springs заморожены, club-абсолютка) => оболочка честная на всю club-фазу. tk-рампа смешивает resting-низ и club-огибающую плавно
   // === МЕХАНИКА КОЛЕСА: центр качения = метрический центр AABB позы (cy,lz); радиус = max‖p-c‖ по облаку. Позиция: heroM на (G+r) при tk=1, resting baseY при tk=0 (линейный микс). ОСТОРОЖНО: pivot-T гасит вращение центра — при r=const центр (G+r) НЕ двигается, вращается тело вокруг центра (как колесо на оси) — «ось далеко» уйдёт: ось = центр, который ровно в (G+r) на уровне середины клубка (не скелет-торс выше)
-  // live-оболочка каждый кадр: matrixWorld при hy=0 свеж, те же 8-угловые точки что мерит тест => честный низ live-позы на любом tk/углу (fixed-оболочка из club-фазы врала в input/unwind = «подлёт/провал»)
-  let sh;
-  { const pts=[];const wp=new THREE.Vector3(),mm=new THREE.Matrix4();
+  // === ФИКСИРОВАННАЯ ОБОЛОЧКА СОБРАННОГО КЛУБКА (club-фаза детерминирована: springs заморожены, club-абсолютка) — меряется ОДИН РАЗ на входе tk>=1, используется на всей club-фазе. Живой AABB повёрнутой позы НЕ годится: expandByObject на повернутых мешах = AABB-вокруг-AABB, завышает низ на ±0.35 на 45° = «топорщится/тонет» по фазам. Фиксированная огибающая из НЕвращённых 8-углов +OUR OWN exact rotation = точная нижняя грань повёрнутого облака на любом угле (тот же источник углов, что у live-bbox)
+  let sh=heroM.__shell;
+  if(!sh&&tk>=1){
+    // ОБЛАКО ВЕРШИН geometry (не 8 углов AABB): углы коробки пустотелы (меши не заполняют box), повёрнутые углы завышают низ на +0.15..0.2 на 45° = «висит». Вершины = реальная поверхность клубка
+    const pts=[];const wp=new THREE.Vector3(),mm=new THREE.Matrix4();
     heroM.traverse(function(c){if(c.isMesh&&c!==heroBow){let q=c,vv=true;while(q){if(!q.visible){vv=false;break;}q=q.parent;}if(!vv||!c.geometry)return;
-      mm.copy(c.matrixWorld);
-      if(!c.geometry.boundingBox)c.geometry.computeBoundingBox();const bb=c.geometry.boundingBox;
-      for(let i=0;i<8;i++){wp.set(i&1?bb.max.x:bb.min.x,i&2?bb.max.y:bb.min.y,i&4?bb.max.z:bb.min.z).applyMatrix4(mm);pts.push(wp.y,wp.z);}}});
-    sh={pts:pts};
+      mm.copy(c.matrixWorld);const pa=c.geometry.attributes.position;
+      for(let i=0;i<pa.count;i++){wp.fromBufferAttribute(pa,i).applyMatrix4(mm);pts.push(wp.y,wp.z);}}});
+    sh=heroM.__shell={pts:pts};
   }
-  // support по живому облаку (та же сетка, что и тест): min y повёрнутого облака + hy => низ. hy = G - low
-  let low=1e9;{const cp=sh.pts;
-  for(let i=0;i<cp.length;i+=2){const ry=(cp[i]-cy)*ca-(cp[i+1]-lz)*sa+cy;if(ry<low)low=ry;}}
+  let low;
+  if(sh){let lo=1e9;const cp=sh.pts;
+    for(let i=0;i<cp.length;i+=2){const ry=(cp[i]-cy)*ca-(cp[i+1]-lz)*sa+cy;if(ry<lo)lo=ry;}
+    low=lo;}
+  else low=y0; // до сборки (фаза ввода tk<1): resting-микс ещё не club, club-огибающая к нему не относится; y0 = честный низ текущей позы
   heroM.position.y=baseY+((G-low)-baseY)*tk;
   // pivot: world_точка(p) = hy + SC·(T + R·p), p в rollRoot-локальных (= heroM-локальные до scale: world_box_при_нулевом_pivot = hy + SC·p => p = (world-координаты)/SC)
   const off={x:lx/SC,y:cy/SC,z:lz/SC};
