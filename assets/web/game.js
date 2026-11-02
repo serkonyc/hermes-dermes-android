@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.45.3';
+const VER='4.46.0';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -517,7 +517,31 @@ function tBoss(){ // Phantom: красная капля-фантом с горя
   sp.position.set((i-1)*.12,H+.4,-.06);sp.rotation.x=-.3;g.add(sp);}
  return g;}
 
-const TPL={low:tLow,bar:tBar,wall:tWall,mob:tMob,bomb:tBomb,boss:tBoss};
+function tCart(){ // povozka s tentom: zaprygivaemaya krysha, analog "poezda" Subway Surfers
+ const g=new THREE.Group();const W=M(0x5B4632,.9);
+ const bed=box(1.12,.14,2.0,W);bed.position.y=.52;g.add(bed);
+ for(let i=0;i<2;i++){const ra=new THREE.Mesh(new THREE.CylinderGeometry(.36,.36,.06,10),W);ra.rotation.z=Math.PI/2;ra.position.set((i?1:-1)*.6,.36,0);
+  for(let k=0;k<6;k++){const sp=new THREE.Mesh(new THREE.BoxGeometry(.05,.62,.04),W);sp.rotation.x=k*Math.PI/6;ra.add(sp);}
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.1,8),M(0x3A2A18,.9));hub.rotation.z=Math.PI/2;ra.add(hub);g.add(ra);}
+ const cv=box(1.06,.16,1.8,M(0x8A2E2E,.9));cv.position.y=.86;g.add(cv);
+ const cv2=box(1.12,.07,1.94,M(0x742323,.9));cv2.position.y=.94;g.add(cv2);
+ const rope=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,1.1,4),M(0xD8CBA8,.7));rope.rotation.z=Math.PI/2;rope.position.set(0,.78,.5);g.add(rope);
+ const rope2=rope.clone();rope2.position.z=-.5;g.add(rope2);
+ g.userData.len=2.6; // длинная крыша: запас по прыжковой дистанции (JUMP_V 8.6 / GRAV 26 = 2.84m, пик .7 на 1.42m)
+ return g;}
+function tHill(){ // pologyi zh-kholmik vershina .82: osnowanie-skirt zakryvaet styk s asfal'tom (ineache kupa "plavaet"), 3 klonka zernistosti dlja estestvennosti
+ const g=new THREE.Group();const skirt=new THREE.Mesh(new THREE.CylinderGeometry(1.02,1.06,.16,14),M(0x6E8A3A,.95));
+ skirt.position.y=.08;skirt.flatShading=true;g.add(skirt);
+ const d=new THREE.Mesh(new THREE.SphereGeometry(1.3,14,7),M(0x8FB445,.95));
+ d.scale.set(.64,.54,1.15);d.position.y=.1;d.flatShading=true;g.add(d);
+ const d2=new THREE.Mesh(new THREE.SphereGeometry(.8,10,6),M(0xC0BE58,.95));
+ d2.scale.set(.55,.5,.7);d2.position.set(.08,.5,-.1);d2.flatShading=true;g.add(d2);
+ const d3=new THREE.Mesh(new THREE.SphereGeometry(.5,8,5),M(0xA9C24E,.95));
+ d3.scale.set(.7,.42,.55);d3.position.set(-.14,.38,.55);d3.flatShading=true;g.add(d3);
+ g.userData.len=3.2;
+ return g;}
+const TPL={low:tLow,bar:tBar,wall:tWall,mob:tMob,bomb:tBomb,boss:tBoss,cart:tCart,hill:tHill};
+const PLAT={cart:1,hill:1};
 // ---------- Фигурки врагов: hand-made GLB тем же китом, что и герой (enemies.glb); примитивные TPL = фолбэк ----------
 let ENM=null,ENMROOT=null;
 {const L=(typeof THREE.GLTFLoader==='function')&&new THREE.GLTFLoader();
@@ -557,7 +581,7 @@ function enemyMesh(type){const key=type==='mob'?'bokoblin':type==='bomb'?'magta'
  wrap.userData.hgt=(bb.max.y-bb.min.y);
  wrap.userData.dip=bb.min.y;
  return wrap;}
-const SHOOTABLE={low:1,mob:1,bomb:1,boss:1}; // валун (wall) стрелой не сбивается
+const SHOOTABLE={low:1,mob:1,bomb:1,boss:1}; // cart/hill ne tsheli: po nim begut // валун (wall) стрелой не сбивается
 // ---------- state ----------
 const S={mode:'menu',t:0,dist:0,speed:26,coins:0,score:0,
  best:+(localStorage.getItem('nr_best')||0),bestC:+(localStorage.getItem('nr_bestc')||0),
@@ -572,6 +596,7 @@ function reset(){S.mode='run';S.t=0;S.dist=0;S.speed=18;S.coins=0;S.score=0;S.la
  S.obs=[];S.coinsArr=[];S.arrows=[];S.arrowsMade=0;nextSpawn=30;S.missed=0;deathPlayed=false;heartsP.length=0;}
 function addObs(type,lane){const m=TPL[type]();m.position.set((lane-1)*LANE,0,SPAWN_Z);scene.add(m);
  const o={type,lane,z:SPAWN_Z,m};
+ if(PLAT[type]){m.updateMatrixWorld(true);o.hgt=new THREE.Box3().setFromObject(m).max.y;o.len=m.userData.len;}
  const e=(type==='mob'||type==='bomb'||type==='boss')?enemyMesh(type):null;
  if(e){const want=type==='mob'?1.15:type==='bomb'?1.5:.95;
   const k=want/Math.max(.3,e.userData.hgt);
@@ -595,6 +620,9 @@ function spawn(){
   if(p)swordRun(l,4,SPAWN_Z-3.3,i=>.95+Math.sin((i+.5)/4*Math.PI)*.8);} // арка над репьем - собирай в прыжке
  else if(r<.62){const l=(Math.random()*3)|0;addObs('bar',l);
   if(p)swordRun(l,3,SPAWN_Z-6.6,()=>.45);} // низкая линия за корнем - собирается в подкате
+ else if(r<.73){const l=(Math.random()*3)|0; // povozka/holmik + linija mechey NA kryshe
+  if(Math.random()<.5){addObs('cart',l);swordRun(l,3,SPAWN_Z+1.6,()=>1.3);}
+  else{addObs('hill',l);swordRun(l,3,SPAWN_Z+1.4,()=>1.05);}}
  else if(r<.88){const bl=new Set();const n=diff>.4&&Math.random()<.5?2:1;   // валуны чаще
   while(bl.size<n)bl.add((Math.random()*3)|0);bl.forEach(l=>addObs('wall',l));
   const free=[0,1,2].find(l=>!bl.has(l)); // рядом, но в заведомо свободной полосе
@@ -719,9 +747,17 @@ function dayFx(dt){
  tun.visible=true;tunRidge.visible=true;}
 // ---------- collision ----------
 const laneHit=o=>o.lane===S.lane&&Math.abs(S.x-(o.lane-1)*LANE)<LANE*.6;
-function collide(dt){const h=S.roll>0?1.0:1.62, // хитбокс = измеренный клубок .90 + зазор
+function collide(dt){const dz=S.speed*dt;S.platTop=0;const h=S.roll>0?1.0:1.62, // хитбокс = измеренный клубок .90 + зазор
  feet=S.roll>0?S.rollY:S.y,top=feet+h; // под кувырком прогибаемся (как подкатом v4.34): bar закрывает щель, не ломая физику прыжка
  for(const o of S.obs){if(o.dead||!laneHit(o))continue;
+  if(PLAT[o.type]){ // o.z = ЦЕНТР корпуса (геометрия центрирована, m в o.z). смерть только при забеге ПО АСФАЛЬТУ в борт; прыжок выше борта = крыша-опора (Subway Surfers: поезд не убивает сверху)
+   const L=o.len,hL=L/2,wall=hL+.55; // окно тела: полуlong + глубина героя .35 + шаг скролла (дискретный шаг ~1м: окно не дырявое)
+   if(Math.abs(o.z)<wall){
+    if(feet>=o.hgt-.05){S.platTop=Math.max(S.platTop||0,o.hgt);continue;} // ноги выше борта = крыша из-под ног (перелёт сверху или бег по крыше)
+    if(S.air){ // в воздухе ниже борта = зацеп/недопрыг: авто-подъём на крышку (forgiving; честный промах = приземление с другой стороны, без мгновенной смерти)
+     S.y=o.hgt;S.vy=0;S.air=false;S.platTop=Math.max(S.platTop||0,o.hgt);land=1;burst(S.x,o.hgt+.05,0,0x6B4E2E,4);continue;}
+    return die();} // ноги на асфальте внутри тела = влетел в борт
+   continue;}
   const near=Math.abs(o.z)<(o.type==='wall'?1.35:.95); // валун круглый R1.15, а не вагон 4.2 длиной
   if(!near)continue;
   if(o.type==='low'&&feet<.7)return die();
@@ -740,7 +776,9 @@ function die(){ // S.revive НЕ сбрасываем: счётчик ошибо
  burst(S.x+bend(0),S.y+.8,0,0xF5F5F5,30);showOver();}
 // ---------- input ----------
 function move(d){const l=Math.max(0,Math.min(2,S.lane+d));if(l!==S.lane&&S.mode==='run'){S.stepPh=S.anim;S.stepT=5.5/S.speed;S.stepD=Math.sign(l-S.lane);}S.lane=l;}
-function jump(){if(!S.air&&S.roll<=0){S.vy=JUMP_V;S.air=true;sfx('jump');}}
+function jump(){if(!S.air&&S.roll<=0){S.vy=JUMP_V;S.air=true;S.coy=0;sfx('jump');}
+
+}
 function doRoll(){if(S.roll>0)return;S.roll=.62;S.rollAir=S.air;if(S.air){S.rollY=S.y;S.rollV=Math.min(S.vy,-2);S.vy=0;sfx('jump');}else{S.rollY=0;S.rollV=0;}}
 // ---------- выстрел из лука: стрела мгновенно летит вперед по полосе, сбивает камень/врага ----------
 function arrowGeo(){const g=new THREE.Group();
@@ -961,7 +999,8 @@ function update(dt){
  S.stepT=Math.max(0,(S.stepT||0)-dt);
  S.x+=((S.lane-1)*LANE-S.x)*Math.min(1,dt*(S.stepT>0?9:14));
  if(S.roll<=0){S.vy-=GRAV*dt;S.y+=S.vy*dt;
- if(S.y<=0){if(S.air){burst(S.x,.1,0,0x6B4E2E,6);land=1;}S.y=0;S.vy=0;S.air=false;}}
+ const fl=S.platTop||0; // platTop заполнен коллизией ПРОШЛОГО кадра (collide идёт до физики): гравитация садится на крышку; за краем fl=0 - падаем на асфальт
+ if(S.y<=fl){if(S.air){burst(S.x,fl+.1,0,0x6B4E2E,6);land=1;}S.y=fl;S.vy=0;S.air=false;S.coy=0;}}
  land=Math.max(0,land-dt*7); // сплющивание при приземлении гаснет за ~0.14с
  if(S.roll>0){ // кувырок: по земле катится на месте (ось постоянна); с воздуха - пикирование с приземлением
   if(S.rollAir){S.rollV-=GRAV*.9*dt;S.rollY+=S.rollV*dt;
@@ -973,9 +1012,10 @@ function update(dt){
  S.anim+=(S.air||S.roll>0)?4*dt:dz*(Math.PI*2/11); // цикл ног = 5.5 м грунта: 3.3 шага/с на 18 м/с, без «бегства на месте»
  for(const o of S.obs){
   const vz=dz+(o.type==='wall'?5.5*dt:0); // валун катится НАВСТРЕЧУ: свой ход поверх скролла сцены
-  o.z+=vz;o.m.position.z=o.z;o.m.position.x=(o.lane-1)*LANE+bend(o.z);
+  o.z+=vz;o.m.position.z=o.z-(o.len?o.len/2:0);o.m.position.x=(o.lane-1)*LANE+bend(o.z);
   if(o.type==='wall')o.m.userData.spin.rotation.x+=vz/o.m.userData.R*.08;} // валун катится К игроку: верх камня едет в +z; спин ×.08 - на 30+ м/с честное вращение = мясорубка
  for(const c of S.coinsArr){c.z+=dz;c.m.position.z=c.z;c.m.position.x=(c.lane-1)*LANE+bend(c.z);c.m.rotation.y+=dt*.9;} // медленное вращение - клинок можно разглядеть
+ collide(dt); // ПОСЛЕ скролла: o.z = кадр текущего кадра; platTop читает гравитация следующего (1-кадровая задержка держит героя на крыше на ~10см дольше - не поймать на глаз)
  for(const o of S.obs){ // враги идут НА героя: свой ход поверх скролла; boss самый быстрый
   const crawl=o.type==='mob'?3.2:o.type==='boss'?6.5:o.type==='bomb'?1.4:0;
   if(!crawl)continue;
@@ -991,7 +1031,7 @@ function update(dt){
  S.obs=S.obs.filter(o=>o.z<DESPAWN_Z||(scene.remove(o.m),false));
  S.coinsArr=S.coinsArr.filter(c=>c.z<DESPAWN_Z&&!c.taken||(scene.remove(c.m),false));
  if(S.dist>=nextSpawn)spawn();
- collide(dt);}
+ }
 // ---------- rig + camera ----------
 // ---------- secondary spring for hat tip ----------
 var tipQ=0,tipV=0;
