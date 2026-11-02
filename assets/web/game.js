@@ -207,7 +207,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.43.0';
+const VER='4.43.1';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -682,13 +682,19 @@ function jump(){if(!S.air&&S.roll<=0){S.vy=JUMP_V;S.air=true;sfx('jump');}}
 function doRoll(){if(S.roll>0)return;S.roll=.62;S.rollAir=S.air;if(S.air){S.rollY=S.y;S.rollV=Math.min(S.vy,-2);S.vy=0;sfx('jump');}else{S.rollY=0;S.rollV=0;}}
 // ---------- выстрел из лука: стрела мгновенно летит вперед по полосе, сбивает камень/врага ----------
 function arrowGeo(){const g=new THREE.Group();
- const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.016,.016,.8,5),M(0x6B4A2F,.9));shaft.rotation.x=Math.PI/2;g.add(shaft);
- const head=new THREE.Mesh(new THREE.ConeGeometry(.035,.14,4),M(0xC4CBD2,.3,.8));head.rotation.x=-Math.PI/2;head.position.z=-.44;g.add(head);
- for(let i=0;i<2;i++){const f=new THREE.Mesh(new THREE.BoxGeometry(.12,.012,.17),M(0xC43A3A,.6));f.position.set(0,0,.32);f.rotation.z=i?1.57:0;g.add(f);}
+ const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.026,.026,1.05,5),M(0xE8D9B8,.85));shaft.rotation.x=Math.PI/2;g.add(shaft); // светлое древко: тёмное на тёмной тропе сливалось
+ const head=new THREE.Mesh(new THREE.ConeGeometry(.055,.2,4),M(0x2A2E33,.35,.7));head.rotation.x=-Math.PI/2;head.position.z=-.6;g.add(head);
+ for(let i=0;i<2;i++){const f=new THREE.Mesh(new THREE.BoxGeometry(.19,.016,.26),M(0xE04848,.6));f.position.set(0,0,.42);f.rotation.z=i?1.57:0;g.add(f);} // оперение крупнее и ярче
  return g;}
+let arrowTrail=null; // хвост-лента за стрелой: ~4 px на дистанции поражения, без неё стрела теряется на текстуре тропы
+{const g=new THREE.BufferGeometry();
+ g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(2*3),3));
+ arrowTrail=new THREE.Line(g,new THREE.LineBasicMaterial({color:0xFFF3B0,transparent:true,opacity:.55,fog:false,depthWrite:false}));
+ arrowTrail.frustumCulled=false;arrowTrail.visible=false;scene.add(arrowTrail);}
 function shoot(){if(S.mode!=='run')return;
- const m=arrowGeo();m.position.set((S.lane-1)*LANE+bend(0),S.y+.95,-.9); // вылет из лука чуть впереди героя, полоса та же
- scene.add(m);S.arrows.push({x:S.lane,z:-.9,m,hit:0});S.arrowsMade++;
+ const z0=-5; // спавн в 5 м впереди: между спиной и камерой стрелу всё равно не видно, а 5 м на 34 м/с - лишь 0.12 с, цель это не прячет
+ const m=arrowGeo();m.position.set((S.lane-1)*LANE+bend(z0),S.y+.95,z0);
+ scene.add(m);S.arrows.push({x:S.lane,z:z0,m,hit:0});S.arrowsMade++; // NB: полоса в .x; updArrows читает a.x (a.lane не существует)
  bowT=.22;sfx('jump');}
 function updArrows(dt){
  for(let i=S.arrows.length-1;i>=0;i--){const a=S.arrows[i];
@@ -697,8 +703,12 @@ function updArrows(dt){
    a.m.traverse(o=>{if(o.isMesh&&o.material&&!o.material.__fade){o.material=o.material.clone();o.material.transparent=true;o.material.__fade=1;}}); // клонируем: shared-материал новых стрел не должен гаснуть
    const k=1-a.hit/.35;a.m.traverse(o=>{if(o.isMesh&&o.material.__fade)o.material.opacity=k;}); // Dissolve после поражения
    if(a.hit>.35){scene.remove(a.m);S.arrows.splice(i,1);}continue;}
-  a.z-=34*dt;if(a.z<-34){scene.remove(a.m);S.arrows.splice(i,1);continue;}
-  a.m.position.z=a.z;a.m.position.x=(a.lane-1)*LANE+bend(a.z);
+  a.z-=34*dt;if(a.z<-34){scene.remove(a.m);S.arrows.splice(i,1);if(!S.arrows.length&&arrowTrail)arrowTrail.visible=false;continue;}
+  a.m.position.z=a.z;a.m.position.x=(a.x-1)*LANE+bend(a.z);
+  if(arrowTrail){ // хвост: точка у древка -> точка позади, в той же полосе
+   const p=arrowTrail.geometry.attributes.position.array,P=new THREE.Vector3();a.m.getWorldPosition(P);
+   p[0]=P.x;p[1]=P.y;p[2]=P.z;p[3]=P.x;p[4]=P.y;p[5]=P.z+1.5;
+   arrowTrail.geometry.attributes.position.needsUpdate=true;arrowTrail.visible=true;}
   for(const o of S.obs){if(o.dead||o.lane!==a.x)continue; // у стрелы полоса в .x
    const R=o.type==='wall'?1.35:1.0; // радиус цели: валун крупнее
    if(Math.abs(o.z-a.z)<R+.5){ // поражение
