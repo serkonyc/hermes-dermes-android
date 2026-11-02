@@ -207,7 +207,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.44.1';
+const VER='4.44.2';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -793,7 +793,8 @@ addEventListener('keydown',e=>act({ArrowLeft:'L',ArrowRight:'R',ArrowUp:'U',Arro
 // ---------- HUD ----------
 const fmt=n=>(''+n).padStart(6,'0');
 $('mbest').textContent='РЕКОРД '+fmt(S.best)+' · ⚔ '+S.bestC;
-function renderMenuIdle(){scene.userData.iv=1;scene.traverse(o=>{if(o.isInstancedMesh)o.visible=false;});} // до первого rAF-кадра мир не собран: инстансы-валуны в identity стоят кучей под героем; прячем их до первого кадра loop()
+function renderMenuIdle(){scene.userData.iv=1;scene.traverse(o=>{if(o.isInstancedMesh)o.visible=false;}); // до первого rAF-кадра мир не собран: инстансы-валуны в identity стоят кучей под героем; прячем их до первого кадра loop()
+ const m=new THREE.Matrix4().makeTranslation(0,-50,0);[tunRidge,poles,flame,glow,lampPool,stars,heartsMesh].forEach(im=>{for(let i=0;i<im.count;i++)im.setMatrixAt(i,m);im.instanceMatrix.needsUpdate=true;});} // паркуем под землёй всё, что пишет только run-ветка (dayFx/updHearts): иначе на меню и экране смерти эти инстансы стоят identity-кучей в (0,0,0) под героем (валуны, фонари, звёзды, сердца)
 function showMenu(){$('menu').style.display='flex';$('over').style.display='none';$('hud').style.display='none';$('meta').style.display='none';
  let v=$('ver');if(!v){v=document.createElement('div');v.id='ver';v.style.cssText='position:fixed;bottom:6px;left:0;right:0;text-align:center;font-size:11px;opacity:.5';document.body.appendChild(v);}
  v.style.display='block';v.textContent='v'+VER+' · '+(mReady?'GLB':'FALLBACK');}
