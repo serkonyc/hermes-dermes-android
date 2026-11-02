@@ -130,6 +130,15 @@ function unlockAudio(){
  if(p&&p.catch)p.catch(()=>{audioOn=false;setTimeout(()=>AU.m.play().then(()=>{audioOn=true;}).catch(()=>{}),400);}); // Android file://: first play can reject, one delayed retry
 }
 function sfx(k){if(!audioOn)return;try{AU[k].currentTime=0;AU[k].play().catch(()=>{});}catch(e){}}
+// хлопок тетивы: синтез one-shot (WebAudio), звуковых файлов в APK нет
+let actx;function twang(){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();
+ const t=actx.currentTime,o1=actx.createOscillator(),o2=actx.createOscillator(),g=actx.createGain();
+ o1.type='triangle';o1.frequency.setValueAtTime(420,t);o1.frequency.exponentialRampToValueAtTime(95,t+.09); // щипок струны с падением
+ o2.type='square';o2.frequency.value=60; // низкочастотный шлепок
+ const g2=actx.createGain();g2.gain.setValueAtTime(.18,t);g2.gain.exponentialRampToValueAtTime(.001,t+.04); // .square глуше и короче
+ o1.connect(g);o2.connect(g2);g.connect(g2).connect(actx.destination); // цепочка: оба сигнала сливаются в один огибающий выход
+ g.gain.setValueAtTime(.5,t);g.gain.exponentialRampToValueAtTime(.001,t+.13);
+ o1.start(t);o2.start(t);o1.stop(t+.15);o2.stop(t+.15);}catch(e){}}
 // unlock must ride the same gesture as game start, not a separate first touch
 const _act=act; act=function(a){unlockAudio();return _act(a);};
 addEventListener('touchstart',unlockAudio,{passive:true});
@@ -207,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.44.2';
+const VER='4.44.3';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -717,21 +726,17 @@ let arrowTrail=null; // хвост-лента за стрелой: ~4 px на д
 const DRAW_T=.5,SHOT_CD=.95; // натяжение .5 с, выстрел + общая блокировка .95 с: тап-спам не превращается в пулемёт
 function shoot(){ // тап = НАЧАЛО натяжения; выпуск в конце фазы (releaseShot)
  if(S.mode!=='run'||bowT>0||shotCd>0)return;
- bowT=DRAW_T;shotCd=SHOT_CD;sfx('pick');} // AU.draw не заведен: 'pick' (щипок) ближе всех к натяжению тетивы
+ bowT=DRAW_T;shotCd=SHOT_CD;}
 function releaseShot(){ // вызывается из driveHero в конце DRAW_T
  const z0=-5; const m=arrowGeo();m.position.set((S.lane-1)*LANE+bend(z0),S.y+.95,z0);
  scene.add(m);S.arrows.push({x:S.lane,z:z0,m,hit:0});S.arrowsMade++; // NB: полоса в .x; updArrows читает a.x
- sfx('jump');
+ twang();
  S.shake=Math.max(S.shake,.28); // kick камеры: выстрел чувствуется телом
  if(arrowFlash){const fp=new THREE.Vector3();m.getWorldPosition(fp);fp.y+=.06;arrowFlash.position.copy(fp);arrowFlash.userData.t=.001;}}
 function updArrows(dt){
  for(let i=S.arrows.length-1;i>=0;i--){const a=S.arrows[i];
-  if(a.hit){a.hit+=dt; // поражающая стрела замирает в цели и кувыркается, затем исчезает
-   a.m.rotation.z=a.hit*10;a.m.position.z+=S.speed*dt*.4; // втыкается в поток и утекает назад
-   a.m.traverse(o=>{if(o.isMesh&&o.material&&!o.material.__fade){o.material=o.material.clone();o.material.transparent=true;o.material.__fade=1;}}); // клонируем: shared-материал новых стрел не должен гаснуть
-   const k=1-a.hit/.35;a.m.traverse(o=>{if(o.isMesh&&o.material.__fade)o.material.opacity=k;}); // Dissolve после поражения
-   if(a.hit>.35){scene.remove(a.m);a.m.traverse(o=>{if(o.isMesh&&o.material&&o.material.__fade)o.material.dispose();});S.arrows.splice(i,1);}continue;} // геометрии общие, клипаются только fade-материалы - их и освобождаем
-  a.z-=34*dt;if(a.z<-34){scene.remove(a.m);S.arrows.splice(i,1);if(!S.arrows.length&&arrowTrail)arrowTrail.visible=false;continue;}
+  if(a.hit){scene.remove(a.m);S.arrows.splice(i,1);if(!S.arrows.length&&arrowTrail)arrowTrail.visible=false;continue;} // поражение: стрела исчезает в тот же кадр (летела «вместе с героем», пока гасла .35c)
+  a.z-=90*dt;if(a.z<-90){scene.remove(a.m);S.arrows.splice(i,1);if(!S.arrows.length&&arrowTrail)arrowTrail.visible=false;continue;}
   a.m.position.z=a.z;a.m.position.x=(a.x-1)*LANE+bend(a.z);
   if(arrowTrail){ // хвост за ЛЕТАЩЕЙ стрелой (эта ветка - до hit-continue, поражающие её не видят)
    const p=arrowTrail.geometry.attributes.position.array;
@@ -749,9 +754,8 @@ function updArrows(dt){
    const R=o.type==='wall'?1.35:1.0; // радиус цели: валун крупнее
    if(Math.abs(o.z-a.z)<R+.5){ // поражение
     if(!SHOOTABLE[o.type])continue;
-    a.hit=.001;
     o.dead=true;killFx(o); // единое поражение для всех типов (у магты был скрытый hp=2 - «не убивается»)
-    break;}}}
+    scene.remove(a.m);S.arrows.splice(i,1);if(!S.arrows.length&&arrowTrail)arrowTrail.visible=false;break;}}}
  // мертвые удаляются только здесь - в update их filter уже не увидит (фильтр идет раньше)
  S.obs=S.obs.filter(o=>o.dead?(scene.remove(o.m),false):true);}
 function killFx(o){const p=new THREE.Vector3();o.m.getWorldPosition(p);
