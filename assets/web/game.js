@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.46.3';
+const VER='4.46.4';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -264,7 +264,8 @@ function driveHero(dt){
    for(const b in runT){const o=j[b];if(!o)continue;o.__t||(o.__t={});for(const ax in runT[b])o.__t[ax]=runT[b][ax];}}
  if(S.roll>0){ // КУВЫРОК v4.44.4 (ground-contact): КАТИМЫЙ клубок = видимый bbox собранной club-позы; ЦЕНТР дуги в heroM поднят так, чтобы НИЖНЯЯ точка дуги легла на G=-0.52 (уровень ступней бега = асфальт в heroM-рамке, world -0.01): heroY = G - bbox.min.y + bbox.cy, инвариантно к углу вращения. Раньше центр поднимался по вписанному шару (cy=-0.18 r=0.73 club-позы: центр дуги на G+r=0.21 при bbox.cy=-0.18 => дуга ушла на -0.92, ступня протыкала дорогу) = «провал». Расплетение вшито в хвост последнего оборота (обратная рампа tk), tk=0 = чистая поза/позиция бега = непрерывные вход/выход (обрыв позы по таймеру = «телепорт на полкорпуса»). Лук на время кувырка скрыт (дуга торчала из клуба)
   const p=1-S.roll/.62,base=(S.rollAir?Math.max(0,S.rollY):0);
-    const tk=Math.min(1,p*4,Math.max(0,(1-p)/.28)), q=Math.min(1,Math.max(0,(p-.08)/.6)), x=q*Math.PI*2; // расплетение .72->1.0 внутри вращения (q=1 с .68): подъём/ось/поза снимаются синхронно с последним полуоборотом; tk=0 ровно при p=1 => exit-кадр = ран-база (bbox не прыгает); последняя 1/8 = шаги по земле
+  const tk=Math.min(1,p*4,Math.max(0,(1-p)/.28)), q=Math.min(1,Math.max(0,(p-.08)/.6)), x=q*Math.PI*2;
+  const tkP=1; // ПОЗА сразу club на всей фазе (вход/выход только по y через tk): tk-смешанная resting-поза на входе была на боковых полосах выше на ~0.2 = «подлёт», на центре неотличима; теперь кувырок = тот же клубок на всех полосах // расплетение .72->1.0 внутри вращения (q=1 с .68): подъём/ось/поза снимаются синхронно с последним полуоборотом; tk=0 ровно при p=1 => exit-кадр = ран-база (bbox не прыгает); последняя 1/8 = шаги по земле
   const CL={rig:{x:1.4},head:{x:1.2},hat:{x:-3.2,z:.12},armL:{x:-2.45,z:.5},armR:{x:-2.35,z:-.5},elbowL:{x:2.15},elbowR:{x:2.1},legL:{x:-2.9},legR:{x:-2.8},kneeL:{x:2.9},kneeR:{x:2.85},ankleL:{x:-1.3},ankleR:{x:-1.2}};
   if(!heroM.__tuck){heroM.__tuck=true; // ПЕРЕЗАХВАТ на старте: resting-рог (rig x.8/z.4 + .1 lift) в roll-ветке НЕ действовал (club писал абсолютку), но метрика и хвост жили с ним => центр/низ гуляли. Снапшот resting-позы = база бленда rest+(club-rest)*tk, метрика и x-ось считаются на НЕЙ => вход/выход непрерывны
     heroM.__rest={};for(const b in CL){const o=j[b];if(!o)continue;heroM.__rest[b]={x:o.rotation.x,z:o.rotation.z};}
@@ -274,8 +275,8 @@ function driveHero(dt){
     heroM.__piv=null;}
 
   const RS=heroM.__rest||{};
-  const C=(b,ax,v)=>{const o=j[b],r=(RS[b]||{x:0,z:0})[ax]||0;o.rotation[ax]=r+(v-r)*tk;if(tk>=1)o.rotation[ax]=v;}; // club-абсолютка при tk=1 (HEAD-эталон). rest-примесь давала ран-остатки (rig.x .14 swing) поверх собранного клуба => скелет на 5-8° мимо валидированной позы => метрика и live-bbox ехали, низ гулял ±0.4; tk=0 всё ещё resting-рог = ран-база (вход непрерывен)
-  C('rig','x',1.4);j.rig.position.y=(heroM.__restLift||.1)*(1-tk);
+  const C=(b,ax,v)=>{const o=j[b];o.__t||(o.__t={});o.__t[ax]=v;}; // через __t-цели: пружины springs() = единственный писатель rotation (прямая запись = закон spring-фильтра); club-абсолютка с первого кадра
+  C('rig','x',1.4);j.rig.position.y=0;
   C('head','x',1.2);
   C('hat','x',-3.2);C('hat','z',.12);
   C('armL','x',-2.45);C('armR','x',-2.35);
@@ -286,7 +287,7 @@ function driveHero(dt){
   C('ankleL','x',-1.3);C('ankleR','x',-1.2);
   if(heroBow)heroBow.visible=false; // в кувырке лук прячем (иначе дуга лука торчит из клубка = «палка из клубка», bbox +0.85)
   heroM.position.set(S.x,S.rollY,0); // без x-смещения: раньше корень ролла сдвигался на метрический пивот центра клубка = «уход влево» при кувырке; клубок центрируется позой
-  heroM.scale.set(1-(1-.84)*tk,1,1-(1-.84)*tk); // tuck scale .84 только X/Z: y-scale squash сплющивал ран-позу после выхода (exit scale .92 при ран-росте 1.8 = «коротышка с парящими ногами», viz post-exit)
+  heroM.scale.set(.84,1,.84); // scale клуба сразу: боковой «подлёт» = resting-высота на входных кадрах, масштаб-рампа её рисовала // tuck scale .84 только X/Z: y-scale squash сплющивал ран-позу после выхода (exit scale .92 при ран-росте 1.8 = «коротышка с парящими ногами», viz post-exit)
   root.rotation.set(0,0,0); root.scale.set(1,1,1); root.position.set(0,0,0);
   if(!heroM.__lb)heroM.__lb=new THREE.Box3();
   const visB=(()=>{const bb=new THREE.Box3(),pt=new THREE.Vector3();return()=>{ // ТОЧНЫЕ углы geometry.boundingBox*matrixWorld. expandByObject на ПОВЁРНУТЫХ мешах строит AABB-вокруг-AABB: на 45° завышал bbox на ±0.25 => метрика self-referential (низ дуги гулял ±0.5 = «висит/топится»)
@@ -309,7 +310,7 @@ function driveHero(dt){
   // === МЕХАНИКА КОЛЕСА: центр качения = метрический центр AABB позы (cy,lz); радиус = max‖p-c‖ по облаку. Позиция: heroM на (G+r) при tk=1, resting baseY при tk=0 (линейный микс). ОСТОРОЖНО: pivot-T гасит вращение центра — при r=const центр (G+r) НЕ двигается, вращается тело вокруг центра (как колесо на оси) — «ось далеко» уйдёт: ось = центр, который ровно в (G+r) на уровне середины клубка (не скелет-торс выше)
   // === ФИКСИРОВАННАЯ ОБОЛОЧКА СОБРАННОГО КЛУБКА (club-фаза детерминирована: springs заморожены, club-абсолютка) — меряется ОДИН РАЗ на входе tk>=1, используется на всей club-фазе. Живой AABB повёрнутой позы НЕ годится: expandByObject на повернутых мешах = AABB-вокруг-AABB, завышает низ на ±0.35 на 45° = «топорщится/тонет» по фазам. Фиксированная огибающая из НЕвращённых 8-углов +OUR OWN exact rotation = точная нижняя грань повёрнутого облака на любом угле (тот же источник углов, что у live-bbox)
   let sh=heroM.__shell;
-  if(!sh&&tk>=1){
+  if(!sh){
     // ОБЛАКО ВЕРШИН geometry (не 8 углов AABB): углы коробки пустотелы (меши не заполняют box), повёрнутые углы завышают низ на +0.15..0.2 на 45° = «висит». Вершины = реальная поверхность клубка
     const pts=[];const wp=new THREE.Vector3(),mm=new THREE.Matrix4();
     heroM.traverse(function(c){if(c.isMesh&&c!==heroBow){let q=c,vv=true;while(q){if(!q.visible){vv=false;break;}q=q.parent;}if(!vv||!c.geometry)return;
@@ -872,7 +873,10 @@ function act(a,e){if(window.dlog&&a!=='T'&&a!=='O')dlog.swipe();
  if(S.mode==='over'){if(S.dead<=0.5)return; // окно молчания 0.5с (было 1.05 = под ним гибли тапы: пример уже открыт, а экран не слушал)
  if(e&&e.timeStamp-lastTapTS<600)return; lastTapTS=e?e.timeStamp:0; // touchend+синтетический click = один жест (иначе фон-тап удваивает revive)
  if($('mathrow').style.display!=='none'){ // пока пример открыт: тап по фону = новый пример, кнопка/Enter = проверка
-  if(!e||!e.target.closest('#mathrow')){newMath();return;} // тап по фону = следующий пример, ошибкой не считается: на телефоне фон-тап сидел под клавиатурой и тихо сжигал попытку -> «пример был только один раз»
+  if(!e||!e.target.closest('#mathrow')){ // фон-тап не сжигает попытку; при набранном ответе НЕ меняет пример (иначе набранный ответ устаревал и «верный» давал ошибку) — просто показать тот же пример; при пустом = новый
+   if($('mathn').value.trim()==='')newMath();
+   else{$('mathq').style.display='block';$('mathrow').style.display='flex';$('mathn').focus();}
+   return;}
   return;}
  if($('ogo').style.visibility!=='hidden'){reset(),showRun();}
  return;} // до respawn-задержки любые клавиши молчат
@@ -887,7 +891,7 @@ addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tsx,dy=e.ch
 addEventListener('click',e=>{if(S.mode==='over'&&S.dead>1.05)act('T',e);});
 addEventListener('keydown',e=>act({ArrowLeft:'L',ArrowRight:'R',ArrowUp:'U',ArrowDown:'D',' ':'U'}[e.key]));
 $('mathok').addEventListener('click',mathCheck);
-$('mathn').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')mathCheck();});
+$('mathn').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')mathCheck();else mathCheck();}); // любой ввод = проверка: верная цифра = мгновенный реванш (Android WebView: Enter с клавиатуры не всегда доходит)
 // ---------- HUD ----------
 const fmt=n=>(''+n).padStart(6,'0');
 $('mbest').textContent='РЕКОРД '+fmt(S.best)+' · ⚔ '+S.bestC;
@@ -1157,7 +1161,10 @@ addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);
  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();});
 // ---------- loop ----------
 let last=performance.now();
-function watchdog(){if(S.mode==='over'&&S.dead>0.3&&$('mathrow').style.display==='none'&&$('ocard').style.display!=='block'){S.revive=Math.min(S.revive,2);newMath();}} // любой путь, спрятавший пример, лечится следующим кадром (жалоба: пример был только один раз)
+function watchdog(){if(S.mode==='over'&&S.dead>0.3&&$('mathrow').style.display==='none'&&$('ocard').style.display!=='block'){
+ if($('mathn').value.trim()===''){S.revive=Math.min(S.revive,2);newMath();return;} // пример пропал до ввода: восстановить
+ // пропал при набранном ответе: показать тот же пример (mathAns жив), ответ не терять
+ $('mathq').style.display='block';$('mathrow').style.display='flex';$('oh1').textContent='РЕВАНШ?';}} // любой путь, спрятавший пример, лечится следующим кадром (жалоба: пример был только один раз)
 function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;watchdog();
  if(scene.userData.iv){scene.userData.iv=0;scene.traverse(o=>{if(o.isInstancedMesh)o.visible=true;});} // мир собран первым кадром - инстансы снова нужны
  update(dt*S.ts);updInst();if(mReady)driveHero(dt);else animRig(dt);animCam(dt);
