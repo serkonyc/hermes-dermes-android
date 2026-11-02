@@ -207,7 +207,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.43.2';
+const VER='4.43.3';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -711,9 +711,9 @@ function updArrows(dt){
    if(a.hit>.35){scene.remove(a.m);a.m.traverse(o=>{if(o.isMesh&&o.material&&o.material.__fade)o.material.dispose();});S.arrows.splice(i,1);}continue;} // геометрии общие, клипаются только fade-материалы - их и освобождаем
   a.z-=34*dt;if(a.z<-34){scene.remove(a.m);S.arrows.splice(i,1);if(!S.arrows.length&&arrowTrail)arrowTrail.visible=false;continue;}
   a.m.position.z=a.z;a.m.position.x=(a.x-1)*LANE+bend(a.z);
-  if(arrowTrail){ // хвост: точка у древка -> точка позади, в той же полосе
-   const p=arrowTrail.geometry.attributes.position.array,P=new THREE.Vector3();a.m.getWorldPosition(P);
-   p[0]=P.x;p[1]=P.y;p[2]=P.z;p[3]=P.x;p[4]=P.y;p[5]=P.z+1.5;
+  if(arrowTrail){ // хвост за ЛЕТАЩЕЙ стрелой (эта ветка - до hit-continue, поражающие её не видят)
+   const p=arrowTrail.geometry.attributes.position.array;
+   p[0]=a.m.position.x;p[1]=a.m.position.y;p[2]=a.m.position.z;p[3]=a.m.position.x;p[4]=a.m.position.y;p[5]=a.m.position.z+1.5;
    arrowTrail.geometry.attributes.position.needsUpdate=true;arrowTrail.visible=true;}
   for(const o of S.obs){if(o.dead||o.lane!==a.x)continue; // у стрелы полоса в .x
    const R=o.type==='wall'?1.35:1.0; // радиус цели: валун крупнее
