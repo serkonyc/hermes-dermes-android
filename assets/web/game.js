@@ -207,7 +207,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.42.2';
+const VER='4.43.0';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -518,7 +518,9 @@ function addObs(type,lane){const m=TPL[type]();m.position.set((lane-1)*LANE,0,SP
   e.scale.setScalar(k);
   m.traverse(c=>{if(c.isMesh)c.visible=false;}); // примитив-скелет не рисуем, но он носит позицию/полосу
   e.position.y=-e.userData.dip*k;  // встать на землю
-  m.add(e); o.gl=e;}
+  m.add(e); o.gl=e;
+  // оживление: фаза и тип шага на обёртку (glAnim читает её из update)
+  o.ph=Math.random()*6.283; o.walk=(type==='mob')?2.4:(type==='bomb')?1.7:0;}
  S.obs.push(o);}
 function spawn(){
  const diff=Math.min(1,S.dist/3000), r=Math.random();
@@ -853,6 +855,11 @@ function update(dt){
   if(!crawl)continue;
   o.z+=crawl*dt;o.m.position.z=o.z;o.m.position.x=(o.lane-1)*LANE+bend(o.z);
   if(o.type==='mob'||o.type==='boss'){o.m.position.y=Math.abs(Math.sin(S.t*9))*(o.type==='boss'?.18:.08);} // перевалка в ходьбе
+  if(o.gl){ // шагающая анимация GLB-фигурок: наклон вперёд + покачивание с индивидуальной фазой
+   const sp=o.walk||2.2, ph=(o.ph||0)+S.t*sp;
+   o.gl.rotation.z=Math.sin(ph)*.07; o.gl.rotation.x=.06+Math.sin(ph*2+.8)*.03;
+   o.gl.position.y=-o.gl.userData.dip*o.gl.scale.x+Math.abs(Math.sin(ph))*.025;
+  }
  }
  updArrows(dt);updHearts(dt);
  S.obs=S.obs.filter(o=>o.z<DESPAWN_Z||(scene.remove(o.m),false));
