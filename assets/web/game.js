@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.46.10';
+const VER='4.46.11';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -569,21 +569,28 @@ function tCart(){ // povozka: ЦЕЛЬНЫЙ кузов (борта+дно+ко�
  const rope=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,1.2,4),M(0xD8CBA8,.7));rope.rotation.z=Math.PI/2;rope.position.set(0,.72,2.1);g.add(rope);
  g.userData.len=3.6;g.userData.bbMin=-5.4; // кузов 3.6м; дальний край ramp-доски = -5.4 (опора начинается с неё)
  return g;}
-function tHill(){ // холм-забег: РОВНО форма физики (rhAt hill) — пологие склоны + плоская площадка гребня; цельная насыпь
- const g=new THREE.Group(),L=8.4,hh=1.48,cr=2.1,W=.65; // гребень z[-2.1,2.1] (4.2м бега по верху!), склоны по 2.1м
- const pos=[];const t=(a,b,c)=>pos.push(...a,...b,...c);
- const f0L=[-W,0,-L/2],f0R=[W,0,-L/2],f1L=[-W,hh,-cr],f1R=[W,hh,-cr],b1L=[-W,hh,cr],b1R=[W,hh,cr],b0L=[-W,0,L/2],b0R=[W,0,L/2];
- // грани наружу (обход против часовой снаружи)
- t(f0L,f1L,f0R); t(f0R,f1L,f1R);           // передний склон
- t(f1L,b1L,f1R); t(f1R,b1L,b1R);           // гребень (площадка)
- t(b1L,b0L,b1R); t(b1R,b0L,b0R);           // задний склон
- t(f0L,f0R,b0R); t(f0L,b0R,b0L);           // низ
- t(f0L,b0L,f1L); t(f1L,b0L,b1L);           // левый бок (пятиугольник -> 2 треуг. достаточно: наклонная плоскость x=-W)
- t(f0R,f1R,b1R); t(f0R,b1R,b0R);           // правый бок
- const P=new THREE.BufferGeometry();
- P.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
- P.computeVertexNormals();
- const rock=new THREE.Mesh(P,M(0x8FB445,.95));rock.userData.top=1;rock.flatShading=true;g.add(rock);
+function tHill(){ // холм-забег: поперечное сечение купола ВЫЧИСЛЕНО из физики (rhAt hill) — купол лежит точно на коллизии, провалов нет; плоский гребень и пологие склоны
+ const g=new THREE.Group(),L=8.4,hh=1.48,Wd=.66,RV=8,SL=20;
+ const hAt=z=>{const x=(L/2-z)/L;return x>.65?hh*(1-x)/.35:x>=.35?hh:hh*x/.35;}; // = физическая кривая
+ const pos=[],colr=[];const t3=(a,b,c)=>pos.push(...a,...b,...c);
+ const cGrass=new THREE.Color(0x7fae42).convertSRGBToLinear(),cDry=new THREE.Color(0xC7C46A).convertSRGBToLinear(),cDirt=new THREE.Color(0x6d4c33).convertSRGBToLinear();
+ let prev=null;
+ for(let i=0;i<SL;i++){const z0=-L/2+L*i/SL,z1=-L/2+L*(i+1)/SL,h0=hAt(z0),h1=hAt(z1);
+  const ring=(h,z)=>{const a=[];for(let k=0;k<=RV;k++){const w=k/RV*Math.PI;
+   a.push([Math.sin(w)*Wd*Math.min(1,h/.4),h*(.5+.5*Math.cos(w-Math.PI/2)),z]);}return a;}; // верх купола (w=pi/2) = h ТОЧНО = физическая поверхность; низ h/2 врос в асфальт
+  const r0=ring(h0,z0),r1=ring(h1,z1);
+  for(let k=0;k<RV;k++){const A=r0[k],B=r0[k+1],C=r1[k+1],D=r1[k];
+   t3(A,B,C);t3(A,C,D);}} // нормаль наружу даст computeVertexNormals; видна верхняя оболочка
+ // гребневая «травяная шапка» не нужна: вершины окрашены по высоте
+ const G=new THREE.BufferGeometry();
+ const arr=new Float32Array(pos);G.setAttribute('position',new THREE.BufferAttribute(arr,3));
+ const ca=new Float32Array(arr.length);
+ for(let v=0;v<arr.length/3;v++){const y=arr[v*3+1];const c=new THREE.Color().copy(y<.5?cDirt:cGrass).lerp(cDry,y>.5?Math.min(1,(y-.5)/(hh-.5))*.6:0);
+  ca[v*3]=c.r;ca[v*3+1]=c.g;ca[v*3+2]=c.b;}
+ G.setAttribute('color',new THREE.BufferAttribute(ca,3));
+ G.computeVertexNormals();
+ const m=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.95});
+ const hill=new THREE.Mesh(G,m);hill.userData.top=1;g.add(hill);
  g.userData.len=L;
  return g;}
 const TPL={low:tLow,bar:tBar,wall:tWall,mob:tMob,bomb:tBomb,boss:tBoss,cart:tCart,hill:tHill};
@@ -728,10 +735,14 @@ const TSEG=56,TRING=22;
 const tunG=new THREE.BufferGeometry();
 const tunV=new Float32Array(TSEG*TRING*3);const tunC=new Float32Array(TSEG*TRING*3);
 tunG.setAttribute('position',new THREE.BufferAttribute(tunV,3));
-{const idx=[];for(let i=0;i<TSEG-1;i++)for(let k=0;k<TRING;k++){const a0=i*TRING+k,b0=i*TRING+(k+1)%TRING,c0=(i+1)*TRING+k,d0=(i+1)*TRING+(k+1)%TRING;idx.push(a0,c0,b0,b0,c0,d0);}tunG.setIndex(idx);}
+const tunV2=new Float32Array(TSEG*TRING*3);const tunC2=new Float32Array(TSEG*TRING*3);
+const tunG2=new THREE.BufferGeometry();tunG2.setAttribute('position',new THREE.BufferAttribute(tunV2,3));tunG2.setAttribute('color',new THREE.BufferAttribute(tunC2,3));
+{const idx=[];for(let i=0;i<TSEG-1;i++)for(let k=0;k<TRING;k++){const a0=i*TRING+k,b0=i*TRING+(k+1)%TRING,c0=(i+1)*TRING+k,d0=(i+1)*TRING+(k+1)%TRING;idx.push(a0,c0,b0,b0,c0,d0);}tunG.setIndex(idx);tunG2.setIndex(idx);}
 tunG.setAttribute('color',new THREE.BufferAttribute(tunC,3));
 const tun=new THREE.Mesh(tunG,new THREE.MeshStandardMaterial({vertexColors:true,color:0xffffff,roughness:.95,flatShading:true,side:THREE.DoubleSide})); //vertexColors: пёстрая порода, не пластиковая труба
 scene.add(tun);
+const tunMtn=new THREE.Mesh(tunG2,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,flatShading:true})); // гора: FrontSide — изнутри не рисуется, снаружи/в устье = толстая порода
+tunMtn.visible=false;scene.add(tunMtn);
 // грудa валунов вокруг трубы: снаружи читается как каменистая насыпь, а не труба
 const NRK=56,tunRidge=new THREE.InstancedMesh(rockGeos[1],new THREE.MeshStandardMaterial({color:new THREE.Color(0x5d4d3e).convertSRGBToLinear(),roughness:.95,flatShading:true}),NRK); // ровно столько, сколько пишет цикл (28x2): лишние инстансы остались бы в identity-матрице = валун в (0,0,0) на тропе под героем
 scene.add(tunRidge);
@@ -794,21 +805,27 @@ function dayFx(dt){
    const rr=r+nz;
    tunV[ix]=cx+rr*Math.cos(ang);tunV[ix+1]=cy+rr*1.84*Math.sin(ang);tunV[ix+2]=z;
    const t2=(.5+.5*Math.sin(nz*4.2+s*.08))*(.55+.45*Math.sin(ang*7+tunSeed*13)); // пестрота породы по рельефу
-   tunC[ix]=.42+.28*t2;tunC[ix+1]=.34+.2*t2;tunC[ix+2]=.26+.14*t2;} // тоннель выше 2x: вертикальный радиус x2 (низ по полу: cy=радиус*1.84 ниже => см. cy)
+   tunC[ix]=.42+.28*t2;tunC[ix+1]=.34+.2*t2;tunC[ix+2]=.26+.14*t2;
+   const ro=rr+1.6+2.8*e; // наружная скорлупа ГОРЫ: +1.6..4.4м породы — в устье толстый каменный кант, стены не нулевой толщины
+   let y2=cy+ro*1.7*Math.sin(ang)*.92;if(y2<.02&&Math.sin(ang)<0)y2=.02; // юбка горы лежит НА асфальте: tunnel всегда глубже горы -> торец-кант виден на входе и выходе (без DoubleSide) [shortcut: на крутом подъёме дороги юбка может коротко повиснуть; апгрейд = привязка к высоте ландшафта, если появится рельеф]
+   tunV2[ix]=cx+ro*Math.cos(ang);tunV2[ix+1]=y2;tunV2[ix+2]=z;
+   tunC2[ix]=.3+.16*t2;tunC2[ix+1]=.25+.12*t2;tunC2[ix+2]=.2+.08*t2;}
   const ri=i>>1;if(ri*2<NRK)for(let q=0;q<2;q++){const n=ri*2+q,h=((n*53)%29)/29,h2=((n*17)%11)/11;
-   const ang=Math.PI*(.05+.9*h),rO=r+.25+h2*1.2; // валуны по верхней дуге и бокам, частично вросшие
-   Q0.setFromAxisAngle(YAX,h*6.28);V1.set(cx+rO*Math.cos(ang),cy+rO*1.84*Math.sin(ang)-.25,z);
-   const sc=1.4+h2*2.1;V0.set(sc,sc*.85,sc);M4.compose(V1,Q0,V0);tunRidge.setMatrixAt(n,M4);}}
+   const ang=Math.PI*(.05+.9*h),sc=1.4+h2*2.1,rO=r+sc*.55+2.2*e; // валуны ЦЕЛИКОМ в породе (центр за внутренней стенкой на половину размера) — внутрь дороги не выступают
+   Q0.setFromAxisAngle(YAX,h*6.28);let yy=cy+rO*1.84*Math.sin(ang)-.25;
+   const xx=cx+rO*Math.cos(ang);
+   if(Math.abs(xx-cx)<5.2&&yy<1.2){V1.set(0,-50,0);M4.compose(V1,Q0,V0.set(.001,.001,.001));tunRidge.setMatrixAt(n,M4);continue;} // у дороги под сводом — не ставим (сквозь них не пробегаем)
+   V1.set(xx,yy,z);V0.set(sc,sc*.85,sc);M4.compose(V1,Q0,V0);tunRidge.setMatrixAt(n,M4);}}
  tunG.attributes.position.needsUpdate=true;tunG.attributes.color.needsUpdate=true;tunG.computeVertexNormals();
- for(let n=0;n<NST;n++){ // сталактиты: привязаны к сечениям (каждый 2-й сегмент), висят с неровного свода
-  const si=2+(n*2)%(TSEG-4),k=Math.floor(TRING*.25)+(n%4),ix=(si*TRING+k)*3; // k ~ верх кольца (sin=1 => свод)
-  const x=tunV[ix],y=tunV[ix+1],zz=tunV[ix+2];
-  if(y>5.2&&SEG.m>.25){ // вешаем с неровного свода (x,z берём прямо из вершин tunV — сталактиты следуют изгибу и буграм, без самопального сечения)
-   const ln=.6+((n*13)%7)/7*.9;V1.set(x,y-ln*.45,zz);V0.set(1,1,1);Q0.setFromAxisAngle?Q0.identity():Q0.identity();
-   M4.compose(V1,Q0,V0.set(.55+((n*5)%9)/9*.5,ln,.55+((n*3)%7)/7*.5));tunStal.setMatrixAt(n,M4);
+ tunG2.attributes.position.needsUpdate=true;tunG2.attributes.color.needsUpdate=true;tunG2.computeVertexNormals();
+ for(let n=0;n<NST;n++){ // сталактиты: с самого свода над дорогой, кончик гарантированно выше 3.6м — бежим не задевая
+  const si=2+(n*2)%(TSEG-4),ix=(si*TRING+Math.floor(TRING*.25))*3; // верхнее кольцо сегмента = свод
+  const y=tunV[ix+1],zz=tunV[ix+2],xx=tunV[ix]+(((n*29)%9)-4)*.55; // разброс поперёк дороги ±2.2м, не у стен
+  if(y>6&&SEG.m>.25){const ln=.7+((n*13)%7)/7*1.1;
+   V1.set(xx,y-ln*.45+1.15,zz);Q0.identity();M4.compose(V1,Q0,V0.set(.55+((n*5)%9)/9*.5,ln,.55+((n*3)%7)/7*.5));tunStal.setMatrixAt(n,M4);
   }else{V1.set(0,-50,0);M4.compose(V1,new THREE.Quaternion(),V0.set(.001,.001,.001));tunStal.setMatrixAt(n,M4);}}
  tunStal.instanceMatrix.needsUpdate=true;tunStal.visible=m>.25;
- tun.visible=true;tunRidge.visible=true;}
+ tun.visible=true;tunMtn.visible=true;tunRidge.visible=true;}
 // ---------- collision ----------
 const laneHit=o=>o.lane===S.lane&&Math.abs(S.x-(o.lane-1)*LANE)<LANE*.6;
 function collide(dt){const dz=S.speed*dt;S.platTop=0;const h=S.roll>0?1.0:1.62, // хитбокс = измеренный клубок .90 + зазор
