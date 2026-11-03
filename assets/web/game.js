@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.46.9';
+const VER='4.46.10';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -554,30 +554,37 @@ function tBoss(){ // Phantom: красная капля-фантом с горя
   sp.position.set((i-1)*.12,H+.4,-.06);sp.rotation.x=-.3;g.add(sp);}
  return g;}
 
-function tCart(){ // povozka s tentom: zaprygivaemaya krysha, analog "poezda" Subway Surfers
- const g=new THREE.Group();const W=M(0x5B4632,.9);
- const bed=box(1.12,.14,3.0,W);bed.position.y=.72;g.add(bed); // тележка выше (дно кузова .72 вместо .66 -> платформа для забега; тент 1.35/1.43)
- for(let i=0;i<2;i++){for(let j=0;j<2;j++){const ra=new THREE.Mesh(new THREE.CylinderGeometry(.42,.42,.06,10),W);ra.rotation.z=Math.PI/2;ra.position.set((i?1:-1)*.6,.42,(j?1:-1)*1.15); // 4 колеса
+function tCart(){ // povozka: ЦЕЛЬНЫЙ кузов (борта+дно+колёса+стойки+тент-крыша). Поверхность для забега = крыша тента: hero hgt=1.42
+ const g=new THREE.Group();const W=M(0x5B4632,.9),WD=M(0x4A3826,.9);
+ for(let i=0;i<2;i++){for(let j=0;j<2;j++){const ra=new THREE.Mesh(new THREE.CylinderGeometry(.42,.42,.06,10),WD);ra.rotation.z=Math.PI/2;ra.position.set((i?1:-1)*.6,.42,(j?1:-1)*1.15);
   for(let k=0;k<6;k++){const sp=new THREE.Mesh(new THREE.BoxGeometry(.05,.74,.04),W);sp.rotation.x=k*Math.PI/6;ra.add(sp);}
-  const hub=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.1,8),M(0x3A2A18,.9));hub.rotation.z=Math.PI/2;ra.add(hub);g.add(ra);}} // закрытие двойного цикла колёс
- const cv=box(1.06,.16,2.8,M(0x8A2E2E,.9));cv.position.y=1.75;g.add(cv); // тент поднят: низ 1.67 > рост бегуна 1.62 — голова не втыкается, когда стоишь в кузове
- const cv2=box(1.12,.07,2.94,M(0x742323,.9));cv2.position.y=1.83;g.add(cv2);
- const rb=box(1.1,.09,2.3,M(0x6B5138,.9));rb.position.set(0,.41,-2.72);rb.rotation.x=0.412;g.add(rb); // ПОЛОГИЙ ЗАБЕГ со стороны героя: верхний край доски = ровно борт кузова (z=-1.55,y=.78) — врос в телегу, не «доска сама по себе»; подъём пешком
- g.userData.ramp=1;
- const rope=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,1.1,4),M(0xD8CBA8,.7));rope.rotation.z=Math.PI/2;rope.position.set(0,.92,1);g.add(rope);
- const rope2=rope.clone();rope2.position.z=-1;g.add(rope2);
- g.userData.len=3.6; // крыша на 1.35 (кузов поднят 2x: bed .66->1.32 не нужен — см. rb); спуск сзади = просто схождение с края (гравация)
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.1,8),M(0x3A2A18,.9));hub.rotation.z=Math.PI/2;ra.add(hub);g.add(ra);}} // колёса
+ const bed=box(1.12,.16,3.0,W);bed.position.y=.72;g.add(bed); // дно кузова
+ for(const sx of[-1,1]){const w=box(.1,.5,3.0,WD);w.position.set(sx*.55,1.02,0);g.add(w);} // борта кузова: связка дно->крыша, кузов закрыт со всех сторон
+ for(const sz of[-1,1]){const e=box(1.2,.5,.1,WD);e.position.set(0,1.02,sz*1.5);g.add(e);}
+ for(const sx of[-1,1])for(const sz of[-1,1]){const pst=box(.09,.35,.09,WD);pst.position.set(sx*.52,1.30,sz*1.3);g.add(pst);} // столбы: борт(1.12)->тент(1.47) // стойки тента из бортов
+ const roof=box(1.16,.14,3.1,M(0x8A2E2E,.9));roof.position.y=1.54;roof.userData.top=1;g.add(roof); // КРЫША-тент = дорожка забега (низ 1.47 = физ.верх 1.5-3см: встаём на ткань, без провала) 
+ const roof2=box(1.24,.06,3.24,M(0x742323,.9));roof2.position.y=1.64;g.add(roof2); // окантовка тента (не опорная)
+ const rb=box(1.12,.1,3.9,M(0x6B5138,.9));rb.position.set(0,.93,-3.6);rb.rotation.x=0.43;g.add(rb); // рампа-забег от асфальта до КРЫШИ: верх доски врос в край крыши, не «доска в воздухе»
+ const rope=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,1.2,4),M(0xD8CBA8,.7));rope.rotation.z=Math.PI/2;rope.position.set(0,.72,2.1);g.add(rope);
+ g.userData.len=3.6;g.userData.bbMin=-5.4; // кузов 3.6м; дальний край ramp-доски = -5.4 (опора начинается с неё)
  return g;}
-function tHill(){ // pologyi zh-kholmik vershina .82: osnowanie-skirt zakryvaet styk s asfal'tom (ineache kupa "plavaet"), 3 klonka zernistosti dlja estestvennosti
- const g=new THREE.Group();const skirt=new THREE.Mesh(new THREE.CylinderGeometry(1.02,1.06,.34,14),M(0x6E8A3A,.95));
- skirt.position.y=.17;skirt.flatShading=true;g.add(skirt);
- const d=new THREE.Mesh(new THREE.SphereGeometry(1.3,14,7),M(0x8FB445,.95));
- d.scale.set(.64,.52,1.3);d.position.y=.12;d.flatShading=true;g.add(d);
- const d2=new THREE.Mesh(new THREE.SphereGeometry(.8,10,6),M(0xC0BE58,.95));
- d2.scale.set(.55,.5,.8);d2.position.set(.08,.5,-.1);d2.flatShading=true;g.add(d2);
- const d3=new THREE.Mesh(new THREE.SphereGeometry(.5,8,5),M(0xA9C24E,.95));
- d3.scale.set(.7,.42,.55);d3.position.set(-.14,.38,.55);d3.flatShading=true;g.add(d3);
- g.userData.len=3.2;
+function tHill(){ // холм-забег: РОВНО форма физики (rhAt hill) — пологие склоны + плоская площадка гребня; цельная насыпь
+ const g=new THREE.Group(),L=8.4,hh=1.48,cr=2.1,W=.65; // гребень z[-2.1,2.1] (4.2м бега по верху!), склоны по 2.1м
+ const pos=[];const t=(a,b,c)=>pos.push(...a,...b,...c);
+ const f0L=[-W,0,-L/2],f0R=[W,0,-L/2],f1L=[-W,hh,-cr],f1R=[W,hh,-cr],b1L=[-W,hh,cr],b1R=[W,hh,cr],b0L=[-W,0,L/2],b0R=[W,0,L/2];
+ // грани наружу (обход против часовой снаружи)
+ t(f0L,f1L,f0R); t(f0R,f1L,f1R);           // передний склон
+ t(f1L,b1L,f1R); t(f1R,b1L,b1R);           // гребень (площадка)
+ t(b1L,b0L,b1R); t(b1R,b0L,b0R);           // задний склон
+ t(f0L,f0R,b0R); t(f0L,b0R,b0L);           // низ
+ t(f0L,b0L,f1L); t(f1L,b0L,b1L);           // левый бок (пятиугольник -> 2 треуг. достаточно: наклонная плоскость x=-W)
+ t(f0R,f1R,b1R); t(f0R,b1R,b0R);           // правый бок
+ const P=new THREE.BufferGeometry();
+ P.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
+ P.computeVertexNormals();
+ const rock=new THREE.Mesh(P,M(0x8FB445,.95));rock.userData.top=1;rock.flatShading=true;g.add(rock);
+ g.userData.len=L;
  return g;}
 const TPL={low:tLow,bar:tBar,wall:tWall,mob:tMob,bomb:tBomb,boss:tBoss,cart:tCart,hill:tHill};
 const PLAT={cart:1,hill:1};
@@ -635,7 +642,9 @@ function reset(){S.mode='run';S.t=0;S.dist=0;S.speed=18;S.coins=0;S.score=0;S.la
  S.obs=[];S.coinsArr=[];S.arrows=[];S.arrowsMade=0;nextSpawn=30;S.missed=0;deathPlayed=false;heartsP.length=0;}
 function addObs(type,lane){const m=TPL[type]();m.position.set((lane-1)*LANE,0,SPAWN_Z);scene.add(m);
  const o={type,lane,z:SPAWN_Z,m};
- if(PLAT[type]){m.updateMatrixWorld(true);o.hgt=new THREE.Box3().setFromObject(m).max.y;o.len=m.userData.len;if(type==='cart')o.hgt=.79;} // cart: опора = борт кузова .79 (стоим в кузове, тент 1.67+ над головой) верх тента — хитбокс головы под тент
+ if(PLAT[type]){m.updateMatrixWorld(true); // ВЕРХ = только помеченные верхние мешы (roof/hill-ядро), рампа и склоны не в счёт
+   const _b=new THREE.Box3();let _any=false;m.traverse(x=>{if(x.isMesh&&x.userData.top){_b.setFromObject(x);o.hgt=_any?Math.max(o.hgt,_b.max.y):_b.max.y;_any=true;}});
+   if(!_any)o.hgt=new THREE.Box3().setFromObject(m).max.y;if(type==='cart')o.hgt-=.04;o.bbMin=m.userData.bbMin!==undefined?m.userData.bbMin:undefined;o.len=m.userData.len;} // hgt = верх крыши (карт: минус 4см — встаём на покрышку тента)
  const e=(type==='mob'||type==='bomb'||type==='boss')?enemyMesh(type):null;
  if(e){const want=type==='mob'?1.15:type==='bomb'?1.5:.95;
   const k=want/Math.max(.3,e.userData.hgt);
@@ -660,7 +669,7 @@ function spawn(){
  else if(r<.62){const l=(Math.random()*3)|0;addObs('bar',l);
   if(p)swordRun(l,3,SPAWN_Z-6.6,()=>.45);} // низкая линия за корнем - собирается в подкате
  else if(r<.73){const l=(Math.random()*3)|0; // povozka/holmik + linija mechey NA kryshe
-  if(Math.random()<.5){addObs('cart',l);swordRun(l,3,SPAWN_Z+1.6,()=>1.75);} // монеты над крышей (было 1.3: вросли в поднятый тент)
+  if(Math.random()<.5){addObs('cart',l);swordRun(l,3,SPAWN_Z+1.6,()=>2.25);} // монеты над крышей (было 1.3: вросли в поднятый тент)
   else{addObs('hill',l);swordRun(l,3,SPAWN_Z+1.4,()=>1.05);}}
  else if(r<.88){const bl=new Set();const n=diff>.4&&Math.random()<.5?2:1;   // валуны чаще
   while(bl.size<n)bl.add((Math.random()*3)|0);bl.forEach(l=>addObs('wall',l));
@@ -715,16 +724,20 @@ const _SKY_D=new THREE.Color(1,1,1),_SKY_C=new THREE.Color(.05,.04,.035);
 const _FOG_D=new THREE.Color(HZ).convertSRGBToLinear(),_FOG_C=new THREE.Color(0x171310).convertSRGBToLinear();
 const _SL_D=new THREE.Color(0xFFF3D6).convertSRGBToLinear(),_SL_C=new THREE.Color(0x7d8fc0).convertSRGBToLinear();
 // пещера: непрерывная труба с гуляющим радиусом и центром (неровные стены), перестраивается по изгибу дороги
-const TSEG=56,TRING=16;
+const TSEG=56,TRING=22;
 const tunG=new THREE.BufferGeometry();
-const tunV=new Float32Array(TSEG*TRING*3);
+const tunV=new Float32Array(TSEG*TRING*3);const tunC=new Float32Array(TSEG*TRING*3);
 tunG.setAttribute('position',new THREE.BufferAttribute(tunV,3));
 {const idx=[];for(let i=0;i<TSEG-1;i++)for(let k=0;k<TRING;k++){const a0=i*TRING+k,b0=i*TRING+(k+1)%TRING,c0=(i+1)*TRING+k,d0=(i+1)*TRING+(k+1)%TRING;idx.push(a0,c0,b0,b0,c0,d0);}tunG.setIndex(idx);}
-const tun=new THREE.Mesh(tunG,new THREE.MeshStandardMaterial({color:new THREE.Color(0x6b5a48).convertSRGBToLinear(),roughness:.95,flatShading:true,side:THREE.DoubleSide}));
+tunG.setAttribute('color',new THREE.BufferAttribute(tunC,3));
+const tun=new THREE.Mesh(tunG,new THREE.MeshStandardMaterial({vertexColors:true,color:0xffffff,roughness:.95,flatShading:true,side:THREE.DoubleSide})); //vertexColors: пёстрая порода, не пластиковая труба
 scene.add(tun);
 // грудa валунов вокруг трубы: снаружи читается как каменистая насыпь, а не труба
 const NRK=56,tunRidge=new THREE.InstancedMesh(rockGeos[1],new THREE.MeshStandardMaterial({color:new THREE.Color(0x5d4d3e).convertSRGBToLinear(),roughness:.95,flatShading:true}),NRK); // ровно столько, сколько пишет цикл (28x2): лишние инстансы остались бы в identity-матрице = валун в (0,0,0) на тропе под героем
 scene.add(tunRidge);
+// сталактиты под сводом пещеры: конусы вниз из потолка (внутри сечения) — пещера читается пещерой, не трубой
+const NST=26,tunStal=new THREE.InstancedMesh(new THREE.ConeGeometry(.22,1.15,6),new THREE.MeshStandardMaterial({color:new THREE.Color(0x4a3c2e).convertSRGBToLinear(),roughness:.95,flatShading:true}),NST);
+tunStal.visible=false;scene.add(tunStal);
 let tunSeed=Math.random()*97+3;
 const OFFC=new THREE.Color(.34,.26,.17),ONC=new THREE.Color(1,.78,.42);
 function dayFx(dt){
@@ -775,14 +788,26 @@ function dayFx(dt){
  for(let i=0;i<TSEG;i++){const s=i/(TSEG-1)*SEG.len,zw=SEG.start+s,z=S.dist-zw; // вперёд = -z
   const e=Math.min(1,s/18,(SEG.len-s)/18); // стены неровные только в середине; у входов и выхода гладко
   const r=3.9+(.95*Math.sin(s*.11+tunSeed)+.6*Math.sin(s*.27+tunSeed*2))*e; // радиус с запасом до ближайших деревьев (|x|>=10.2): ни одна крона не проходит сквозь оболочку
-  const cx=bend(z),cy=3.45+.4*Math.sin(s*.06+tunSeed*5)*e; // тоннель выше 2x: верт. радиус x2 (см. tunV), центр 3.45 => потолок ~2x прежнего (~10.7м), низ врос в пол как раньше
+  const cx=bend(z),cy=3.45+.4*Math.sin(s*.06+tunSeed*5)*e;
   for(let k=0;k<TRING;k++){const ang=k/TRING*6.2832,ix=(i*TRING+k)*3;
-   tunV[ix]=cx+r*Math.cos(ang);tunV[ix+1]=cy+r*1.84*Math.sin(ang);tunV[ix+2]=z;} // тоннель выше 2x: вертикальный радиус x2 (низ по полу: cy=радиус*1.84 ниже => см. cy)
+   const nz=(.62*Math.sin(ang*3+s*.19+tunSeed*3)+.45*Math.sin(ang*5-s*.31+tunSeed*7)+.35*Math.sin(ang*2+s*.5+tunSeed*11))*e; // каменная неровность: по углу и вдоль — не труба, а выработка
+   const rr=r+nz;
+   tunV[ix]=cx+rr*Math.cos(ang);tunV[ix+1]=cy+rr*1.84*Math.sin(ang);tunV[ix+2]=z;
+   const t2=(.5+.5*Math.sin(nz*4.2+s*.08))*(.55+.45*Math.sin(ang*7+tunSeed*13)); // пестрота породы по рельефу
+   tunC[ix]=.42+.28*t2;tunC[ix+1]=.34+.2*t2;tunC[ix+2]=.26+.14*t2;} // тоннель выше 2x: вертикальный радиус x2 (низ по полу: cy=радиус*1.84 ниже => см. cy)
   const ri=i>>1;if(ri*2<NRK)for(let q=0;q<2;q++){const n=ri*2+q,h=((n*53)%29)/29,h2=((n*17)%11)/11;
    const ang=Math.PI*(.05+.9*h),rO=r+.25+h2*1.2; // валуны по верхней дуге и бокам, частично вросшие
    Q0.setFromAxisAngle(YAX,h*6.28);V1.set(cx+rO*Math.cos(ang),cy+rO*1.84*Math.sin(ang)-.25,z);
    const sc=1.4+h2*2.1;V0.set(sc,sc*.85,sc);M4.compose(V1,Q0,V0);tunRidge.setMatrixAt(n,M4);}}
- tunG.attributes.position.needsUpdate=true;tunG.computeVertexNormals();
+ tunG.attributes.position.needsUpdate=true;tunG.attributes.color.needsUpdate=true;tunG.computeVertexNormals();
+ for(let n=0;n<NST;n++){ // сталактиты: привязаны к сечениям (каждый 2-й сегмент), висят с неровного свода
+  const si=2+(n*2)%(TSEG-4),k=Math.floor(TRING*.25)+(n%4),ix=(si*TRING+k)*3; // k ~ верх кольца (sin=1 => свод)
+  const x=tunV[ix],y=tunV[ix+1],zz=tunV[ix+2];
+  if(y>5.2&&SEG.m>.25){ // вешаем с неровного свода (x,z берём прямо из вершин tunV — сталактиты следуют изгибу и буграм, без самопального сечения)
+   const ln=.6+((n*13)%7)/7*.9;V1.set(x,y-ln*.45,zz);V0.set(1,1,1);Q0.setFromAxisAngle?Q0.identity():Q0.identity();
+   M4.compose(V1,Q0,V0.set(.55+((n*5)%9)/9*.5,ln,.55+((n*3)%7)/7*.5));tunStal.setMatrixAt(n,M4);
+  }else{V1.set(0,-50,0);M4.compose(V1,new THREE.Quaternion(),V0.set(.001,.001,.001));tunStal.setMatrixAt(n,M4);}}
+ tunStal.instanceMatrix.needsUpdate=true;tunStal.visible=m>.25;
  tun.visible=true;tunRidge.visible=true;}
 // ---------- collision ----------
 const laneHit=o=>o.lane===S.lane&&Math.abs(S.x-(o.lane-1)*LANE)<LANE*.6;
@@ -792,12 +817,22 @@ function collide(dt){const dz=S.speed*dt;S.platTop=0;const h=S.roll>0?1.0:1.62, 
   if(PLAT[o.type]){ // НЕПРЕРЫВНАЯ стенка: за кадр скролл проходит dz~0.3-0.7м; дискретная проверка «внутри окна» ловила приземляющегося в метре перед стенкой уже ПОСЛЕ прыжка через стенку = смерть вместо запрыга. Свип: момент входа передней стенки в героя и высота ног в этот момент
    const hL=o.len/2,wall=hL+.45; // полуlong + глубина героя .35 + запас
    const z1=o.z,z0=o.z-dz; // путь центра корпуса за кадр (o.z уже прокручен)
-   if(o.type==='cart'&&o.z<wall&&o.z>-hL-2.4){ // ramp-забег (окно через всю крышу до задней стенки wall: на задней стенке сработает обычный sweep -> сход с борта вниз, без die-окна) (объект идёт от -70 к 0, передняя стенка = -hL): опора растёт по доске — герой поднимается на бегу без прыжка
-    const t=Math.max(0,Math.min(1,(o.z+hL+2.4)/2.4));
-    const rh=t*o.hgt; // t=0 в начале рампы (пол) -> 1 у крыши (hgt-.14: на стыке feet>=hgt-.12 проходит -> platform без die-окна)
-    if(feet>=rh-.12||S.platTop>0){S.platTop=Math.max(S.platTop||0,rh);if(S.vy<0&&feet<rh){S.y=rh;S.vy=0;S.air=false;land=1;continue;}continue;}
-    if(S.air){S.y=rh;S.vy=0;S.air=false;S.platTop=Math.max(S.platTop||0,rh);land=1;continue;}
-    S.y=rh;S.vy=0;S.air=false;S.platTop=Math.max(S.platTop||0,rh);continue;}
+   if(o.type==='cart'||o.type==='hill'){ // забег-платформа (одинаково у повозки и холма): пологий подъём на крышу/гребень, бег по верху, плавный сход сзади
+    const hL=o.len/2,fW=(o.type==='cart'?5.4:hL),bW=hL+(o.type==='cart'?1.8:0); // стенка = кузов; доска carts — не стенка: по ней забег
+    const rhAt=z=>{ // высота поверхности под героем (клубок в кувырке в 2 раза ниже — на любую из них можно бежать верхом)
+     const hm=o.hgt;
+     if(o.type==='cart'){const hC=o.hgt;if(z<=-5.4)return 0;if(z<-hL)return hC*(z+5.4)/(5.4-hL);if(z<=hL)return hC;return Math.max(0,hC*(1-(z-hL)/1.8));} // доска: асфальт(-5.4)->крыша(-hL)
+     if(z<=-hL)return 0;const x=(hL-z)/(2*hL); // пологие склоны + плоский гребень (x .35..65)
+     if(x>.65)return hm*(1-x)/.35;if(x>=.35)return hm;return hm*x/.35;};
+    if(o.z<-fW-.6){continue;} // не дошли
+    if(o.z>=bW){const rh=rhAt(o.z);S.platTop=Math.max(S.platTop||0,rh);continue;} // спуск: опора гаснет -> гравация опускает мягко
+    if(z0<-wall&&z1>=-wall){ // вход передней стенки: ноги и высоту ската экстраполируем на одну точку пути (кадр dz~0.28 иначе даёт ложную стенку на рампе)
+     const tE=(-wall-z0)/(z1-z0),feetAt=feet-S.vyPrev*dt*(1-tE);
+     if(!S.air&&feetAt<rhAt(o.z-dz*(1-tE))-.15&&S.platTop<=0)return die();} // влетел в переднюю стенку кузова снизу — стена
+    const rh=rhAt(o.z);
+    if(S.air){S.platTop=Math.max(S.platTop||0,rh);continue;}
+    S.y=rh;S.vy=0;S.air=false;S.rollY=rh;S.platTop=Math.max(S.platTop||0,rh);continue;}
+   if(PLAT[o.type]){continue;} // платформенные (cart/hill) обработаны своей веткой выше
    if(z0>wall){continue;} // ещё далеко
 
    const inRoof=Math.abs(o.z)<hL; // крыша над героем СЕЙЧАС = опора
