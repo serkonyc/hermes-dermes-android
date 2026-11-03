@@ -565,32 +565,35 @@ function tCart(){ // povozka: ЦЕЛЬНЫЙ кузов (борта+дно+ко�
  for(const sx of[-1,1])for(const sz of[-1,1]){const pst=box(.09,.35,.09,WD);pst.position.set(sx*.52,1.30,sz*1.3);g.add(pst);} // столбы: борт(1.12)->тент(1.47) // стойки тента из бортов
  const roof=box(1.16,.14,3.1,M(0x8A2E2E,.9));roof.position.y=1.54;roof.userData.top=1;g.add(roof); // КРЫША-тент = дорожка забега (низ 1.47 = физ.верх 1.5-3см: встаём на ткань, без провала) 
  const roof2=box(1.24,.06,3.24,M(0x742323,.9));roof2.position.y=1.64;g.add(roof2); // окантовка тента (не опорная)
+ const vlt=box(1.18,.24,3.06,M(0x7E2A2A,.9));vlt.position.y=1.39;g.add(vlt); // буф тента: закрывает щель борт(1.27)->крыша(1.47), тент = крыша, не парус
  const rb=box(1.12,.1,3.9,M(0x6B5138,.9));rb.position.set(0,.93,-3.6);rb.rotation.x=0.43;g.add(rb); // рампа-забег от асфальта до КРЫШИ: верх доски врос в край крыши, не «доска в воздухе»
  const rope=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,1.2,4),M(0xD8CBA8,.7));rope.rotation.z=Math.PI/2;rope.position.set(0,.72,2.1);g.add(rope);
  g.userData.len=3.6;g.userData.bbMin=-5.4; // кузов 3.6м; дальний край ramp-доски = -5.4 (опора начинается с неё)
  return g;}
-function tHill(){ // холм-забег: поперечное сечение купола ВЫЧИСЛЕНО из физики (rhAt hill) — купол лежит точно на коллизии, провалов нет; плоский гребень и пологие склоны
- const g=new THREE.Group(),L=8.4,hh=1.48,Wd=.66,RV=8,SL=20;
- const hAt=z=>{const x=(L/2-z)/L;return x>.65?hh*(1-x)/.35:x>=.35?hh:hh*x/.35;}; // = физическая кривая
- const pos=[],colr=[];const t3=(a,b,c)=>pos.push(...a,...b,...c);
- const cGrass=new THREE.Color(0x7fae42).convertSRGBToLinear(),cDry=new THREE.Color(0xC7C46A).convertSRGBToLinear(),cDirt=new THREE.Color(0x6d4c33).convertSRGBToLinear();
- let prev=null;
- for(let i=0;i<SL;i++){const z0=-L/2+L*i/SL,z1=-L/2+L*(i+1)/SL,h0=hAt(z0),h1=hAt(z1);
-  const ring=(h,z)=>{const a=[];for(let k=0;k<=RV;k++){const w=k/RV*Math.PI;
-   a.push([Math.sin(w)*Wd*Math.min(1,h/.4),h*(.5+.5*Math.cos(w-Math.PI/2)),z]);}return a;}; // верх купола (w=pi/2) = h ТОЧНО = физическая поверхность; низ h/2 врос в асфальт
-  const r0=ring(h0,z0),r1=ring(h1,z1);
-  for(let k=0;k<RV;k++){const A=r0[k],B=r0[k+1],C=r1[k+1],D=r1[k];
-   t3(A,B,C);t3(A,C,D);}} // нормаль наружу даст computeVertexNormals; видна верхняя оболочка
- // гребневая «травяная шапка» не нужна: вершины окрашены по высоте
- const G=new THREE.BufferGeometry();
- const arr=new Float32Array(pos);G.setAttribute('position',new THREE.BufferAttribute(arr,3));
- const ca=new Float32Array(arr.length);
- for(let v=0;v<arr.length/3;v++){const y=arr[v*3+1];const c=new THREE.Color().copy(y<.5?cDirt:cGrass).lerp(cDry,y>.5?Math.min(1,(y-.5)/(hh-.5))*.6:0);
-  ca[v*3]=c.r;ca[v*3+1]=c.g;ca[v*3+2]=c.b;}
- G.setAttribute('color',new THREE.BufferAttribute(ca,3));
- G.computeVertexNormals();
- const m=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.95});
- const hill=new THREE.Mesh(G,m);hill.userData.top=1;g.add(hill);
+function tHill(){ // холм-забег: профиль ВЫЧИСЛЕН из физики (rhAt) -> нога не проваливается. Двуслойный: травяной купол + земляная юбка чуть шире и ниже (юбка прячет стык с асфальтом), т.е. читается как целиковый земляной холм с травой
+ const g=new THREE.Group(),L=8.4,hh=1.48;
+ const hAt=(z,k)=>{const x=(L/2-z)/L,h=hh*k;return x>.65?h*(1-x)/.35:x>=.35?h:h*x/.35;};
+ const mk=(Wd,k,yDrop,cTop,cDry,cDirt,flat)=>{
+  const RV=10,SL=26,pos=[],colr=[],t3=(a,b,c)=>pos.push(...a,...b,...c);
+  const cT=new THREE.Color(cTop).convertSRGBToLinear(),cD=new THREE.Color(cDry).convertSRGBToLinear(),cE=new THREE.Color(cDirt).convertSRGBToLinear();
+  const ring=(z,k)=>{const h=hAt(z,k),a=[];for(let i=0;i<=RV;i++){const w=i/RV*Math.PI; // симметричный полукупол: x от -Wd до +Wd, вершина ровно по центру полосы (x=0) на h = физическая высота
+   a.push([-Math.cos(w)*Wd,yDrop+h*Math.sin(w),z]);}return a;};
+  for(let i=0;i<SL;i++){const z0=-L/2+L*i/SL,z1=-L/2+L*(i+1)/SL,r0=ring(z0,k),r1=ring(z1,k);
+   for(let kk=0;kk<RV;kk++){const A=r0[kk],B=r0[kk+1],C=r1[kk+1],D=r1[kk];t3(A,B,C);t3(A,C,D);}}
+  const G=new THREE.BufferGeometry(),arr=new Float32Array(pos);
+  G.setAttribute('position',new THREE.BufferAttribute(arr,3));
+  const ca=new Float32Array(arr.length);
+  for(let v=0;v<arr.length/3;v++){const y=arr[v*3+1]-yDrop,rel=hh>0?Math.max(0,y/hh):0;
+   const c=new THREE.Color().copy(cE).lerp(cT,Math.min(1,rel*1.6)).lerp(cD,Math.max(0,(rel-.55)/.45));
+   ca[v*3]=c.r;ca[v*3+1]=c.g;ca[v*3+2]=c.b;}
+  G.setAttribute('color',new THREE.BufferAttribute(ca,3));
+  G.computeVertexNormals();
+  const mesh=new THREE.Mesh(G,new THREE.MeshStandardMaterial({vertexColors:true,roughness:flat?.6:.95,flatShading:flat}));
+  return mesh;};
+ const skirt=mk(.86,1.02,-.30,0x6d4c33,0x6d4c33,0x4a3323,true); // земляная юбка: шире, ниже, плоская -> видна у основания как почва
+ g.add(skirt);
+ const dome=mk(.66,1,0,0x7fae42,0xC7C46A,0x6d4c33,false); dome.userData.top=1; // травяной купол = физическая поверхность (верх hh точно)
+ g.add(dome);
  g.userData.len=L;
  return g;}
 const TPL={low:tLow,bar:tBar,wall:tWall,mob:tMob,bomb:tBomb,boss:tBoss,cart:tCart,hill:tHill};
@@ -811,10 +814,13 @@ function dayFx(dt){
    tunV2[ix]=cx+ro*Math.cos(ang);tunV2[ix+1]=y2;tunV2[ix+2]=z;
    tunC2[ix]=.3+.16*t2;tunC2[ix+1]=.25+.12*t2;tunC2[ix+2]=.2+.08*t2;}
   const ri=i>>1;if(ri*2<NRK)for(let q=0;q<2;q++){const n=ri*2+q,h=((n*53)%29)/29,h2=((n*17)%11)/11;
-   const ang=Math.PI*(.05+.9*h),sc=1.4+h2*2.1,rO=r+sc*.55+2.2*e; // валуны ЦЕЛИКОМ в породе (центр за внутренней стенкой на половину размера) — внутрь дороги не выступают
-   Q0.setFromAxisAngle(YAX,h*6.28);let yy=cy+rO*1.84*Math.sin(ang)-.25;
-   const xx=cx+rO*Math.cos(ang);
-   if(Math.abs(xx-cx)<5.2&&yy<1.2){V1.set(0,-50,0);M4.compose(V1,Q0,V0.set(.001,.001,.001));tunRidge.setMatrixAt(n,M4);continue;} // у дороги под сводом — не ставим (сквозь них не пробегаем)
+   const ang=Math.PI*(.05+.9*h),sc=1.4+h2*2.1; // валун сажается ПО ФОРМУЛЕ скорлупы tunV2 (те же nz/rr/ro) — физически лежит в породе, висеть не может
+   const nzv=(.62*Math.sin(ang*3+s*.19+tunSeed*3)+.45*Math.sin(ang*5-s*.31+tunSeed*7)+.35*Math.sin(ang*2+s*.5+tunSeed*11))*e;
+   const rov=(r+nzv)+1.6+2.8*e; // без внешнего выноса: центр в скорлупе, наружу торчит только сам валун
+   Q0.setFromAxisAngle(YAX,h*6.28);let yy=cy+rov*1.7*Math.sin(ang)*.92-.25-sc*.35;
+   const xx=cx+rov*Math.cos(ang);
+   if(e<.5||yy<.25||(Math.abs(xx-cx)<5.2&&yy<1.2)){ // у устьев гора тонкая — любой валун читается отдельным куском в небе: только середина, где гора толстая // ниже полотна не вешаем: у подножия не должно быть парящих камней
+   V1.set(0,-50,0);M4.compose(V1,Q0,V0.set(.001,.001,.001));tunRidge.setMatrixAt(n,M4);continue;} // у дороги под сводом — не ставим (сквозь них не пробегаем)
    V1.set(xx,yy,z);V0.set(sc,sc*.85,sc);M4.compose(V1,Q0,V0);tunRidge.setMatrixAt(n,M4);}}
  tunG.attributes.position.needsUpdate=true;tunG.attributes.color.needsUpdate=true;tunG.computeVertexNormals();
  tunG2.attributes.position.needsUpdate=true;tunG2.attributes.color.needsUpdate=true;tunG2.computeVertexNormals();
