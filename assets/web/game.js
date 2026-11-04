@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.46.13';
+const VER='4.46.14';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -233,6 +233,7 @@ let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),
    root.rotation.y=Math.PI;     // лицом вперёд по тропе
    rollRoot=new THREE.Group(); rollRoot.add(root); heroM.add(rollRoot); heroCOM.set((b2.max.x+b2.min.x)/2,(b2.max.y+b2.min.y)/2,(b2.max.z+b2.min.z)/2); mReady=true; player.visible=false;
   heroBow=makeBow(); heroBow.position.set(0,-.44,.06); heroBow.scale.setScalar(.8); MJ.elbowL.add(heroBow); // grip хвастается empirically: world-точка grip совпала с distal концом предплечья (z -.53 vs BB -.51) // лук в КИСТИ: кисть = distal-конец предплечья elbowL (local -y ~.30); ориентация - в driveHero
+  heroShield=makeShield(); heroShield.scale.setScalar(1); MJ.elbowL.add(heroShield); // щит на том же предплечье: в driveHero позиция/разворот считаются из компенсации рук
    const fb=document.getElementById('gfail');if(fb)fb.remove();
    if($('ver'))$('ver').textContent='v'+VER+' · GLB';
   });
@@ -434,6 +435,14 @@ function driveHero(dt){
  T(j.elbowR,'x',-1.35*b+arp.elbow*(1-b));
  if(b>0){ // idle-носка: правая свободна, слегка прикрывает лук у руки (не «пердит» вхолостую)
  }
+ if(heroShield){ // ЩИТ: двойной тап - поднят перед собой на секунду; в покое сложен вдоль предплечья
+  shUp+=((shieldT>0?1:0)-shUp)*Math.min(1,dt*11);
+  if(shieldT>0){ // рука держит щит: левая вверх-вперёд, локоть согнут - тарелка перед лицом
+   T(j.armL,'x',-1.42);T(j.armL,'z',-.22);T(j.elbowL,'x',-1.02);}
+  const comp=-(MJ.armL.rotation.x+MJ.elbowL.rotation.x); // ориентация кисти в world (тот же приём, что у лука)
+  heroShield.rotation.set(comp+1.9*(1-shUp),0,0);
+  heroShield.position.set(0,-.30-.06*shUp,.14-.2*shUp);
+ }
 }
  tipV+=Math.sin(a*2+Math.PI*.3)*dt*24; // импульс колпака от ускорения головы
  T(j.hat,'x',-.05+Math.sin(a*2)*.03+tipQ*.5);
@@ -502,7 +511,7 @@ function makeBow(){const g=new THREE.Group(); // локальные оси лу�
  const f1=fm.clone();f1.position.x=.34;const f2=fm.clone();f2.position.x=.34;f2.rotation.x=1.57;na.add(f1);na.add(f2);
  na.position.set(-.05,0,0);na.visible=false;g.add(na);bowArr=na;
  return g;}
-var heroBow=null,bowT=0,shotCd=0,bowStr=null,bowArr=null;
+var heroBow=null,bowT=0,shotCd=0,bowStr=null,bowArr=null,heroShield=null,shieldT=0,shUp=0,lastAnyTap=0;
 // лук цепляется к rig при готовности GLB (см. loader): heroBow=makeBow();rig.add(heroBow)
 function tCoin(){ // sword pickup
  const g=new THREE.Group();
@@ -617,7 +626,7 @@ function tCart(){ // открытая повозка 17м: сварена в О�
  geo.computeVertexNormals();
  const mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.92,flatShading:true,side:THREE.DoubleSide}));
  const g=new THREE.Group();g.add(mesh);
- g.userData.len=CL;g.userData.bbMin=-FB;g.userData.hgtFix=1.5;g.userData.noTop=1; // физ.верх = настил (перильные стены выше — не в счёт); назад опоры нет: за краем настила падаем
+ g.userData.len=CL;g.userData.bbMin=-FB;g.userData.hgtFix=1.5;g.userData.noTop=1;g.userData.bbF=FB;g.userData.exitR=FB;g.userData.ent=hL; // bbF: опора до конца рампы; exitR: меш держим до полного выхода за камеру; ent: кромка входа (борт настила) // физ.верх = настил (перильные стены выше — не в счёт); назад опоры нет: за краем настила падаем
  g.surf=(z,k)=>{const hC=1.5;if(z<=-FB)return 0;if(z<-hL)return hC*(z+FB)/AP;if(z<=hL)return hC;return 0;}; // линия настила = ровно геометрия quad-настила
  return g;}
 function tHill(){ // насыпь 23.4м: S-подъёмник 8.4м спереди, плато-гребень 10м, S-сход 5м. ОДИН меш; профиль = физика (g.surf):
@@ -653,7 +662,7 @@ function tHill(){ // насыпь 23.4м: S-подъёмник 8.4м спере�
  G.computeVertexNormals();
  const mesh=new THREE.Mesh(G,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.9,flatShading:true,side:THREE.DoubleSide}));
  mesh.userData.top=1;g.add(mesh);
- g.userData.len=PL;g.userData.bbMin=-PL/2-RU;g.userData.ru=RU;g.surf=surf;
+ g.userData.len=PL;g.userData.bbMin=-PL/2-RU;g.userData.ru=RU;g.surf=surf;g.userData.bbF=PL/2+RU;g.userData.exitR=PL/2+RU;g.userData.ent=PL/2+RD; // опора/держание до конца длинного съезда; вход с пологой стороны забегa
  return g;}
 
 const TPL={low:tLow,bar:tBar,wall:tWall,mob:tMob,bomb:tBomb,boss:tBoss,cart:tCart,hill:tHill};
@@ -708,7 +717,7 @@ function reset(){S.mode='run';S.t=0;S.dist=0;S.speed=18;S.coins=0;S.score=0;S.la
  for(const o of S.obs)scene.remove(o.m);for(const c of S.coinsArr)scene.remove(c.m);
  for(const a of S.arrows)scene.remove(a.m);
  if(arrowTrail)arrowTrail.visible=false; // иначе лента повиснет в воздухе после смерти (updArrows уже не догонит)
- bowT=0;shotCd=0; // незавершённая тяча не должна переезжать в новый забег (иначе первый тап проигнорирован до конца CD)
+ bowT=0;shotCd=0;shieldT=0;shUp=0;lastAnyTap=0; // незавершённая тяча не должна переезжать в новый забег (иначе первый тап проигнорирован до конца CD)
  S.obs=[];S.coinsArr=[];S.arrows=[];S.arrowsMade=0;nextSpawn=30;S.missed=0;deathPlayed=false;heartsP.length=0;}
 function addObs(type,lane){const m=TPL[type]();m.position.set((lane-1)*LANE,0,SPAWN_Z);scene.add(m);
  const o={type,lane,z:SPAWN_Z,m};
@@ -906,20 +915,19 @@ function collide(dt){const dz=S.speed*dt;S.platTop=0;const h=S.roll>0?1.0:1.62, 
     const sc=1; // масштаб исключён: o.hgt меряется по 3D-боксу (включая z-дрожь колец) и дал бы физику выше меша; mesh=физика
     const rhAt=()=>o.surf(0-o.z,1)*sc;
     if(o.z<-fb-.8){continue;} // не дошли (передний вылет ещё впереди)
-    if(o.type==='hill'&&z0<-hL-RU0&&z1>=-hL-RU0){ // касание нижней кромки подъёмника: приземление на кривую либо мягкий подхват
-     const tE=(-hL-RU0-z0)/(z1-z0),feetAt=feet-S.vyPrev*dt*(1-tE);
-     if(S.air&&feetAt>-.05){S.y=Math.max(S.y,0);S.vy=0;S.air=false;land=1;burst(S.x,.06,.2,0x6d4c33,3);}
-    }
-    if(o.type==='cart'&&z0<-hL&&z1>=-hL){ // низ ската фургона: тот же мягкий подхват (ноль высоты у кромки — стенку не пробиваем)
-     const tE=(-hL-z0)/(z1-z0),feetAt=feet-S.vyPrev*dt*(1-tE);
-     if(S.air&&feetAt>-.05){S.y=Math.max(S.y,0);S.vy=0;S.air=false;land=1;}
+    const ent=(o.m.userData.ent!==undefined?o.m.userData.ent:hL);
+    if(z0<-ent&&z1>=-ent){ // КРОМКА ВХОДА (cart: борт настила 1.5м; hill: подножие пологого забегa): прощённый подхват прыжка (v4.46.0)
+     const tE=(-ent-z0)/(z1-z0),feetAt=feet-S.vyPrev*dt*(1-tE),edgeH=o.surf(ent-.05,1)*sc;
+     if(S.air&&feetAt>-.05){ // прыжок цепляет кромку: приземляем НА кромку (запрыг на палубу), а не в стену
+      S.y=Math.max(S.y,edgeH);S.vy=0;S.air=false;land=1;burst(S.x,edgeH+.06,.2,0x6d4c33,5);}
     }
     const rh=rhAt();
     if(o.z>bb+.5){ // полностью за задним вылетом: опоры нет, гравация опустит
      continue;}
     if(S.air){S.platTop=Math.max(S.platTop||0,rh);continue;}
     const step=rh-S.y;
-    const cap=Math.max(.14,dz*.20); // подъём привязан к скорости ленты: бег по уклону без рывков
+    if(step>.55)return die(); // в вертикальный борт вбегаем пешком = смерть (цепляется только прыжок: подхват на кромке)
+    const cap=Math.max(.16,dz*.45); // 45% прогресса: забег на гребень (уклон .33 + волна) без проваливания ног под поверхность
     if(step>cap*.5&&S.walkFx<=0){burst(S.x,S.y+.06,.2,0x8A7355,3);S.walkFx=.22;} // пыль из-под ног на подъёме
     S.y=step>0?Math.min(rh,S.y+cap):Math.max(rh,S.y-cap*1.4);
     S.vy=0;S.air=false;S.rollY=S.y;S.platTop=Math.max(S.platTop||0,rh);continue;}
@@ -942,7 +950,12 @@ function collide(dt){const dz=S.speed*dt;S.platTop=0;const h=S.roll>0?1.0:1.62, 
   if(o.type==='low'&&feet<.7)return die();
   if(o.type==='bar'&&top>1.05)return die();
   if(o.type==='wall')return die();
-  if((o.type==='mob'||o.type==='bomb'||o.type==='boss')&&feet<(o.type==='boss'?1.9:1.5))return die();}
+  if((o.type==='mob'||o.type==='bomb'||o.type==='boss')&&feet<(o.type==='boss'?1.9:1.5)){
+   if(shieldT>0){ // ЩИТ: удар врага гаснет, враг сдут, Линк не тронут (препятствия щитом НЕ блокируются)
+    o.dead=true;scene.remove(o.m);burst(S.x+bend(0),S.y+1.0,0,0xBFD8FF,14);S.shake=Math.max(S.shake,.25);S.score+=40;sfx('bump');continue;}
+   return die();}
+  if((o.type==='mob'||o.type==='bomb')&&shieldT>0){ // щит держит и низкие касания (feet>=порога)
+   o.dead=true;scene.remove(o.m);burst(S.x+bend(0),S.y+.8,0,0xBFD8FF,12);S.shake=Math.max(S.shake,.25);S.score+=40;sfx('bump');continue;}}
  for(const c of S.coinsArr){if(!c.taken&&Math.abs(c.z)<.9&&c.lane===S.lane&&Math.abs(S.y+.6-c.y)<.9){
   c.taken=true;scene.remove(c.m);S.coins++;sfx('pick');sparkle(S.x+bend(0),S.y+.7,0);burst(S.x+bend(0),S.y+.7,0,0xFFD879,8);S.coinsArr=S.coinsArr.filter(x=>x!==c);}}
  updPickFx(dt);}
@@ -958,6 +971,18 @@ function move(d){const l=Math.max(0,Math.min(2,S.lane+d));if(l!==S.lane&&S.mode=
 function jump(){if(!S.air&&S.roll<=0){S.vy=JUMP_V;S.air=true;S.coy=0;sfx('jump');}
 
 }
+// ЩИТ (двойной тап): тарелка нормалью в local -z (в цель, как лук): дерево + синяя накладка + серебряный босс + заклёпки
+function makeShield(){const g=new THREE.Group();
+ const wood=new THREE.MeshStandardMaterial({color:0x6B4526,roughness:.85,flatShading:true});
+ const blue=new THREE.MeshStandardMaterial({color:0x2B5C9E,roughness:.7,flatShading:true});
+ const met=new THREE.MeshStandardMaterial({color:0xAFC2D4,roughness:.4,metalness:.55,flatShading:true});
+ const pl=new THREE.Mesh(new THREE.CylinderGeometry(.4,.36,.07,10),wood);pl.rotation.x=Math.PI/2;g.add(pl);
+ const inr=new THREE.Mesh(new THREE.CylinderGeometry(.26,.26,.03,10),blue);inr.rotation.x=Math.PI/2;inr.position.z=-.045;g.add(inr);
+ const boss=new THREE.Mesh(new THREE.SphereGeometry(.09,8,6),met);boss.position.z=-.07;g.add(boss);
+ for(let i=0;i<4;i++){const st=new THREE.Mesh(new THREE.SphereGeometry(.035,6,5),met);
+  st.position.set(Math.cos(i*1.5708)*.32,Math.sin(i*1.5708)*.32,-.03);g.add(st);}
+ return g;}
+function raiseShield(){if(shieldT>0)return;shieldT=1.0;bowT=0;if(heroBow&&heroBow.userData.arr)heroBow.userData.arr.visible=false;sfx('bump');} // двойной тап: щит на секунду, натяжение лука отменяется
 function doRoll(){if(S.roll>0||S.air)return;S.roll=.62;S.rollAir=false;S.rollY=0;S.rollV=0;} // кувырок только с земли (v4.46.6): в прыжке D игнорируется -> «кувырка в воздухе» не существует
 // ---------- выстрел из лука: стрела мгновенно летит вперед по полосе, сбивает камень/врага ----------
 function arrowGeo(){const g=new THREE.Group();
@@ -1051,7 +1076,7 @@ function act(a,e){if(window.dlog&&a!=='T'&&a!=='O')dlog.swipe();
  if($('ogo').style.visibility!=='hidden'){reset(),showRun();}
  return;} // до respawn-задержки любые клавиши молчат
  if(S.mode!=='run')return;
- if(a==='L')move(-1);else if(a==='R')move(1);else if(a==='U')jump();else if(a==='D')doRoll();else if(a==='F')shoot();
+ if(a==='L')move(-1);else if(a==='R')move(1);else if(a==='U')jump();else if(a==='D')doRoll();else if(a==='F')shoot();else if(a==='S')raiseShield();
  if(a==='U'||a==='F')window.__lastTap=a;}
 let tsx=0,tsy=0,lastTapTS=0;
 addEventListener('touchstart',e=>{tsx=e.touches[0].clientX;tsy=e.touches[0].clientY;},{passive:true});
@@ -1063,10 +1088,12 @@ function overUI(e){const t=e&&e.target;if(!t||!t.closest)return false;const r=t.
 addEventListener('touchstart',e=>{window.__uiDown=overUI(e)?1:0;},{passive:true});
 addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tsx,dy=e.changedTouches[0].clientY-tsy;
  if(window.__uiDown){window.__uiDown=0;return;} // жест начался над примером = не игровой ввод (гард выше)
- if(Math.abs(dx)<24&&Math.abs(dy)<24)return act(S.mode==='run'?'F':'T',e); // тап = выстрел из лука (over: e для кнопки/фону)
+ if(Math.abs(dx)<24&&Math.abs(dy)<24){ // тап = выстрел; двойной тап (<320мс) = щит (первый тап отменяет натяжение через raiseShield)
+  const tt=e.timeStamp,dbl=tt-lastAnyTap>0&&tt-lastAnyTap<320;lastAnyTap=tt;
+  return act(S.mode==='run'?(dbl?'S':'F'):'T',e);}
  if(Math.abs(dx)>Math.abs(dy))act(dx>0?'R':'L');else act(dy>0?'D':'U');},{passive:true});
 addEventListener('click',e=>{if(S.mode==='over'&&S.dead>1.05)act('T',e);});
-addEventListener('keydown',e=>act({ArrowLeft:'L',ArrowRight:'R',ArrowUp:'U',ArrowDown:'D',' ':'U'}[e.key]));
+addEventListener('keydown',e=>act({ArrowLeft:'L',ArrowRight:'R',ArrowUp:'U',ArrowDown:'D',' ':'U','s':'S'}[e.key]));
 $('mathok').addEventListener('click',mathCheck);
 $('mathn').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')mathCheck();}); // ТОЛЬКО Enter/галочка = попытка; раньше любой keydown дёргал mathCheck: набор «12» = неверно на '1', Backspace = ещё попытка = проверка: верная цифра = мгновенный реванш (Android WebView: Enter с клавиатуры не всегда доходит)
 // ---------- HUD ----------
@@ -1195,7 +1222,7 @@ function update(dt){
  S.speed=Math.min(44,18+S.dist/240);
  const dz=S.speed*dt;S.dist+=dz;S.score+=dz;
  dayFx(dt);
- S.stepT=Math.max(0,(S.stepT||0)-dt);
+ S.stepT=Math.max(0,(S.stepT||0)-dt);shieldT=Math.max(0,shieldT-dt);
  S.x+=((S.lane-1)*LANE-S.x)*Math.min(1,dt*(S.stepT>0?9:14));
  S.vyPrev=S.vy;
  if(S.roll<=0){S.vy-=GRAV*dt;S.y+=S.vy*dt;
@@ -1212,7 +1239,7 @@ function update(dt){
  S.anim+=(S.air||S.roll>0)?4*dt:dz*(Math.PI*2/11); // цикл ног = 5.5 м грунта: 3.3 шага/с на 18 м/с, без «бегства на месте»
  for(const o of S.obs){
   const vz=dz+(o.type==='wall'?5.5*dt:0); // валун катится НАВСТРЕЧУ: свой ход поверх скролла сцены
-  o.z+=vz;o.m.position.z=o.z-(o.len?o.len/2:0);o.m.position.x=(o.lane-1)*LANE+bend(o.z);
+  o.z+=vz;o.m.position.z=o.z;o.m.position.x=(o.lane-1)*LANE+bend(o.z); // начало меша = физ.центр: surf(local=-o.z) совпадает с картинкой (смещение len/2 рассинхронизировало физику с visuals на полдлины)
   if(o.type==='wall')o.m.userData.spin.rotation.x+=vz/o.m.userData.R*.08;} // валун катится К игроку: верх камня едет в +z; спин ×.08 - на 30+ м/с честное вращение = мясорубка
  for(const c of S.coinsArr){c.z+=dz;c.m.position.z=c.z;c.m.position.x=(c.lane-1)*LANE+bend(c.z);c.m.rotation.y+=dt*.9;} // медленное вращение - клинок можно разглядеть
  collide(dt); // ПОСЛЕ скролла: o.z = кадр текущего кадра; platTop читает гравитация следующего (1-кадровая задержка держит героя на крыше на ~10см дольше - не поймать на глаз)
@@ -1228,7 +1255,7 @@ function update(dt){
   }
  }
  updArrows(dt);updHearts(dt);
- S.obs=S.obs.filter(o=>o.z<DESPAWN_Z||(scene.remove(o.m),false));
+ S.obs=S.obs.filter(o=>o.z<DESPAWN_Z+(o.m.userData.exitR||0)||(scene.remove(o.m),false)); // длинный хвост (рампа/съезд) живёт до полного выхода за камеру
  S.coinsArr=S.coinsArr.filter(c=>c.z<DESPAWN_Z&&!c.taken||(scene.remove(c.m),false));
  if(S.dist>=nextSpawn)spawn();
  }
