@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.46.16';
+const VER='4.46.17';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -584,19 +584,19 @@ function tCart(){ // открытая повозка 17м: сварена в О�
  quad(V(-HW,1.16,hL),V(HW,1.16,hL),V(HW,1.56,hL),V(-HW,1.56,hL),woodD);
  quad(V(-HW,1.16,-hL),V(HW,1.16,-hL),V(HW,1.56,-hL),V(-HW,1.56,-hL),wood);
  quad(V(-HW,1.16,-hL),V(-HW,1.16,hL),V(HW,1.16,hL),V(HW,1.16,-hL),woodK);
- // -- тент: непрозрачное полотнище дугой (v4.46.16: «бежишь по воздуху под прозрачным тентом»; крыша поднята над головой героя, не режет):
- const AW=12,R=HW+.06,RY=2.55; // верх дуги 2.55 > рост героя на настиле
- for(let k=0;k<32;k++){const z0=-hL-.18+k*(CL+.36)/32,z1=-hL-.18+(k+1)*(CL+.36)/32;
-  if(k%2)continue;
-  for(let a=0;a<AW;a++){const w0=a/AW*Math.PI,w1=(a+1)/AW*Math.PI;
-   quad(V(R*Math.cos(w1),RY+.25*Math.sin(w1),z1),V(R*Math.cos(w1),RY+.25*Math.sin(w1),z0),V(R*Math.cos(w0),RY+.25*Math.sin(w0),z0),V(R*Math.cos(w0),RY+.25*Math.sin(w0),z1),can);}}
- for(let k=0;k<32;k++){const z0=-hL-.18+k*(CL+.36)/32,z1=-hL-.18+(k+1)*(CL+.36)/32;
-  const band=(k%4===2);
-  for(const sx of[-1,1]){quad(V(sx*R,1.72,z1),V(sx*R,1.72,z0),V(sx*R,1.86,z0),V(sx*R,1.86,z1),band?canW:can); // пояс: красное полотно с белой полосой
-   if(!band)continue;
-   for(let a=0;a<AW;a++){const w0=a/AW*Math.PI,w1=(a+1)/AW*Math.PI; // шпангоут через каждую белую полосу
-    quad(V(R*Math.cos(w1),1.84,z0+.05),V(R*Math.cos(w1),1.84,z1-.05),V(R*Math.cos(w0),1.84,z1-.05),V(R*Math.cos(w0),1.84,z0+.05),canW);}} // стенки дуги смотрят вбок (нормаль ±x), торцы на концах не нужны
- }
+ // -- крыша тента: плоское непрозрачное полотно на 4 столбах (v4.46.17: арки-шпангоуты перекрыли дорогу — убраны начисто)
+ const R=HW+.06,RY=2.45,CT=RY+.3; // двускатная крыша: конёк по центру — читается体积ом, не плоской стеной
+ quad(V(-R,RY,hL+.18),V(-R,RY,-hL-.18),V(0,CT,-hL-.18),V(0,CT,hL+.18),can); // левый скат
+ quad(V(R,RY,hL+.18),V(R,RY,-hL-.18),V(0,CT,-hL-.18),V(0,CT,hL+.18),canW); // правый скат (светлее — к солнцу)
+ quad(V(-R,RY,hL+.18),V(R,RY,hL+.18),V(0,CT,hL+.18),V(0,CT,hL+.18),canW); // фронтон передний
+ quad(V(-R,RY,-hL-.18),V(R,RY,-hL-.18),V(0,CT,-hL-.18),V(0,CT,hL+.18),can); // фронтон задний
+ for(const sz of[-hL-.1,hL+.1])for(const sx of[-1,1]){ // столбы по углам: 4 грани (side=FrontSide)
+  const a=sz-.07,b=sz+.07,xc=sx*R;
+  quad(V(xc-.06,1.86,a),V(xc-.06,1.86,b),V(xc-.06,RY,b),V(xc-.06,RY,a),woodK);
+  quad(V(xc+.06,1.86,a),V(xc+.06,1.86,b),V(xc+.06,RY,b),V(xc+.06,RY,a),woodK);
+  quad(V(xc-.06,1.86,a),V(xc+.06,1.86,a),V(xc+.06,RY,a),V(xc-.06,RY,a),woodK);
+  quad(V(xc-.06,1.86,b),V(xc+.06,1.86,b),V(xc+.06,RY,b),V(xc-.06,RY,b),woodK);}
+
  // -- скат-подъёмник (спереди, -z): настил = линия физики, перила, тумбы
  const yR=z=>hC*(z+FB)/AP;
  for(let k=0;k<10;k++){const z0=-FB+k*AP/10,z1=-FB+(k+1)*AP/10;const c=(k%2)?rampC:rampD;
