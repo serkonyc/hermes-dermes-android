@@ -216,7 +216,7 @@ const LIFT=.955*HERO_K; // -.907 локально + компенсация вс�
 }
 // ---------- LinkHero: самопечный jointed GLB (суставы-ноды, FK-походка ниже); примитивный герой — офлайн-фолбэк ----------
 const heroM=new THREE.Group(); scene.add(heroM);
-const VER='4.46.15';
+const VER='4.46.16';
 let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),rollRoot=null;
 {let gtries=0;
  const failBanner=()=>{let b=document.getElementById('gfail');if(!b){b=document.createElement('div');b.id='gfail';b.style.cssText='position:fixed;top:8px;left:8px;right:8px;padding:6px 10px;background:#8B1A1A;color:#fff;font-size:13px;border-radius:6px;z-index:99';b.textContent='⚠ Модель не загрузилась - бегу примитивом';document.body.appendChild(b);}};
@@ -233,7 +233,7 @@ let MJ=null,mReady=false,deathPlayed=false,heroCOM=new THREE.Vector3(.02,.86,0),
    root.rotation.y=Math.PI;     // лицом вперёд по тропе
    rollRoot=new THREE.Group(); rollRoot.add(root); heroM.add(rollRoot); heroCOM.set((b2.max.x+b2.min.x)/2,(b2.max.y+b2.min.y)/2,(b2.max.z+b2.min.z)/2); mReady=true; player.visible=false;
   heroBow=makeBow(); heroBow.position.set(0,-.44,.06); heroBow.scale.setScalar(.8); MJ.elbowL.add(heroBow); // grip хвастается empirically: world-точка grip совпала с distal концом предплечья (z -.53 vs BB -.51) // лук в КИСТИ: кисть = distal-конец предплечья elbowL (local -y ~.30); ориентация - в driveHero
-  heroShield=makeShield(); heroShield.scale.setScalar(1); MJ.elbowL.add(heroShield); // щит на том же предплечье: в driveHero позиция/разворот считаются из компенсации рук
+  heroShield=makeShield(); heroShield.scale.setScalar(.8); MJ.elbowR.add(heroShield); // щит на ПРАВОЙ руке (левкая занята луком), чуть меньше: в driveHero позиция/разворот из компенсации правой руки
    const fb=document.getElementById('gfail');if(fb)fb.remove();
    if($('ver'))$('ver').textContent='v'+VER+' · GLB';
   });
@@ -437,11 +437,11 @@ function driveHero(dt){
  }
  if(heroShield){ // ЩИТ: двойной тап - поднят перед собой на секунду; в покое сложен вдоль предплечья
   shUp+=((shieldT>0?1:0)-shUp)*Math.min(1,dt*11);
-  if(shieldT>0){ // рука держит щит: левая вверх-вперёд, локоть согнут - тарелка перед лицом
-   T(j.armL,'x',-1.42);T(j.armL,'z',-.22);T(j.elbowL,'x',-1.02);}
-  const comp=-(MJ.armL.rotation.x+MJ.elbowL.rotation.x); // ориентация кисти в world (тот же приём, что у лука)
+  if(shieldT>0){ // рука держит щит: ПРАВАЯ вверх-вперёд, локоть согнут - тарелка перед собой
+   T(j.armR,'x',-1.42);T(j.armR,'z',.22);T(j.elbowR,'x',-1.02);}
+  const comp=-(MJ.armR.rotation.x+MJ.elbowR.rotation.x); // ориентация кисти в world (тот же приём, что у лука)
   heroShield.rotation.set(comp+1.9*(1-shUp),0,0);
-  heroShield.position.set(0,-.30-.06*shUp,.14-.2*shUp);
+  heroShield.position.set(0,-.26-.08*shUp,.10-.14*shUp); // ближе к телу: подъём меньше, тарелка у груди
  }
 }
  tipV+=Math.sin(a*2+Math.PI*.3)*dt*24; // импульс колпака от ускорения головы
@@ -571,7 +571,7 @@ function tCart(){ // открытая повозка 17м: сварена в О�
  const V=(x,y,z)=>[x,y,z];
  // палитра linear-подобная (тонирование ниже)
  const wood=[.42,.30,.18],woodD=[.37,.26,.16],woodK=[.20,.14,.09],wheel=[.15,.10,.07],rim=[.34,.25,.16],hub=[.40,.31,.20],
-       can=[.55,.16,.15],canW=[.88,.82,.68],canS=[.40,.11,.11],rampC=[.50,.38,.24],rampD=[.40,.30,.19],dark=[.11,.08,.06];
+       can=[.42,.09,.09],canW=[.92,.88,.78],canS=[.40,.11,.11],rampC=[.50,.38,.24],rampD=[.40,.30,.19],dark=[.11,.08,.06];
  // -- борта: поперечные доски с чередованием тона + нижняя теневая планка; пол настилаварен в той же полосе сегмента -> швов нет
  const NB=34;
  for(let k=0;k<NB;k++){const z0=-hL+k*CL/NB,z1=-hL+(k+1)*CL/NB;const c=(k%2)?wood:woodD;
@@ -584,9 +584,12 @@ function tCart(){ // открытая повозка 17м: сварена в О�
  quad(V(-HW,1.16,hL),V(HW,1.16,hL),V(HW,1.56,hL),V(-HW,1.56,hL),woodD);
  quad(V(-HW,1.16,-hL),V(HW,1.16,-hL),V(HW,1.56,-hL),V(-HW,1.56,-hL),wood);
  quad(V(-HW,1.16,-hL),V(-HW,1.16,hL),V(HW,1.16,hL),V(HW,1.16,-hL),woodK);
- // -- каркас тента (без полотнища: крыша была ниже роста героя = голова протыкала ткань, а под закрытым тентом героя не было видно):
- // белый пояс по борту + шпангоуты над ним — силуэт «крытой» повозки читается, ничего не режет героя
- const AW=12,R=HW+.06;
+ // -- тент: непрозрачное полотнище дугой (v4.46.16: «бежишь по воздуху под прозрачным тентом»; крыша поднята над головой героя, не режет):
+ const AW=12,R=HW+.06,RY=2.55; // верх дуги 2.55 > рост героя на настиле
+ for(let k=0;k<32;k++){const z0=-hL-.18+k*(CL+.36)/32,z1=-hL-.18+(k+1)*(CL+.36)/32;
+  if(k%2)continue;
+  for(let a=0;a<AW;a++){const w0=a/AW*Math.PI,w1=(a+1)/AW*Math.PI;
+   quad(V(R*Math.cos(w1),RY+.25*Math.sin(w1),z1),V(R*Math.cos(w1),RY+.25*Math.sin(w1),z0),V(R*Math.cos(w0),RY+.25*Math.sin(w0),z0),V(R*Math.cos(w0),RY+.25*Math.sin(w0),z1),can);}}
  for(let k=0;k<32;k++){const z0=-hL-.18+k*(CL+.36)/32,z1=-hL-.18+(k+1)*(CL+.36)/32;
   const band=(k%4===2);
   for(const sx of[-1,1]){quad(V(sx*R,1.72,z1),V(sx*R,1.72,z0),V(sx*R,1.86,z0),V(sx*R,1.86,z1),band?canW:can); // пояс: красное полотно с белой полосой
