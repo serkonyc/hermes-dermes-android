@@ -1378,7 +1378,7 @@ function watchdog(){if(S.mode==='over'&&S.dead>0.3&&$('mathrow').style.display==
  if($('mathn').value.trim()===''){S.revive=Math.min(S.revive,2);newMath();return;} // пример пропал до ввода: восстановить
  // пропал при набранном ответе: показать тот же пример (mathAns жив), ответ не терять
  $('mathq').style.display='block';$('mathrow').style.display='flex';$('oh1').textContent='РЕВАНШ?';}} // любой путь, спрятавший пример, лечится следующим кадром (жалоба: пример был только один раз)
-function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;
+function loop(now){const dt=Math.max(0,Math.min(.05,(now-last)/1000));last=now; // нижний clamp: перевод системных часов/сон телефона даёт now<last, отрицательный dt разгонял бы физику и тайлы назад
  if($('ver')&&$('ver').textContent!==VER)$('ver').textContent='v'+VER; // плашка версии на HUD: «что реально крутится на телефоне» видно не глядя в релизы
  if(scene.userData.iv){scene.userData.iv=0;scene.traverse(o=>{if(o.isInstancedMesh)o.visible=true;});} // мир собран первым кадром - инстансы снова нужны
  update(dt*S.ts);updInst();if(mReady)driveHero(dt);else animRig(dt);animCam(dt);
